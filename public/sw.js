@@ -1,10 +1,11 @@
-const CACHE_NAME = 'nutrienttrack-shell-v5'
+const CACHE_NAME = 'nutrienttrack-shell-v6'
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icons/nutrienttrack-192.png',
   './icons/nutrienttrack-512.png',
+  './data/usda-common-v1.json',
 ]
 
 const scopeUrl = () => new URL(self.registration.scope)

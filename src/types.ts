@@ -14,6 +14,12 @@ export interface DiaryEntry {
   carbs: number
   fat: number
   foodId?: string
+  /** Optional local wall-clock time, kept separate from the ISO audit timestamps. */
+  time?: string
+  /** Snapshot metadata for entries created from the bundled catalog. */
+  grams?: number
+  catalogId?: string
+  catalogSource?: 'USDA SR Legacy' | 'USDA Foundation'
   createdAt: string
   updatedAt: string
 }

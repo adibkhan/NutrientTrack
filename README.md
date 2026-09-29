@@ -13,14 +13,18 @@ Create a production build with `npm run build`, then serve `dist/` from a static
 
 ## Current scope
 
-- Daily diary with previous, next, and today navigation.
-- Add, edit, and delete entries with meal category, calories, protein, carbs, and fat.
+- Daily diary with date navigation and Breakfast, Lunch, Dinner, Snacks, and Other sections.
+- Add, edit, delete, and move entries between meals or days, with optional local time.
+- Search 7,793 bundled USDA common foods as you type, including offline; adjust grams and preview scaled calories and macros before logging.
+- Recent foods and saved foods appear in the logger for repeat entries.
 - Private reusable custom foods with quick logging.
 - Optional calorie and macro goals that are entered by the user.
 - Weight check-ins with 7-day and 30-day trend windows. Missing days stay unplotted and the chart uses date-proportional spacing.
 - JSON export and restore. Restores validate the backup schema and values, ask for explicit replacement confirmation, and write all stores in one IndexedDB transaction.
 - Settings that explain local storage, offer a browser persistence request, export/import, and clear-data controls.
 - Installable manifest, raster and vector icons, and a cache-first service worker for the app shell.
+
+The bundled catalog is derived from USDA FoodData Central SR Legacy (April 2018), published under CC0. Values are per 100 g and cover calories, protein, carbohydrate, and fat. [FoodData Central](https://fdc.nal.usda.gov/) is the source; [the reproducible generator](scripts/build-usda-catalog.mjs) records the archive URL. Packaged-food search, barcodes, and household serving units are not yet included. See [FEATURE_PARITY.md](FEATURE_PARITY.md) for the reference review and remaining work.
 
 ## Local data caveat
 

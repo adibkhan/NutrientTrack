@@ -1,5 +1,9 @@
 # NutrientTrack: product direction
 
+## Current implementation
+
+The browser-local PWA now includes an offline USDA common-food catalog, search as you type, gram-based portion preview, saved and recent foods, meal-grouped daily logging, entry movement, optional time, weight records, basic trends, goals, and JSON backup/restore. [FEATURE_PARITY.md](FEATURE_PARITY.md) maps these to the reference apps and tracks the larger gaps. The current catalog does not yet provide packaged-food lookup or micronutrients.
+
 ## Promise
 
 A fast, free nutrition and weight journal that works offline, keeps personal records in the user's browser, and makes trends understandable without an account. The interface takes inspiration from Apple Health's readable summaries and MacroFactor's fast logging, while using its own visual design.
