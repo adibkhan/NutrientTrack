@@ -1,5 +1,7 @@
 # NutrientTrack reference review and parity map
 
+For the complete capability-by-capability status, see [REFERENCE_FEATURES.md](REFERENCE_FEATURES.md).
+
 Updated 2026-09-29. This is a living map of user tasks and information patterns, not a plan to copy another app's artwork or screen layout.
 
 ## What the reference apps make easy
@@ -19,7 +21,7 @@ Updated 2026-09-29. This is a living map of user tasks and information patterns,
 | Diary and quick add | Working | Multi-select, copy/paste, repeat days, hourly go-to foods |
 | Food discovery | Bundled USDA common foods plus local saved/recent foods | Broad branded catalog, barcode, label capture, regional coverage, typo tolerance |
 | Portions | Grams with live macro scaling | Household serving units, weight/volume conversions, favorites for units |
-| Meals and timeline | Meal sections and moving entries | Fully configurable meal labels and hourly timeline preferences |
+| Meals and timeline | Meal sections, a 24-hour timeline, automatic local time for new logs, and direct dragging between meals or hours | Configurable meal labels and timeline preferences |
 | Personal library | Custom foods | Recipes, meal templates, favorites, recipe scaling and ingredient breakdown |
 | Nutrition views | Calories and three macros | Fiber, sodium, vitamins and minerals, nutrient goals, weekly averages and details |
 | Body data | Weight entries and basic 7/30-day chart | Trend-weight algorithm, body measurements, richer comparisons |

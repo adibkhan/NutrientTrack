@@ -2,7 +2,7 @@
 
 ## Current implementation
 
-The browser-local PWA now includes an offline USDA common-food catalog, search as you type, gram-based portion preview, saved and recent foods, meal-grouped daily logging, entry movement, optional time, weight records, basic trends, goals, and JSON backup/restore. [FEATURE_PARITY.md](FEATURE_PARITY.md) maps these to the reference apps and tracks the larger gaps. The current catalog does not yet provide packaged-food lookup or micronutrients.
+The browser-local PWA now includes an offline USDA common-food catalog, search as you type, gram-based portion preview, saved and recent foods, meal-grouped daily logging, a 24-hour timeline, drag movement between meals or hours, editable local timestamps, weight records, basic trends, goals, and JSON backup/restore. [REFERENCE_FEATURES.md](REFERENCE_FEATURES.md) tracks each major reference capability; [FEATURE_PARITY.md](FEATURE_PARITY.md) records the design review. The current catalog does not yet provide packaged-food lookup or micronutrients.
 
 ## Promise
 

@@ -1,5 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
+import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  MouseSensor,
+  pointerWithin,
+  TouchSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import type { CollisionDetection, DragCancelEvent, DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { searchCatalog } from './catalog'
 import type { CatalogFood } from './catalog/types'
 import {
@@ -130,6 +144,18 @@ const convertWeight = (weight: number, from: 'lb' | 'kg', to: 'lb' | 'kg'): numb
   return from === 'kg' ? weight * 2.2046226218 : weight / 2.2046226218
 }
 
+const localTimeNow = (): string => {
+  const now = new Date()
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+}
+
+const timelineHourLabel = (hour: number): string => new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).format(new Date(2020, 0, 1, hour, 0))
+
+const pointerWithinOrCenter: CollisionDetection = (args) => {
+  if (!args.pointerCoordinates) return closestCenter(args)
+  return pointerWithin(args)
+}
+
 export default function App() {
   const [view, setView] = useState<View>('diary')
   const [selectedDate, setSelectedDate] = useState(todayISO)
@@ -237,14 +263,14 @@ export default function App() {
     announce(existing ? 'Entry updated.' : 'Entry added to your diary.')
   }
 
-  const moveEntry = async (entry: DiaryEntry, meal: MealCategory, date: string, time: string) => {
+  const moveEntry = async (entry: DiaryEntry, meal: MealCategory, date: string, time: string, feedback?: string) => {
     const moved: DiaryEntry = { ...entry, meal, date, updatedAt: nowISO() }
     if (time.trim()) moved.time = time.trim()
     else delete moved.time
     await saveEntry(moved)
     await refresh()
     setModal(null)
-    announce(date === entry.date ? `Moved to ${meal === 'snack' ? 'snacks' : meal}.` : 'Entry moved to the new day.')
+    announce(feedback ?? (date === entry.date ? `Moved to ${meal === 'snack' ? 'snacks' : meal}.` : 'Entry moved to the new day.'))
   }
 
   const handleDeleteEntry = async (entry: DiaryEntry) => {
@@ -457,6 +483,7 @@ export default function App() {
             onEdit={(entry) => setModal({ type: 'entry', entry })}
             onDelete={handleDeleteEntry}
             onMove={(entry) => setModal({ type: 'move', entry })}
+            onDropMove={(entry, meal, time, feedback) => moveEntry(entry, meal, dateEntries.find((item) => item.id === entry.id)?.date ?? selectedDate, time, feedback)}
             onQuickLog={(food) => setModal({ type: 'entry', food })}
           />
         )}
@@ -509,6 +536,7 @@ interface DiaryViewProps {
   onEdit: (entry: DiaryEntry) => void
   onDelete: (entry: DiaryEntry) => void
   onMove: (entry: DiaryEntry) => void
+  onDropMove: (entry: DiaryEntry, meal: MealCategory, time: string, feedback: string) => Promise<void>
   onQuickLog: (food: Food) => void
 }
 
@@ -520,9 +548,52 @@ const diaryMeals: Array<{ key: MealCategory; label: string }> = [
   { key: 'other', label: 'Other' },
 ]
 
-function DiaryView({ date, entries, foods, goals, totals, onDateChange, onAdd, onAddMeal, onEdit, onDelete, onMove, onQuickLog }: DiaryViewProps) {
+function DiaryView({ date, entries, foods, goals, totals, onDateChange, onAdd, onAddMeal, onEdit, onDelete, onMove, onDropMove, onQuickLog }: DiaryViewProps) {
   const calorieGoal = goals?.calories
   const remaining = calorieGoal === undefined ? undefined : calorieGoal - totals.calories
+  const [diaryMode, setDiaryMode] = useState<'meals' | 'timeline'>('meals')
+  const [activeEntryId, setActiveEntryId] = useState<string | null>(null)
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 7 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 6 } }),
+    useSensor(KeyboardSensor),
+  )
+  const activeEntry = activeEntryId ? entries.find((entry) => entry.id === activeEntryId) : undefined
+
+  const handleDragStart = ({ active }: DragStartEvent) => {
+    setActiveEntryId(String(active.id).replace(/^entry:/, ''))
+  }
+
+  const handleDragCancel = (_event: DragCancelEvent) => {
+    setActiveEntryId(null)
+  }
+
+  const handleDragEnd = async ({ active, over }: DragEndEvent) => {
+    setActiveEntryId(null)
+    if (!over) return
+    const entryId = String(active.id).replace(/^entry:/, '')
+    const entry = entries.find((candidate) => candidate.id === entryId)
+    if (!entry) return
+    const target = String(over.id)
+    if (target.startsWith('meal:')) {
+      const meal = target.slice('meal:'.length) as MealCategory
+      if (meal === entry.meal) return
+      await onDropMove(entry, meal, entry.time ?? '', `Moved ${entry.name} to ${meal === 'snack' ? 'snacks' : meal}.`)
+      return
+    }
+    if (target === 'timeline:untimed') {
+      if (!entry.time) return
+      await onDropMove(entry, entry.meal, '', `Removed the time from ${entry.name}.`)
+      return
+    }
+    if (!target.startsWith('timeline:')) return
+    const hour = Number(target.slice('timeline:'.length))
+    if (!Number.isInteger(hour) || hour < 0 || hour > 23) return
+    const time = `${String(hour).padStart(2, '0')}:00`
+    if (entry.time === time) return
+    await onDropMove(entry, entry.meal, time, `Moved ${entry.name} to ${timelineHourLabel(hour)}.`)
+  }
+
   return (
     <div className="page diary-page">
       <DateNavigator date={date} onDateChange={onDateChange} />
@@ -538,31 +609,22 @@ function DiaryView({ date, entries, foods, goals, totals, onDateChange, onAdd, o
         </article>
       </section>
 
-      <div className="content-grid diary-grid">
-        <section className="panel diary-panel">
-          <div className="panel-header"><div><p className="eyebrow">{entries.length ? 'What you logged' : 'Start with one thing'}</p><h2>{isDateToday(date) ? 'Today’s diary' : `Diary for ${formatShortDate(date)}`}</h2></div><button className="button secondary compact" type="button" onClick={onAdd}><Icon name="plus" size={16} />Add food</button></div>
-          {entries.length === 0 && <div className="diary-empty-banner"><span className="empty-orb"><Icon name="food" size={20} /></span><div><strong>No foods logged yet</strong><p>Search the local catalog, pick a saved food, or add macros yourself.</p></div><button className="text-button" type="button" onClick={onAdd}>Log your first food <Icon name="arrow-right" size={15} /></button></div>}
-          <div className="meal-sections">
-            {diaryMeals.map((meal) => {
-              const mealEntries = entries.filter((entry) => entry.meal === meal.key)
-              const subtotal = sumEntries(mealEntries)
-              return <section aria-labelledby={`meal-${meal.key}`} className={`meal-section meal-${meal.key}`} key={meal.key}>
-                <div className="meal-section-header">
-                  <div className="meal-heading"><span className="meal-marker" aria-hidden="true" /><div><h3 id={`meal-${meal.key}`}>{meal.label}</h3><span>{mealEntries.length ? `${mealEntries.length} ${mealEntries.length === 1 ? 'entry' : 'entries'}` : 'No entries yet'}</span></div></div>
-                  <div className="meal-section-actions"><span className="meal-subtotal">{mealEntries.length ? `${formatNumber(subtotal.calories)} kcal` : '—'}</span><button className="meal-add" type="button" onClick={() => onAddMeal(meal.key)}><Icon name="plus" size={15} />Add</button></div>
-                </div>
-                {mealEntries.length > 0 ? <div className="entry-list">{mealEntries.map((entry) => <EntryRow entry={entry} key={entry.id} onEdit={onEdit} onDelete={onDelete} onMove={onMove} />)}</div> : <p className="meal-empty">Add a food to start this section.</p>}
-              </section>
-            })}
-          </div>
-        </section>
-        <section className="panel quick-panel">
-          <div className="panel-header"><div><p className="eyebrow">Fast lane</p><h2>Saved foods</h2></div><Icon name="bookmark" size={20} className="panel-header-icon" /></div>
-          {foods.length === 0 ? <div className="quick-empty"><span className="empty-orb"><Icon name="food" size={20} /></span><p>Save foods you eat often for one tap logging.</p><button className="text-button" type="button" onClick={onAdd}>Create from log <Icon name="arrow-right" size={15} /></button></div> : <div className="quick-list">{foods.slice(0, 5).map((food) => <button className="quick-food" type="button" key={food.id} onClick={() => onQuickLog(food)}><span className="food-avatar">{food.name.slice(0, 1).toUpperCase()}</span><span className="food-copy"><strong>{food.name}</strong><small>{food.serving} · {formatNumber(food.calories)} kcal</small></span><Icon name="plus" size={17} /></button>)}</div>}
-          {foods.length > 5 && <p className="muted-footnote">Showing five saved foods. Open Foods for your full library.</p>}
-          <button className="quick-catalog-button" type="button" onClick={onAdd}><span><Icon name="search" size={15} />Search local catalog</span><Icon name="arrow-right" size={15} /></button>
-        </section>
-      </div>
+      <DndContext sensors={sensors} collisionDetection={pointerWithinOrCenter} onDragStart={handleDragStart} onDragCancel={handleDragCancel} onDragEnd={handleDragEnd}>
+        <div className="content-grid diary-grid">
+          <section className="panel diary-panel">
+            <div className="panel-header"><div><p className="eyebrow">{entries.length ? 'What you logged' : 'Start with one thing'}</p><h2>{isDateToday(date) ? 'Today’s diary' : `Diary for ${formatShortDate(date)}`}</h2></div><div className="diary-panel-actions"><div className="diary-view-toggle" role="group" aria-label="Diary layout"><button className={diaryMode === 'meals' ? 'active' : ''} aria-pressed={diaryMode === 'meals'} type="button" onClick={() => setDiaryMode('meals')}><Icon name="food" size={15} />Meals</button><button className={diaryMode === 'timeline' ? 'active' : ''} aria-pressed={diaryMode === 'timeline'} type="button" onClick={() => setDiaryMode('timeline')}><Icon name="clock" size={15} />Timeline</button></div><button className="button secondary compact" type="button" onClick={onAdd}><Icon name="plus" size={16} />Add food</button></div></div>
+            {entries.length === 0 && <div className="diary-empty-banner"><span className="empty-orb"><Icon name="food" size={20} /></span><div><strong>No foods logged yet</strong><p>Search the local catalog, pick a saved food, or add macros yourself.</p></div><button className="text-button" type="button" onClick={onAdd}>Log your first food <Icon name="arrow-right" size={15} /></button></div>}
+            {diaryMode === 'meals' ? <div className="meal-sections">{diaryMeals.map((meal) => <MealDropSection key={meal.key} meal={meal} entries={entries.filter((entry) => entry.meal === meal.key)} isDragging={Boolean(activeEntry)} onAddMeal={onAddMeal} onEdit={onEdit} onDelete={onDelete} onMove={onMove} />)}</div> : <TimelineView entries={entries} isDragging={Boolean(activeEntry)} onEdit={onEdit} onDelete={onDelete} onMove={onMove} />}
+          </section>
+          <section className="panel quick-panel">
+            <div className="panel-header"><div><p className="eyebrow">Fast lane</p><h2>Saved foods</h2></div><Icon name="bookmark" size={20} className="panel-header-icon" /></div>
+            {foods.length === 0 ? <div className="quick-empty"><span className="empty-orb"><Icon name="food" size={20} /></span><p>Save foods you eat often for one tap logging.</p><button className="text-button" type="button" onClick={onAdd}>Create from log <Icon name="arrow-right" size={15} /></button></div> : <div className="quick-list">{foods.slice(0, 5).map((food) => <button className="quick-food" type="button" key={food.id} onClick={() => onQuickLog(food)}><span className="food-avatar">{food.name.slice(0, 1).toUpperCase()}</span><span className="food-copy"><strong>{food.name}</strong><small>{food.serving} · {formatNumber(food.calories)} kcal</small></span><Icon name="plus" size={17} /></button>)}</div>}
+            {foods.length > 5 && <p className="muted-footnote">Showing five saved foods. Open Foods for your full library.</p>}
+            <button className="quick-catalog-button" type="button" onClick={onAdd}><span><Icon name="search" size={15} />Search local catalog</span><Icon name="arrow-right" size={15} /></button>
+          </section>
+        </div>
+        <DragOverlay dropAnimation={null}>{activeEntry ? <DragPreview entry={activeEntry} /> : null}</DragOverlay>
+      </DndContext>
     </div>
   )
 }
@@ -583,8 +645,53 @@ function MacroProgress({ label, value, goal, color }: { label: string; value: nu
   return <div className="macro-row"><div className="macro-row-top"><span><i className={`macro-dot ${color}`} />{label}</span><strong>{formatNumber(value)}g <small>{goal === undefined ? '· goal not set' : `/ ${formatNumber(goal)}g`}</small></strong></div><div className="progress-track"><span className={`progress-fill ${color}`} style={{ width: `${goal ? Math.max(value ? 2 : 0, percent) : 0}%` }} /></div></div>
 }
 
+function MealDropSection({ meal, entries, isDragging, onAddMeal, onEdit, onDelete, onMove }: { meal: { key: MealCategory; label: string }; entries: DiaryEntry[]; isDragging: boolean; onAddMeal: (meal: MealCategory) => void; onEdit: (entry: DiaryEntry) => void; onDelete: (entry: DiaryEntry) => void; onMove: (entry: DiaryEntry) => void }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `meal:${meal.key}` })
+  const subtotal = sumEntries(entries)
+  return <section ref={setNodeRef} aria-labelledby={`meal-${meal.key}`} className={`meal-section meal-${meal.key} ${isDragging ? 'drag-target' : ''} ${isOver ? 'is-over' : ''}`}>
+    <div className="meal-section-header">
+      <div className="meal-heading"><span className="meal-marker" aria-hidden="true" /><div><h3 id={`meal-${meal.key}`}>{meal.label}</h3><span>{entries.length ? `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}` : 'No entries yet'}</span></div></div>
+      <div className="meal-section-actions"><span className="meal-subtotal">{entries.length ? `${formatNumber(subtotal.calories)} kcal` : '—'}</span><button className="meal-add" type="button" onClick={() => onAddMeal(meal.key)}><Icon name="plus" size={15} />Add</button></div>
+    </div>
+    {entries.length > 0 ? <div className="entry-list">{entries.map((entry) => <EntryRow entry={entry} key={entry.id} onEdit={onEdit} onDelete={onDelete} onMove={onMove} />)}</div> : <p className="meal-empty">{isDragging ? 'Drop a food here to move it to this meal.' : 'Add a food to start this section.'}</p>}
+  </section>
+}
+
+function TimelineView({ entries, isDragging, onEdit, onDelete, onMove }: { entries: DiaryEntry[]; isDragging: boolean; onEdit: (entry: DiaryEntry) => void; onDelete: (entry: DiaryEntry) => void; onMove: (entry: DiaryEntry) => void }) {
+  const entriesByHour = new Map<number, DiaryEntry[]>()
+  const untimedEntries: DiaryEntry[] = []
+  entries.forEach((entry) => {
+    if (!entry.time || !/^([01]\d|2[0-3]):[0-5]\d$/.test(entry.time)) {
+      untimedEntries.push(entry)
+      return
+    }
+    const hour = Number(entry.time.slice(0, 2))
+    entriesByHour.set(hour, [...(entriesByHour.get(hour) ?? []), entry])
+  })
+  return <div className={`timeline-list ${isDragging ? 'is-dragging' : ''}`} aria-label="Diary timeline">
+    {(untimedEntries.length > 0 || isDragging) && <TimelineDropZone hour={null} entries={untimedEntries} isDragging={isDragging} onEdit={onEdit} onDelete={onDelete} onMove={onMove} />}
+    {Array.from({ length: 24 }, (_, hour) => <TimelineDropZone key={hour} hour={hour} entries={entriesByHour.get(hour) ?? []} isDragging={isDragging} onEdit={onEdit} onDelete={onDelete} onMove={onMove} />)}
+  </div>
+}
+
+function TimelineDropZone({ hour, entries, isDragging, onEdit, onDelete, onMove }: { hour: number | null; entries: DiaryEntry[]; isDragging: boolean; onEdit: (entry: DiaryEntry) => void; onDelete: (entry: DiaryEntry) => void; onMove: (entry: DiaryEntry) => void }) {
+  const id = hour === null ? 'timeline:untimed' : `timeline:${hour}`
+  const { setNodeRef, isOver } = useDroppable({ id })
+  const label = hour === null ? 'Unscheduled' : timelineHourLabel(hour)
+  return <section ref={setNodeRef} className={`timeline-hour ${entries.length === 0 ? 'empty' : ''} ${isDragging ? 'drag-target' : ''} ${isOver ? 'is-over' : ''}`} aria-label={`${label} drop target`}>
+    <div className="timeline-hour-header"><span className="timeline-hour-label">{label}</span><span className="timeline-hour-summary">{entries.length ? `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}` : isDragging ? 'Drop here' : ''}</span></div>
+    {entries.length > 0 && <div className="entry-list">{entries.map((entry) => <EntryRow entry={entry} key={entry.id} onEdit={onEdit} onDelete={onDelete} onMove={onMove} />)}</div>}
+  </section>
+}
+
+function DragPreview({ entry }: { entry: DiaryEntry }) {
+  return <div className="drag-preview"><span className="food-avatar large">{entry.name.slice(0, 1).toUpperCase()}</span><span><strong>{entry.name}</strong><small>{entry.time ?? 'No time'} · {formatNumber(entry.calories, 1)} kcal</small></span></div>
+}
+
 function EntryRow({ entry, onEdit, onDelete, onMove }: { entry: DiaryEntry; onEdit: (entry: DiaryEntry) => void; onDelete: (entry: DiaryEntry) => void; onMove: (entry: DiaryEntry) => void }) {
-  return <div className="entry-row"><span className="food-avatar large">{entry.name.slice(0, 1).toUpperCase()}</span><div className="entry-copy"><strong>{entry.name}</strong><span>{entry.time && <><span className="entry-time"><Icon name="clock" size={11} />{entry.time}</span><span className="entry-meta-separator"> · </span></>}<span className="meal-label">{entry.catalogId ? 'Catalog snapshot' : entry.foodId ? 'Saved food' : 'Manual'}</span> · {formatNumber(entry.protein, 1)}g protein · {formatNumber(entry.carbs, 1)}g carbs · {formatNumber(entry.fat, 1)}g fat</span></div><div className="entry-calories"><strong>{formatNumber(entry.calories, 1)}</strong><span>kcal</span></div><div className="row-actions entry-row-actions"><button className="icon-button quiet" type="button" aria-label={`Move ${entry.name}`} onClick={() => onMove(entry)}><Icon name="move" size={16} /></button><button className="icon-button quiet" type="button" aria-label={`Edit ${entry.name}`} onClick={() => onEdit(entry)}><Icon name="edit" size={16} /></button><button className="icon-button quiet danger-hover" type="button" aria-label={`Delete ${entry.name}`} onClick={() => onDelete(entry)}><Icon name="trash" size={16} /></button></div></div>
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `entry:${entry.id}` })
+  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
+  return <div ref={setNodeRef} style={style} className={`entry-row ${isDragging ? 'is-dragging' : ''}`}><button className="entry-drag-handle" type="button" aria-label={`Drag ${entry.name}`} {...listeners} {...attributes}><Icon name="grip" size={17} /></button><span className="food-avatar large">{entry.name.slice(0, 1).toUpperCase()}</span><div className="entry-copy"><strong>{entry.name}</strong><span>{entry.time && <><span className="entry-time"><Icon name="clock" size={11} />{entry.time}</span><span className="entry-meta-separator"> · </span></>}<span className="meal-label">{entry.catalogId ? 'Catalog snapshot' : entry.foodId ? 'Saved food' : 'Manual'}</span> · {formatNumber(entry.protein, 1)}g protein · {formatNumber(entry.carbs, 1)}g carbs · {formatNumber(entry.fat, 1)}g fat</span></div><div className="entry-calories"><strong>{formatNumber(entry.calories, 1)}</strong><span>kcal</span></div><div className="row-actions entry-row-actions"><button className="icon-button quiet" type="button" aria-label={`Move ${entry.name}`} onClick={() => onMove(entry)}><Icon name="move" size={16} /></button><button className="icon-button quiet" type="button" aria-label={`Edit ${entry.name}`} onClick={() => onEdit(entry)}><Icon name="edit" size={16} /></button><button className="icon-button quiet danger-hover" type="button" aria-label={`Delete ${entry.name}`} onClick={() => onDelete(entry)}><Icon name="trash" size={16} /></button></div></div>
 }
 
 interface TrendsViewProps {
@@ -685,8 +792,8 @@ function EntryModal({ entry, food, defaultMeal, selectedDate, foods, recentEntri
   const initialDraft = (): EntryDraft => entry
     ? { name: entry.name, meal: entry.meal, date: entry.date, time: entry.time ?? '', calories: String(entry.calories), protein: String(entry.protein), carbs: String(entry.carbs), fat: String(entry.fat), grams: entry.grams === undefined ? '' : String(entry.grams), foodId: entry.foodId, catalogId: entry.catalogId, catalogSource: entry.catalogSource, saveAsFood: false, serving: '1 serving' }
     : food
-      ? { name: food.name, meal: defaultMeal ?? 'other', date: selectedDate, time: '', calories: String(food.calories), protein: String(food.protein), carbs: String(food.carbs), fat: String(food.fat), grams: '', foodId: food.id, saveAsFood: false, serving: food.serving }
-      : { ...emptyEntryDraft, date: selectedDate, meal: defaultMeal ?? 'other' }
+      ? { name: food.name, meal: defaultMeal ?? 'other', date: selectedDate, time: localTimeNow(), calories: String(food.calories), protein: String(food.protein), carbs: String(food.carbs), fat: String(food.fat), grams: '', foodId: food.id, saveAsFood: false, serving: food.serving }
+      : { ...emptyEntryDraft, date: selectedDate, meal: defaultMeal ?? 'other', time: localTimeNow() }
   const [draft, setDraft] = useState<EntryDraft>(initialDraft)
   const [mode, setMode] = useState<LoggerMode>(entry ? 'manual' : food ? 'saved' : 'search')
   const [query, setQuery] = useState('')
