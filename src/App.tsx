@@ -1,0 +1,622 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ChangeEvent, FormEvent } from 'react'
+import {
+  clearAllData,
+  deleteEntry,
+  deleteFood,
+  deleteWeight,
+  exportBackup,
+  getEntries,
+  getFoods,
+  getSettings,
+  getWeights,
+  importBackup,
+  requestPersistentStorage,
+  saveEntry,
+  saveFood,
+  saveSettings,
+  saveWeight,
+} from './lib/db'
+import type { BackupPayload, DiaryEntry, Food, Goals, MealCategory, Settings, View, WeightEntry } from './types'
+import {
+  clampPercent,
+  formatDateLabel,
+  formatInputNumber,
+  formatNumber,
+  formatShortDate,
+  isoFromDate,
+  isDateToday,
+  newId,
+  nowISO,
+  shiftDate,
+  sumEntries,
+  todayISO,
+} from './lib/utils'
+import { Icon, type IconName } from './components/Icon'
+import { Modal } from './components/Modal'
+import './styles.css'
+
+type ToastTone = 'success' | 'error'
+type Toast = { tone: ToastTone; message: string }
+type PersistentStatus = 'checking' | 'granted' | 'available'
+
+interface EntryDraft {
+  name: string
+  meal: MealCategory
+  calories: string
+  protein: string
+  carbs: string
+  fat: string
+  saveAsFood: boolean
+  serving: string
+}
+
+interface FoodDraft {
+  name: string
+  serving: string
+  calories: string
+  protein: string
+  carbs: string
+  fat: string
+}
+
+interface WeightDraft {
+  date: string
+  weight: string
+  unit: 'lb' | 'kg'
+  note: string
+}
+
+type ModalState =
+  | { type: 'entry'; entry?: DiaryEntry; food?: Food }
+  | { type: 'food'; food?: Food }
+  | { type: 'weight'; weight?: WeightEntry }
+  | null
+
+const navItems: Array<{ id: View; label: string; icon: IconName }> = [
+  { id: 'diary', label: 'Diary', icon: 'calendar' },
+  { id: 'trends', label: 'Trends', icon: 'chart' },
+  { id: 'foods', label: 'Foods', icon: 'food' },
+  { id: 'settings', label: 'Settings', icon: 'settings' },
+]
+
+const emptyEntryDraft: EntryDraft = {
+  name: '',
+  meal: 'other',
+  calories: '',
+  protein: '',
+  carbs: '',
+  fat: '',
+  saveAsFood: false,
+  serving: '1 serving',
+}
+
+const emptyFoodDraft: FoodDraft = {
+  name: '',
+  serving: '1 serving',
+  calories: '',
+  protein: '',
+  carbs: '',
+  fat: '',
+}
+
+const emptyWeightDraft: WeightDraft = { date: todayISO(), weight: '', unit: 'lb', note: '' }
+
+const toNumber = (value: string): number => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0
+}
+
+const numericOrUndefined = (value: string): number | undefined => {
+  if (!value.trim()) return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined
+}
+
+const convertWeight = (weight: number, from: 'lb' | 'kg', to: 'lb' | 'kg'): number => {
+  if (from === to) return weight
+  return from === 'kg' ? weight * 2.2046226218 : weight / 2.2046226218
+}
+
+export default function App() {
+  const [view, setView] = useState<View>('diary')
+  const [selectedDate, setSelectedDate] = useState(todayISO)
+  const [entries, setEntries] = useState<DiaryEntry[]>([])
+  const [foods, setFoods] = useState<Food[]>([])
+  const [weights, setWeights] = useState<WeightEntry[]>([])
+  const [settings, setSettings] = useState<Settings | undefined>()
+  const [loading, setLoading] = useState(true)
+  const [modal, setModal] = useState<ModalState>(null)
+  const [toast, setToast] = useState<Toast | null>(null)
+  const [persistentStatus, setPersistentStatus] = useState<PersistentStatus>('checking')
+  const importInputRef = useRef<HTMLInputElement>(null)
+
+  const refresh = useCallback(async () => {
+    try {
+      const [nextEntries, nextFoods, nextWeights, nextSettings] = await Promise.all([
+        getEntries(),
+        getFoods(),
+        getWeights(),
+        getSettings(),
+      ])
+      setEntries(nextEntries)
+      setFoods(nextFoods.sort((a, b) => a.name.localeCompare(b.name)))
+      setWeights(nextWeights.sort((a, b) => a.date.localeCompare(b.date)))
+      setSettings(nextSettings)
+    } catch {
+      setToast({ tone: 'error', message: 'Local data could not be opened. Try reloading this page.' })
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void refresh()
+    if (navigator.storage?.persisted) {
+      void navigator.storage.persisted().then((persisted) => setPersistentStatus(persisted ? 'granted' : 'available'))
+    } else {
+      setPersistentStatus('available')
+    }
+    if ('serviceWorker' in navigator) void navigator.serviceWorker.register('./sw.js').catch(() => undefined)
+  }, [refresh])
+
+  useEffect(() => {
+    if (!toast) return undefined
+    const timeout = window.setTimeout(() => setToast(null), 4200)
+    return () => window.clearTimeout(timeout)
+  }, [toast])
+
+  const dateEntries = useMemo(
+    () => entries.filter((entry) => entry.date === selectedDate).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    [entries, selectedDate],
+  )
+  const totals = useMemo(() => sumEntries(dateEntries), [dateEntries])
+  const goals = settings?.goals
+
+  const announce = (message: string, tone: ToastTone = 'success') => setToast({ message, tone })
+
+  const saveEntryDraft = async (draft: EntryDraft, existing?: DiaryEntry, food?: Food) => {
+    const timestamp = nowISO()
+    const entry: DiaryEntry = {
+      id: existing?.id ?? newId(),
+      date: existing?.date ?? selectedDate,
+      meal: draft.meal,
+      name: draft.name.trim(),
+      calories: toNumber(draft.calories),
+      protein: toNumber(draft.protein),
+      carbs: toNumber(draft.carbs),
+      fat: toNumber(draft.fat),
+      ...(food ? { foodId: food.id } : existing?.foodId ? { foodId: existing.foodId } : {}),
+      createdAt: existing?.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    }
+    await saveEntry(entry)
+    if (draft.saveAsFood && !existing) {
+      await saveFood({
+        id: newId(),
+        name: entry.name,
+        serving: draft.serving.trim() || '1 serving',
+        calories: entry.calories,
+        protein: entry.protein,
+        carbs: entry.carbs,
+        fat: entry.fat,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      })
+    }
+    await refresh()
+    setModal(null)
+    announce(existing ? 'Entry updated.' : 'Entry added to your diary.')
+  }
+
+  const handleDeleteEntry = async (entry: DiaryEntry) => {
+    if (!window.confirm(`Delete “${entry.name}” from this day?`)) return
+    await deleteEntry(entry.id)
+    await refresh()
+    announce('Entry deleted.')
+  }
+
+  const saveFoodDraft = async (draft: FoodDraft, existing?: Food) => {
+    const timestamp = nowISO()
+    await saveFood({
+      id: existing?.id ?? newId(),
+      name: draft.name.trim(),
+      serving: draft.serving.trim() || '1 serving',
+      calories: toNumber(draft.calories),
+      protein: toNumber(draft.protein),
+      carbs: toNumber(draft.carbs),
+      fat: toNumber(draft.fat),
+      createdAt: existing?.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    })
+    await refresh()
+    setModal(null)
+    announce(existing ? 'Food updated.' : 'Food saved for quick logging.')
+  }
+
+  const handleDeleteFood = async (food: Food) => {
+    if (!window.confirm(`Remove “${food.name}” from your saved foods? Existing diary entries are kept.`)) return
+    await deleteFood(food.id)
+    await refresh()
+    announce('Saved food removed.')
+  }
+
+  const saveWeightDraft = async (draft: WeightDraft, existing?: WeightEntry) => {
+    const timestamp = nowISO()
+    const weight = Number(draft.weight)
+    if (!draft.date || !Number.isFinite(weight) || weight <= 0) return
+    await saveWeight({
+      id: existing?.id ?? newId(),
+      date: draft.date,
+      weight,
+      unit: draft.unit,
+      ...(draft.note.trim() ? { note: draft.note.trim() } : {}),
+      createdAt: existing?.createdAt ?? timestamp,
+    })
+    await refresh()
+    setModal(null)
+    announce(existing ? 'Weight entry updated.' : 'Weight entry saved.')
+  }
+
+  const handleDeleteWeight = async (weight: WeightEntry) => {
+    if (!window.confirm(`Delete the ${weight.weight} ${weight.unit} entry from ${formatShortDate(weight.date)}?`)) return
+    await deleteWeight(weight.id)
+    await refresh()
+    announce('Weight entry deleted.')
+  }
+
+  const updateGoals = async (nextGoals: Goals) => {
+    const nextSettings: Settings = { id: 'profile', goals: nextGoals, updatedAt: nowISO() }
+    await saveSettings(nextSettings)
+    setSettings(nextSettings)
+    announce('Goals saved.')
+  }
+
+  const downloadBackup = async () => {
+    try {
+      const backup = await exportBackup()
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `nutrienttrack-backup-${backup.exportedAt.slice(0, 10)}.json`
+      anchor.click()
+      URL.revokeObjectURL(url)
+      announce('Backup downloaded.')
+    } catch {
+      announce('Backup could not be created.', 'error')
+    }
+  }
+
+  const validateBackup = (value: unknown): value is BackupPayload => {
+    if (!value || typeof value !== 'object') return false
+    const candidate = value as Partial<BackupPayload>
+    if (candidate.format !== 'nutrienttrack-backup' || candidate.version !== 1) return false
+    if (!Array.isArray(candidate.entries) || !Array.isArray(candidate.foods) || !Array.isArray(candidate.weights) || !Array.isArray(candidate.settings)) return false
+    const isISODate = (value: unknown) => {
+      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+      const parsed = new Date(`${value}T12:00:00`)
+      return !Number.isNaN(parsed.getTime()) && isoFromDate(parsed) === value
+    }
+    const isNonNegativeNumber = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0
+    const hasStrings = (item: unknown, keys: string[]) =>
+      Boolean(item && typeof item === 'object' && keys.every((key) => typeof (item as Record<string, unknown>)[key] === 'string'))
+    const hasNumbers = (item: unknown, keys: string[]) =>
+      Boolean(item && typeof item === 'object' && keys.every((key) => isNonNegativeNumber((item as Record<string, unknown>)[key])))
+    const validMeal = (value: unknown): value is MealCategory => ['breakfast', 'lunch', 'dinner', 'snack', 'other'].includes(String(value))
+    const validUnit = (value: unknown): value is 'lb' | 'kg' => value === 'lb' || value === 'kg'
+    const validGoals = (value: unknown) => {
+      if (!value || typeof value !== 'object' || !validUnit((value as Goals).weightUnit)) return false
+      return ['calories', 'protein', 'carbs', 'fat'].every((key) => {
+        const goal = (value as Record<string, unknown>)[key]
+        return goal === undefined || isNonNegativeNumber(goal)
+      })
+    }
+    const hasUniqueIds = (items: unknown[]) => {
+      const ids = items.map((item) => (item && typeof item === 'object' ? (item as Record<string, unknown>).id : undefined))
+      return ids.every((id): id is string => typeof id === 'string' && id.trim().length > 0) && new Set(ids).size === ids.length
+    }
+    return hasUniqueIds(candidate.entries) && hasUniqueIds(candidate.foods) && hasUniqueIds(candidate.weights) && hasUniqueIds(candidate.settings) &&
+      candidate.entries.every((item) => hasStrings(item, ['id', 'date', 'name', 'createdAt', 'updatedAt']) && isISODate((item as DiaryEntry).date) && validMeal((item as DiaryEntry).meal) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat'])) &&
+      candidate.foods.every((item) => hasStrings(item, ['id', 'name', 'serving', 'createdAt', 'updatedAt']) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat'])) &&
+      candidate.weights.every((item) => hasStrings(item, ['id', 'date', 'unit', 'createdAt']) && isISODate((item as WeightEntry).date) && validUnit((item as WeightEntry).unit) && Number.isFinite((item as WeightEntry).weight) && (item as WeightEntry).weight > 0) &&
+      candidate.settings.length <= 1 && candidate.settings.every((item) => hasStrings(item, ['id', 'updatedAt']) && (item as Settings).id === 'profile' && validGoals((item as Settings).goals))
+  }
+
+  const importFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    try {
+      const parsed: unknown = JSON.parse(await file.text())
+      if (!validateBackup(parsed)) {
+        announce('That file is not a valid NutrientTrack backup.', 'error')
+        return
+      }
+      if (!window.confirm('Restore this backup? It will replace the entries, foods, weight logs, and goals currently stored in this browser.')) return
+      await importBackup(parsed)
+      await refresh()
+      announce('Backup restored.')
+    } catch {
+      announce('Backup could not be read. Nothing was changed.', 'error')
+    }
+  }
+
+  const clearLocalData = async () => {
+    if (!window.confirm('Clear all NutrientTrack data from this browser? This cannot be undone unless you have a backup.')) return
+    await clearAllData()
+    await refresh()
+    announce('Local data cleared.')
+  }
+
+  const requestPersistence = async () => {
+    const persisted = await requestPersistentStorage()
+    setPersistentStatus(persisted ? 'granted' : 'available')
+    announce(persisted ? 'This browser will try to keep local data available.' : 'The browser did not grant persistent storage.')
+  }
+
+  if (loading) return <LoadingShell />
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <Brand />
+        <div className="sidebar-rule" />
+        <p className="nav-label">Your space</p>
+        <nav aria-label="Primary navigation" className="primary-nav">
+          {navItems.map((item) => (
+            <button className={`nav-item ${view === item.id ? 'active' : ''}`} key={item.id} type="button" onClick={() => setView(item.id)}>
+              <Icon name={item.icon} size={19} />
+              <span>{item.label}</span>
+              {item.id === 'diary' && dateEntries.length > 0 && <span className="nav-count">{dateEntries.length}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-footer">
+          <div className="privacy-note"><Icon name="lock" size={16} /><span>Private by default</span></div>
+          <p>Your entries stay in this browser. Export a backup before clearing site data or changing devices.</p>
+        </div>
+      </aside>
+
+      <main className="main-content">
+        <header className="topbar">
+          <div className="topbar-date">
+            <p className="eyebrow">{view === 'diary' ? (isDateToday(selectedDate) ? 'Today' : 'Diary') : 'NutrientTrack'}</p>
+            <h1>{view === 'diary' ? <><span className="desktop-date-title">{formatDateLabel(selectedDate, { weekday: 'long' })}</span><span className="mobile-date-title">{formatDateLabel(selectedDate, { weekday: 'short', month: 'short', day: 'numeric' })}</span></> : navItems.find((item) => item.id === view)?.label}</h1>
+          </div>
+          <div className="topbar-actions">
+            <span className="offline-chip"><span className="status-dot" />Local only</span>
+            <button className="button primary compact" type="button" onClick={() => setModal({ type: 'entry' })}><Icon name="plus" size={17} />Log food</button>
+          </div>
+        </header>
+
+        {view === 'diary' && (
+          <DiaryView
+            date={selectedDate}
+            entries={dateEntries}
+            foods={foods}
+            goals={goals}
+            totals={totals}
+            onDateChange={setSelectedDate}
+            onAdd={() => setModal({ type: 'entry' })}
+            onEdit={(entry) => setModal({ type: 'entry', entry })}
+            onDelete={handleDeleteEntry}
+            onQuickLog={(food) => setModal({ type: 'entry', food })}
+          />
+        )}
+        {view === 'trends' && <TrendsView weights={weights} unit={goals?.weightUnit ?? 'lb'} onAdd={() => setModal({ type: 'weight' })} onEdit={(weight) => setModal({ type: 'weight', weight })} onDelete={handleDeleteWeight} />}
+        {view === 'foods' && <FoodsView foods={foods} onAdd={() => setModal({ type: 'food' })} onEdit={(food) => setModal({ type: 'food', food })} onDelete={handleDeleteFood} onQuickLog={(food) => setModal({ type: 'entry', food })} />}
+        {view === 'settings' && (
+          <SettingsView
+            goals={goals}
+            persistentStatus={persistentStatus}
+            onSaveGoals={updateGoals}
+            onExport={downloadBackup}
+            onImport={() => importInputRef.current?.click()}
+            onClear={clearLocalData}
+            onPersist={requestPersistence}
+          />
+        )}
+      </main>
+
+      <nav aria-label="Mobile navigation" className="mobile-nav">
+        {navItems.map((item) => <button className={view === item.id ? 'active' : ''} key={item.id} type="button" onClick={() => setView(item.id)}><Icon name={item.icon} size={20} /><span>{item.label}</span></button>)}
+      </nav>
+      <input ref={importInputRef} className="visually-hidden" type="file" accept="application/json,.json" onChange={importFile} />
+
+      {modal?.type === 'entry' && <EntryModal entry={modal.entry} food={modal.food} selectedDate={selectedDate} onClose={() => setModal(null)} onSave={saveEntryDraft} />}
+      {modal?.type === 'food' && <FoodModal food={modal.food} onClose={() => setModal(null)} onSave={saveFoodDraft} />}
+      {modal?.type === 'weight' && <WeightModal weight={modal.weight} defaultUnit={goals?.weightUnit ?? 'lb'} onClose={() => setModal(null)} onSave={saveWeightDraft} />}
+      {toast && <div aria-live="polite" className={`toast ${toast.tone}`}><Icon name={toast.tone === 'success' ? 'check' : 'info'} size={17} /><span>{toast.message}</span><button type="button" aria-label="Dismiss notification" onClick={() => setToast(null)}><Icon name="x" size={14} /></button></div>}
+    </div>
+  )
+}
+
+function Brand() {
+  return <div className="brand"><span className="brand-mark"><span /><span /></span><span className="brand-name">Nutrient<span>Track</span></span></div>
+}
+
+function LoadingShell() {
+  return <div className="loading-shell"><Brand /><div className="loading-card"><div className="skeleton-line wide" /><div className="skeleton-line" /><div className="skeleton-block" /></div></div>
+}
+
+interface DiaryViewProps {
+  date: string
+  entries: DiaryEntry[]
+  foods: Food[]
+  goals: Goals | undefined
+  totals: ReturnType<typeof sumEntries>
+  onDateChange: (date: string) => void
+  onAdd: () => void
+  onEdit: (entry: DiaryEntry) => void
+  onDelete: (entry: DiaryEntry) => void
+  onQuickLog: (food: Food) => void
+}
+
+function DiaryView({ date, entries, foods, goals, totals, onDateChange, onAdd, onEdit, onDelete, onQuickLog }: DiaryViewProps) {
+  const calorieGoal = goals?.calories
+  const remaining = calorieGoal === undefined ? undefined : calorieGoal - totals.calories
+  return (
+    <div className="page diary-page">
+      <DateNavigator date={date} onDateChange={onDateChange} />
+      <section className="summary-grid" aria-label="Daily nutrition summary">
+        <article className="summary-card calorie-card">
+          <div className="card-kicker"><span className="kicker-icon coral"><Icon name="flame" size={16} /></span><span>Energy</span><span className="summary-badge">{entries.length ? `${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}` : 'No entries'}</span></div>
+          <div className="calorie-summary"><ProgressRing value={calorieGoal ? clampPercent((totals.calories / calorieGoal) * 100) : 0} /><div><p className="metric-value">{formatNumber(totals.calories)} <small>kcal</small></p><p className="metric-subtext">{calorieGoal === undefined ? 'Set an energy goal to see your balance.' : remaining === undefined ? '' : remaining >= 0 ? `${formatNumber(remaining)} kcal remaining` : `${formatNumber(Math.abs(remaining))} kcal over goal`}</p></div></div>
+          <div className="goal-line"><span>{calorieGoal === undefined ? 'Daily goal' : 'Goal'}</span><strong>{calorieGoal === undefined ? 'Not set' : `${formatNumber(calorieGoal)} kcal`}</strong></div>
+        </article>
+        <article className="summary-card macro-card">
+          <div className="card-kicker"><span className="kicker-icon teal"><Icon name="chart" size={16} /></span><span>Macros</span><span className="summary-badge">grams</span></div>
+          <div className="macro-list"><MacroProgress label="Protein" value={totals.protein} goal={goals?.protein} color="teal" /><MacroProgress label="Carbs" value={totals.carbs} goal={goals?.carbs} color="blue" /><MacroProgress label="Fat" value={totals.fat} goal={goals?.fat} color="violet" /></div>
+        </article>
+      </section>
+
+      <div className="content-grid diary-grid">
+        <section className="panel diary-panel">
+          <div className="panel-header"><div><p className="eyebrow">{entries.length ? 'What you logged' : 'Start with one thing'}</p><h2>{isDateToday(date) ? 'Today’s diary' : `Diary for ${formatShortDate(date)}`}</h2></div><button className="button secondary compact" type="button" onClick={onAdd}><Icon name="plus" size={16} />Add food</button></div>
+          {entries.length === 0 ? <EmptyDiary onAdd={onAdd} /> : <div className="entry-list">{entries.map((entry) => <EntryRow entry={entry} key={entry.id} onEdit={onEdit} onDelete={onDelete} />)}</div>}
+        </section>
+        <section className="panel quick-panel">
+          <div className="panel-header"><div><p className="eyebrow">Fast lane</p><h2>Quick log</h2></div><Icon name="food" size={20} className="panel-header-icon" /></div>
+          {foods.length === 0 ? <div className="quick-empty"><span className="empty-orb"><Icon name="food" size={20} /></span><p>Save foods you eat often for one tap logging.</p><button className="text-button" type="button" onClick={onAdd}>Create from log <Icon name="arrow-right" size={15} /></button></div> : <div className="quick-list">{foods.slice(0, 5).map((food) => <button className="quick-food" type="button" key={food.id} onClick={() => onQuickLog(food)}><span className="food-avatar">{food.name.slice(0, 1).toUpperCase()}</span><span className="food-copy"><strong>{food.name}</strong><small>{food.serving} · {formatNumber(food.calories)} kcal</small></span><Icon name="plus" size={17} /></button>)}</div>}
+          {foods.length > 5 && <p className="muted-footnote">Showing your five most recent saved foods.</p>}
+        </section>
+      </div>
+    </div>
+  )
+}
+
+function DateNavigator({ date, onDateChange }: { date: string; onDateChange: (date: string) => void }) {
+  return <div className="date-navigator"><div className="date-controls"><button className="icon-button" type="button" aria-label="Previous day" onClick={() => onDateChange(shiftDate(date, -1))}><Icon name="arrow-left" size={18} /></button><button className="date-pill" type="button" onClick={() => onDateChange(todayISO())}><Icon name="calendar" size={16} /><span>{isDateToday(date) ? 'Today' : formatShortDate(date)}</span></button><button className="icon-button" type="button" aria-label="Next day" onClick={() => onDateChange(shiftDate(date, 1))}><Icon name="arrow-right" size={18} /></button></div>{!isDateToday(date) && <button className="text-button today-button" type="button" onClick={() => onDateChange(todayISO())}>Back to today</button>}</div>
+}
+
+function ProgressRing({ value }: { value: number }) {
+  const radius = 31
+  const circumference = 2 * Math.PI * radius
+  return <div className="progress-ring" aria-label={`${Math.round(value)} percent of calorie goal`}><svg viewBox="0 0 80 80"><circle className="ring-track" cx="40" cy="40" r={radius} /><circle className="ring-value" cx="40" cy="40" r={radius} strokeDasharray={circumference} strokeDashoffset={circumference - (circumference * value) / 100} /></svg><span>{value ? `${Math.round(value)}%` : '—'}</span></div>
+}
+
+function MacroProgress({ label, value, goal, color }: { label: string; value: number; goal?: number; color: 'teal' | 'blue' | 'violet' }) {
+  const percent = goal ? clampPercent((value / goal) * 100) : 0
+  return <div className="macro-row"><div className="macro-row-top"><span><i className={`macro-dot ${color}`} />{label}</span><strong>{formatNumber(value)}g <small>{goal === undefined ? '· goal not set' : `/ ${formatNumber(goal)}g`}</small></strong></div><div className="progress-track"><span className={`progress-fill ${color}`} style={{ width: `${goal ? Math.max(value ? 2 : 0, percent) : 0}%` }} /></div></div>
+}
+
+function EmptyDiary({ onAdd }: { onAdd: () => void }) {
+  return <div className="empty-state diary-empty"><span className="empty-orb large"><Icon name="food" size={27} /></span><h3>Your day starts here.</h3><p>Add a meal or a quick calorie and macro entry. You can always edit it later.</p><button className="button primary" type="button" onClick={onAdd}><Icon name="plus" size={17} />Log first food</button></div>
+}
+
+function EntryRow({ entry, onEdit, onDelete }: { entry: DiaryEntry; onEdit: (entry: DiaryEntry) => void; onDelete: (entry: DiaryEntry) => void }) {
+  return <div className="entry-row"><span className="food-avatar large">{entry.name.slice(0, 1).toUpperCase()}</span><div className="entry-copy"><strong>{entry.name}</strong><span><span className="meal-label">{entry.meal}</span> · {formatNumber(entry.protein)}g protein · {formatNumber(entry.carbs)}g carbs · {formatNumber(entry.fat)}g fat</span></div><div className="entry-calories"><strong>{formatNumber(entry.calories)}</strong><span>kcal</span></div><div className="row-actions"><button className="icon-button quiet" type="button" aria-label={`Edit ${entry.name}`} onClick={() => onEdit(entry)}><Icon name="edit" size={16} /></button><button className="icon-button quiet danger-hover" type="button" aria-label={`Delete ${entry.name}`} onClick={() => onDelete(entry)}><Icon name="trash" size={16} /></button></div></div>
+}
+
+interface TrendsViewProps {
+  weights: WeightEntry[]
+  unit: 'lb' | 'kg'
+  onAdd: () => void
+  onEdit: (weight: WeightEntry) => void
+  onDelete: (weight: WeightEntry) => void
+}
+
+function TrendsView({ weights, unit, onAdd, onEdit, onDelete }: TrendsViewProps) {
+  const unitEntries = weights
+    .map((entry) => ({ ...entry, weight: convertWeight(entry.weight, entry.unit, unit), unit }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+  const [range, setRange] = useState<7 | 30>(30)
+  const endDate = todayISO()
+  const startDate = shiftDate(endDate, -(range - 1))
+  const recent = unitEntries.filter((entry) => entry.date >= startDate && entry.date <= endDate)
+  return <div className="page"><div className="page-intro"><div><p className="eyebrow">A longer view</p><h2>Your trends</h2><p className="page-description">Small, consistent check-ins are enough to see your direction over time.</p></div><button className="button primary compact" type="button" onClick={onAdd}><Icon name="plus" size={17} />Log weight</button></div><section className="panel trend-panel"><div className="panel-header"><div><p className="eyebrow">Weight</p><h2>Last {range} days</h2></div><div className="trend-controls"><div className="range-toggle" role="group" aria-label="Trend range"><button className={range === 7 ? 'active' : ''} type="button" onClick={() => setRange(7)}>7d</button><button className={range === 30 ? 'active' : ''} type="button" onClick={() => setRange(30)}>30d</button></div><span className="unit-chip">{unit}</span></div></div>{recent.length < 2 ? <div className="empty-state compact-empty"><span className="empty-orb"><Icon name="scale" size={21} /></span><h3>{recent.length === 0 ? 'No weight entries in this window.' : 'Add one more check-in.'}</h3><p>{recent.length === 0 ? 'Your first entry will start a truthful trend line.' : 'A line appears after two entries. Days without a check-in stay unplotted.'}</p><button className="button secondary" type="button" onClick={onAdd}><Icon name="plus" size={16} />Log weight</button></div> : <TrendChart entries={recent} unit={unit} startDate={startDate} endDate={endDate} />}</section><section className="panel weight-list-panel"><div className="panel-header"><div><p className="eyebrow">Check-ins</p><h2>Weight log</h2></div><span className="summary-badge">{weights.length} {weights.length === 1 ? 'entry' : 'entries'}</span></div>{weights.length === 0 ? <p className="muted-footnote">Your weight entries will appear here with their date and unit.</p> : <div className="weight-list">{weights.slice().reverse().map((weight) => <div className="weight-row" key={weight.id}><span className="weight-date">{formatShortDate(weight.date)}</span><strong>{formatNumber(weight.weight, 1)} <small>{weight.unit}</small></strong>{weight.note && <span className="weight-note">{weight.note}</span>}<div className="row-actions"><button className="icon-button quiet" type="button" aria-label={`Edit weight from ${formatShortDate(weight.date)}`} onClick={() => onEdit(weight)}><Icon name="edit" size={16} /></button><button className="icon-button quiet danger-hover" type="button" aria-label={`Delete weight from ${formatShortDate(weight.date)}`} onClick={() => onDelete(weight)}><Icon name="trash" size={16} /></button></div></div>)}</div>}</section></div>
+}
+
+function TrendChart({ entries, unit, startDate, endDate }: { entries: WeightEntry[]; unit: 'lb' | 'kg'; startDate: string; endDate: string }) {
+  const min = Math.min(...entries.map((entry) => entry.weight))
+  const max = Math.max(...entries.map((entry) => entry.weight))
+  const range = max - min || 1
+  const width = 760
+  const height = 230
+  const padX = 36
+  const padY = 32
+  const start = new Date(`${startDate}T12:00:00`).getTime()
+  const end = new Date(`${endDate}T12:00:00`).getTime()
+  const points = entries.map((entry) => {
+    const time = new Date(`${entry.date}T12:00:00`).getTime()
+    const xRatio = end === start ? 0.5 : (time - start) / (end - start)
+    return { entry, x: padX + xRatio * (width - padX * 2), y: padY + (1 - (entry.weight - min) / range) * (height - padY * 2) }
+  })
+  const line = points.map((point) => `${point.x},${point.y}`).join(' ')
+  return <div className="chart-wrap"><div className="chart-summary"><div><strong>{formatNumber(entries.at(-1)?.weight ?? 0, 1)} <small>{unit}</small></strong><span>Latest check-in · {formatShortDate(entries.at(-1)?.date ?? entries[0].date)}</span></div><div className="chart-range"><span>{formatNumber(min, 1)} {unit}</span><span>{formatNumber(max, 1)} {unit}</span></div></div><svg aria-label={`Weight trend from ${formatNumber(min, 1)} to ${formatNumber(max, 1)} ${unit}`} className="trend-chart" role="img" viewBox={`0 0 ${width} ${height}`}><defs><linearGradient id="chart-gradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#2f9e98" /><stop offset="1" stopColor="#2f9e98" stopOpacity="0" /></linearGradient></defs><line className="chart-grid" x1={padX} x2={width - padX} y1={padY} y2={padY} /><line className="chart-grid" x1={padX} x2={width - padX} y1={height / 2} y2={height / 2} /><line className="chart-grid" x1={padX} x2={width - padX} y1={height - padY} y2={height - padY} /><polyline className="chart-line" fill="none" points={line} /><polygon className="chart-area" points={`${padX},${height - padY} ${line} ${width - padX},${height - padY}`} />{points.map((point) => <circle className="chart-point" cx={point.x} cy={point.y} key={point.entry.id} r="5" />)}</svg><div className="chart-labels"><span>{formatShortDate(startDate)}</span><span>Only logged days are plotted</span><span>{formatShortDate(endDate)}</span></div><p className="chart-accessible">Accessible data: {entries.map((entry) => `${formatShortDate(entry.date)} ${formatNumber(entry.weight, 1)} ${unit}`).join(' · ')}.</p></div>
+}
+
+interface FoodsViewProps {
+  foods: Food[]
+  onAdd: () => void
+  onEdit: (food: Food) => void
+  onDelete: (food: Food) => void
+  onQuickLog: (food: Food) => void
+}
+
+function FoodsView({ foods, onAdd, onEdit, onDelete, onQuickLog }: FoodsViewProps) {
+  return <div className="page"><div className="page-intro"><div><p className="eyebrow">Your library</p><h2>Saved foods</h2><p className="page-description">Keep your repeat foods close. Nutrition is stored per serving, exactly as you enter it.</p></div><button className="button primary compact" type="button" onClick={onAdd}><Icon name="plus" size={17} />Add custom food</button></div><section className="panel foods-panel">{foods.length === 0 ? <div className="empty-state large-empty"><span className="empty-orb large"><Icon name="food" size={27} /></span><h3>A short list is a useful list.</h3><p>Build your own private library of meals, snacks, and staples. There is no external food catalog here yet.</p><button className="button secondary" type="button" onClick={onAdd}><Icon name="plus" size={16} />Create a food</button></div> : <div className="food-library">{foods.map((food) => <div className="library-row" key={food.id}><span className="food-avatar large">{food.name.slice(0, 1).toUpperCase()}</span><div className="library-copy"><strong>{food.name}</strong><span>{food.serving} · {formatNumber(food.calories)} kcal</span></div><div className="library-macros"><span><i className="macro-dot teal" />{formatNumber(food.protein)}g</span><span><i className="macro-dot blue" />{formatNumber(food.carbs)}g</span><span><i className="macro-dot violet" />{formatNumber(food.fat)}g</span></div><button className="button secondary compact" type="button" onClick={() => onQuickLog(food)}><Icon name="plus" size={15} />Log</button><div className="row-actions"><button className="icon-button quiet" type="button" aria-label={`Edit ${food.name}`} onClick={() => onEdit(food)}><Icon name="edit" size={16} /></button><button className="icon-button quiet danger-hover" type="button" aria-label={`Delete ${food.name}`} onClick={() => onDelete(food)}><Icon name="trash" size={16} /></button></div></div>)}</div>}</section></div>
+}
+
+interface SettingsViewProps {
+  goals: Goals | undefined
+  persistentStatus: PersistentStatus
+  onSaveGoals: (goals: Goals) => Promise<void>
+  onExport: () => Promise<void>
+  onImport: () => void
+  onClear: () => Promise<void>
+  onPersist: () => Promise<void>
+}
+
+function SettingsView({ goals, persistentStatus, onSaveGoals, onExport, onImport, onClear, onPersist }: SettingsViewProps) {
+  const [draft, setDraft] = useState({ calories: formatInputNumber(goals?.calories), protein: formatInputNumber(goals?.protein), carbs: formatInputNumber(goals?.carbs), fat: formatInputNumber(goals?.fat), weightUnit: goals?.weightUnit ?? 'lb' as 'lb' | 'kg' })
+  useEffect(() => setDraft({ calories: formatInputNumber(goals?.calories), protein: formatInputNumber(goals?.protein), carbs: formatInputNumber(goals?.carbs), fat: formatInputNumber(goals?.fat), weightUnit: goals?.weightUnit ?? 'lb' }), [goals])
+  const save = async (event: FormEvent) => {
+    event.preventDefault()
+    await onSaveGoals({ calories: numericOrUndefined(draft.calories), protein: numericOrUndefined(draft.protein), carbs: numericOrUndefined(draft.carbs), fat: numericOrUndefined(draft.fat), weightUnit: draft.weightUnit })
+  }
+  return <div className="page settings-page"><div className="page-intro"><div><p className="eyebrow">Your preferences</p><h2>Settings</h2><p className="page-description">Goals and backups live on this device alongside your diary.</p></div></div><div className="settings-grid"><section className="panel"><div className="panel-header"><div><p className="eyebrow">Daily targets</p><h2>Goals</h2></div><span className="summary-badge">Optional</span></div><form className="goals-form" onSubmit={save}><div className="form-field full"><label htmlFor="goal-calories">Calories <span>kcal</span></label><input id="goal-calories" inputMode="decimal" min="0" placeholder="e.g. 2,000" type="number" value={draft.calories} onChange={(event) => setDraft({ ...draft, calories: event.target.value })} /></div><div className="goal-fields"><div className="form-field"><label htmlFor="goal-protein">Protein <span>g</span></label><input id="goal-protein" inputMode="decimal" min="0" placeholder="e.g. 120" type="number" value={draft.protein} onChange={(event) => setDraft({ ...draft, protein: event.target.value })} /></div><div className="form-field"><label htmlFor="goal-carbs">Carbs <span>g</span></label><input id="goal-carbs" inputMode="decimal" min="0" placeholder="e.g. 220" type="number" value={draft.carbs} onChange={(event) => setDraft({ ...draft, carbs: event.target.value })} /></div><div className="form-field"><label htmlFor="goal-fat">Fat <span>g</span></label><input id="goal-fat" inputMode="decimal" min="0" placeholder="e.g. 65" type="number" value={draft.fat} onChange={(event) => setDraft({ ...draft, fat: event.target.value })} /></div></div><div className="form-field full"><label htmlFor="weight-unit">Weight unit</label><select id="weight-unit" value={draft.weightUnit} onChange={(event) => setDraft({ ...draft, weightUnit: event.target.value as 'lb' | 'kg' })}><option value="lb">Pounds (lb)</option><option value="kg">Kilograms (kg)</option></select></div><button className="button primary" type="submit"><Icon name="check" size={16} />Save goals</button></form><p className="form-note"><Icon name="info" size={15} />NutrientTrack shows only goals you choose to set. It does not infer targets or make health recommendations.</p></section><section className="panel"><div className="panel-header"><div><p className="eyebrow">Your browser</p><h2>Local data</h2></div><span className="storage-status"><i className={persistentStatus === 'granted' ? 'granted' : ''} />{persistentStatus === 'granted' ? 'Protected' : 'Best effort'}</span></div><div className="privacy-card"><span className="privacy-card-icon"><Icon name="lock" size={19} /></span><div><strong>Private by default</strong><p>Entries, foods, goals, and weight logs are kept in IndexedDB on this device. No account, server, or analytics connection is part of this app.</p></div></div>{persistentStatus !== 'granted' && <button className="button secondary full-width" type="button" onClick={onPersist}><Icon name="lock" size={16} />Ask browser to keep local data</button>}<div className="data-tools"><div className="tool-row"><div><strong>Backup your data</strong><p>Export a JSON copy before clearing site data or changing devices.</p></div><button className="button secondary compact" type="button" onClick={onExport}><Icon name="download" size={15} />Export</button></div><div className="tool-row"><div><strong>Restore a backup</strong><p>Restoring replaces the data currently in this browser after confirmation.</p></div><button className="button secondary compact" type="button" onClick={onImport}><Icon name="upload" size={15} />Import</button></div></div><div className="danger-zone"><div><strong>Clear local data</strong><p>Remove every diary entry, saved food, weight check-in, and goal from this browser.</p></div><button className="button danger compact" type="button" onClick={onClear}><Icon name="trash" size={15} />Clear</button></div></section></div></div>
+}
+
+function EntryModal({ entry, food, selectedDate, onClose, onSave }: { entry?: DiaryEntry; food?: Food; selectedDate: string; onClose: () => void; onSave: (draft: EntryDraft, existing?: DiaryEntry, food?: Food) => Promise<void> }) {
+  const [draft, setDraft] = useState<EntryDraft>(() => entry ? { name: entry.name, meal: entry.meal, calories: String(entry.calories), protein: String(entry.protein), carbs: String(entry.carbs), fat: String(entry.fat), saveAsFood: false, serving: '1 serving' } : food ? { name: food.name, meal: 'other', calories: String(food.calories), protein: String(food.protein), carbs: String(food.carbs), fat: String(food.fat), saveAsFood: false, serving: food.serving } : emptyEntryDraft)
+  const [error, setError] = useState('')
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!draft.name.trim()) { setError('Give this entry a name so you can find it later.'); return }
+    if (!draft.calories.trim() || Number(draft.calories) < 0 || !Number.isFinite(Number(draft.calories))) { setError('Add a valid calorie amount.'); return }
+    if ([draft.protein, draft.carbs, draft.fat].some((value) => value.trim() && (Number(value) < 0 || !Number.isFinite(Number(value))))) { setError('Macro amounts must be zero or greater.'); return }
+    setError('')
+    await onSave(draft, entry, food)
+  }
+  return <Modal eyebrow={entry ? 'Edit entry' : food ? 'Quick log' : formatDateLabel(selectedDate, { weekday: 'long', year: undefined })} title={entry ? 'Update your food' : 'Log food'} onClose={onClose}><form className="modal-form" onSubmit={submit}><div className="form-field full"><label htmlFor="entry-name">Food or meal name</label><input autoFocus={!entry && !food} id="entry-name" placeholder="e.g. Greek yogurt & berries" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></div><div className="form-field full"><label htmlFor="entry-meal">Meal</label><select id="entry-meal" value={draft.meal} onChange={(event) => setDraft({ ...draft, meal: event.target.value as MealCategory })}><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="snack">Snack</option><option value="other">Other</option></select></div><div className="form-field full"><label htmlFor="entry-calories">Calories <span>kcal</span></label><input id="entry-calories" inputMode="decimal" min="0" placeholder="0" type="number" value={draft.calories} onChange={(event) => setDraft({ ...draft, calories: event.target.value })} /></div><div className="macro-input-grid"><NumberField id="entry-protein" label="Protein" unit="g" value={draft.protein} onChange={(value) => setDraft({ ...draft, protein: value })} /><NumberField id="entry-carbs" label="Carbs" unit="g" value={draft.carbs} onChange={(value) => setDraft({ ...draft, carbs: value })} /><NumberField id="entry-fat" label="Fat" unit="g" value={draft.fat} onChange={(value) => setDraft({ ...draft, fat: value })} /></div>{!entry && <label className="check-row"><input checked={draft.saveAsFood} type="checkbox" onChange={(event) => setDraft({ ...draft, saveAsFood: event.target.checked })} /><span><strong>Save as reusable food</strong><small>Keep these values in your private quick-log library.</small></span></label>}{draft.saveAsFood && !entry && <div className="form-field full"><label htmlFor="entry-serving">Serving label</label><input id="entry-serving" placeholder="1 serving" value={draft.serving} onChange={(event) => setDraft({ ...draft, serving: event.target.value })} /></div>}{error && <p className="form-error" role="alert"><Icon name="info" size={15} />{error}</p>}<div className="modal-actions"><button className="button secondary" type="button" onClick={onClose}>Cancel</button><button className="button primary" type="submit"><Icon name="check" size={16} />{entry ? 'Save changes' : 'Add to diary'}</button></div></form></Modal>
+}
+
+function FoodModal({ food, onClose, onSave }: { food?: Food; onClose: () => void; onSave: (draft: FoodDraft, existing?: Food) => Promise<void> }) {
+  const [draft, setDraft] = useState<FoodDraft>(() => food ? { name: food.name, serving: food.serving, calories: String(food.calories), protein: String(food.protein), carbs: String(food.carbs), fat: String(food.fat) } : emptyFoodDraft)
+  const [error, setError] = useState('')
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!draft.name.trim()) { setError('Give this saved food a name.'); return }
+    if (!draft.calories.trim() || Number(draft.calories) < 0 || !Number.isFinite(Number(draft.calories))) { setError('Add a valid calorie amount.'); return }
+    if ([draft.protein, draft.carbs, draft.fat].some((value) => value.trim() && (Number(value) < 0 || !Number.isFinite(Number(value))))) { setError('Macro amounts must be zero or greater.'); return }
+    await onSave(draft, food)
+  }
+  return <Modal eyebrow={food ? 'Edit saved food' : 'Your library'} title={food ? 'Update food' : 'Create a food'} onClose={onClose}><form className="modal-form" onSubmit={submit}><div className="form-field full"><label htmlFor="food-name">Food name</label><input autoFocus id="food-name" placeholder="e.g. Overnight oats" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></div><div className="form-field full"><label htmlFor="food-serving">Serving label</label><input id="food-serving" placeholder="1 bowl" value={draft.serving} onChange={(event) => setDraft({ ...draft, serving: event.target.value })} /></div><div className="form-field full"><label htmlFor="food-calories">Calories <span>kcal per serving</span></label><input id="food-calories" inputMode="decimal" min="0" placeholder="0" type="number" value={draft.calories} onChange={(event) => setDraft({ ...draft, calories: event.target.value })} /></div><div className="macro-input-grid"><NumberField id="food-protein" label="Protein" unit="g" value={draft.protein} onChange={(value) => setDraft({ ...draft, protein: value })} /><NumberField id="food-carbs" label="Carbs" unit="g" value={draft.carbs} onChange={(value) => setDraft({ ...draft, carbs: value })} /><NumberField id="food-fat" label="Fat" unit="g" value={draft.fat} onChange={(value) => setDraft({ ...draft, fat: value })} /></div>{error && <p className="form-error" role="alert"><Icon name="info" size={15} />{error}</p>}<div className="modal-actions"><button className="button secondary" type="button" onClick={onClose}>Cancel</button><button className="button primary" type="submit"><Icon name="check" size={16} />{food ? 'Save food' : 'Create food'}</button></div></form></Modal>
+}
+
+function WeightModal({ weight, defaultUnit, onClose, onSave }: { weight?: WeightEntry; defaultUnit: 'lb' | 'kg'; onClose: () => void; onSave: (draft: WeightDraft, existing?: WeightEntry) => Promise<void> }) {
+  const [draft, setDraft] = useState<WeightDraft>(() => weight ? { date: weight.date, weight: String(weight.weight), unit: weight.unit, note: weight.note ?? '' } : { ...emptyWeightDraft, unit: defaultUnit })
+  const [error, setError] = useState('')
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!draft.date || !draft.weight || Number(draft.weight) <= 0 || !Number.isFinite(Number(draft.weight))) { setError('Add a valid date and weight.'); return }
+    await onSave(draft, weight)
+  }
+  return <Modal eyebrow={weight ? 'Edit check-in' : 'New check-in'} title="Log weight" onClose={onClose}><form className="modal-form" onSubmit={submit}><div className="form-field full"><label htmlFor="weight-date">Date</label><input id="weight-date" type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} /></div><div className="weight-input-row"><div className="form-field"><label htmlFor="weight-value">Weight</label><input autoFocus inputMode="decimal" id="weight-value" min="0" step="0.1" placeholder="0.0" type="number" value={draft.weight} onChange={(event) => setDraft({ ...draft, weight: event.target.value })} /></div><div className="form-field"><label htmlFor="weight-unit">Unit</label><select id="weight-unit" value={draft.unit} onChange={(event) => setDraft({ ...draft, unit: event.target.value as 'lb' | 'kg' })}><option value="lb">lb</option><option value="kg">kg</option></select></div></div><div className="form-field full"><label htmlFor="weight-note">Note <span>optional</span></label><input id="weight-note" placeholder="e.g. morning check-in" value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} /></div>{error && <p className="form-error" role="alert"><Icon name="info" size={15} />{error}</p>}<div className="modal-actions"><button className="button secondary" type="button" onClick={onClose}>Cancel</button><button className="button primary" type="submit"><Icon name="check" size={16} />Save check-in</button></div></form></Modal>
+}
+
+function NumberField({ id, label, unit, value, onChange }: { id: string; label: string; unit: string; value: string; onChange: (value: string) => void }) {
+  return <div className="form-field"><label htmlFor={id}>{label} <span>{unit}</span></label><input id={id} inputMode="decimal" min="0" step="any" placeholder="0" type="number" value={value} onChange={(event) => onChange(event.target.value)} /></div>
+}
