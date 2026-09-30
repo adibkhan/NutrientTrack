@@ -63,6 +63,16 @@ export const onDatabaseEvent = (listener: (event: DatabaseEvent) => void): (() =
 
 const notify = (event: DatabaseEvent) => databaseListeners.forEach((listener) => listener(event))
 
+const localChangeListeners = new Set<() => void>()
+
+/** Called after any local write that queued a change for sync. Returns an unsubscribe function. */
+export const onLocalChange = (listener: () => void): (() => void) => {
+  localChangeListeners.add(listener)
+  return () => localChangeListeners.delete(listener)
+}
+
+const notifyLocalChange = () => localChangeListeners.forEach((listener) => listener())
+
 let databasePromise: Promise<IDBDatabase> | null = null
 
 const openDatabase = (): Promise<IDBDatabase> => {
@@ -149,6 +159,7 @@ const writeWithChanges = async (storeName: StoreName, work: (store: IDBObjectSto
   completion.catch(() => undefined)
   queueOrAbort(transaction, () => work(transaction.objectStore(storeName), transaction.objectStore('outbox')))
   await completion
+  notifyLocalChange()
 }
 
 const put = <T extends { id: string; updatedAt?: string }>(storeName: StoreName, value: T): Promise<void> =>
@@ -217,9 +228,11 @@ export const importBackup = async (backup: BackupPayload): Promise<void> => {
     transaction.objectStore('weights').clear()
     transaction.objectStore('settings').clear()
     const outbox = transaction.objectStore('outbox')
+    // A restore is a deliberate new change: stamp it now so it wins over newer cloud copies. Record data is untouched.
+    const restoredAt = new Date().toISOString()
     const restore = (store: StoreName, records: Array<{ id: string; updatedAt?: string }>) => records.forEach((record) => {
       transaction.objectStore(store).put(record)
-      outbox.put(changeFor(store, record))
+      outbox.put({ ...changeFor(store, record), clientUpdatedAt: restoredAt })
     })
     restore('entries', backup.entries)
     restore('foods', backup.foods)
@@ -227,6 +240,7 @@ export const importBackup = async (backup: BackupPayload): Promise<void> => {
     restore('settings', backup.settings)
   })
   await completion
+  notifyLocalChange()
 }
 
 /** Clear this browser only, including sync bookkeeping. Never deletes anything from the cloud. */
@@ -267,6 +281,95 @@ export const acknowledgeChanges = async (changes: PendingChange[]): Promise<void
       if (current && current.clientUpdatedAt === change.clientUpdatedAt && current.deleted === change.deleted) outbox.delete(change.key)
     })
   }
+  await completion
+}
+
+const SYNCED_STORES: StoreName[] = ['entries', 'foods', 'weights', 'settings']
+
+/** A change as stored in the cloud (public.sync_records). */
+export interface RemoteChange {
+  store: StoreName
+  id: string
+  data: Record<string, unknown> | null
+  deleted: boolean
+  client_updated_at: string
+  server_updated_at: string
+}
+
+/** Read the current local record behind each pending change (undefined once deleted). */
+export const readChangedRecords = async (changes: PendingChange[]): Promise<Array<Record<string, unknown> | undefined>> => {
+  if (changes.length === 0) return []
+  const database = await openDatabase()
+  const transaction = database.transaction(SYNCED_STORES, 'readonly')
+  return Promise.all(changes.map((change) => requestToPromise(transaction.objectStore(change.store).get(change.id))))
+}
+
+/**
+ * Apply cloud changes locally without queueing them again. Last write wins: a change is skipped when this device
+ * holds a newer unsent change for the same record, and an older unsent change is dropped in favour of the cloud's.
+ * Returns how many records changed.
+ */
+export const applyRemoteChanges = async (changes: RemoteChange[]): Promise<number> => {
+  const usable = changes.filter((change) => SYNCED_STORES.includes(change.store))
+  if (usable.length === 0) return 0
+  const database = await openDatabase()
+  const transaction = database.transaction([...SYNCED_STORES, 'outbox'], 'readwrite')
+  const completion = transactionToPromise(transaction)
+  completion.catch(() => undefined)
+  const outbox = transaction.objectStore('outbox')
+  let applied = 0
+  for (const change of usable) {
+    const key = `${change.store}:${change.id}`
+    const request = outbox.get(key)
+    request.addEventListener('success', () => {
+      const pending = request.result as PendingChange | undefined
+      if (pending && new Date(pending.clientUpdatedAt) >= new Date(change.client_updated_at)) return
+      if (pending) outbox.delete(key)
+      const store = transaction.objectStore(change.store)
+      if (change.deleted || !change.data) store.delete(change.id)
+      else store.put(change.data)
+      applied += 1
+    })
+  }
+  await completion
+  return applied
+}
+
+/** Queue every local record, e.g. when this device first turns on sync with data it logged before. */
+export const queueAllRecords = async (): Promise<void> => {
+  const database = await openDatabase()
+  const transaction = database.transaction([...SYNCED_STORES, 'outbox'], 'readwrite')
+  const completion = transactionToPromise(transaction)
+  completion.catch(() => undefined)
+  const outbox = transaction.objectStore('outbox')
+  for (const storeName of SYNCED_STORES) {
+    const request = transaction.objectStore(storeName).getAll()
+    request.addEventListener('success', () => {
+      for (const record of request.result as Array<{ id: string; updatedAt?: string }>) {
+        const key = `${storeName}:${record.id}`
+        const existing = outbox.get(key)
+        existing.addEventListener('success', () => {
+          if (!existing.result) outbox.put(changeFor(storeName, record))
+        })
+      }
+    })
+  }
+  await completion
+}
+
+export const getMeta = async <T>(key: string): Promise<T | undefined> => {
+  const database = await openDatabase()
+  const row = await requestToPromise(database.transaction('meta', 'readonly').objectStore('meta').get(key)) as { key: string; value: T } | undefined
+  return row?.value
+}
+
+export const setMeta = async (key: string, value: unknown): Promise<void> => {
+  const database = await openDatabase()
+  const transaction = database.transaction('meta', 'readwrite')
+  const completion = transactionToPromise(transaction)
+  completion.catch(() => undefined)
+  if (value === undefined) transaction.objectStore('meta').delete(key)
+  else transaction.objectStore('meta').put({ key, value })
   await completion
 }
 

@@ -6,7 +6,7 @@ The browser-local PWA now includes an offline USDA common-food catalog, search a
 
 ## Promise
 
-A fast, free nutrition and weight journal that works offline, keeps personal records in the user's browser, and makes trends understandable without an account. The interface takes inspiration from Apple Health's readable summaries and MacroFactor's fast logging, while using its own visual design.
+A fast, free nutrition and weight journal that works offline, keeps personal records in the user's browser, and makes trends understandable without an account. Signing in is optional and only adds cloud backup and sync across devices. The interface takes inspiration from Apple Health's readable summaries and MacroFactor's fast logging, while using its own visual design.
 
 **Working assumption:** the first users want to see their intake and weight patterns without a subscription, and accept keeping their data on one browser if backup and restore are straightforward. This needs user testing; competitor feature lists do not prove demand.
 
@@ -45,7 +45,7 @@ Success should be evaluated with real use: whether someone can complete the firs
 
 ## Architecture and trust rules
 
-- No account, application database, or server-side storage of personal nutrition, weight, or medication data in the PWA.
+- Every feature works without an account. Cloud backup and sync (Supabase, decided 2026-09-30) is strictly opt-in: the browser stays the primary copy, the server stores only what a signed-in user syncs, row level security limits each user to their own rows, and nothing is used for analytics, advertising, or sharing. No medication data is synced until the GLP-1 module has had clinical and privacy review.
 - Browser data is tied to the site origin and device. Browser clearing, private browsing, device loss, or storage eviction can remove it. Encourage backups and request persistent storage where supported; never promise backups exist automatically.
 - Treat imported files as untrusted: validate schema and values before replacing local data, and make the replacement explicit.
 - Nutrition guidance must not infer that lower intake is always better. GLP-1 support is a tracking and communication workflow, not medical advice.

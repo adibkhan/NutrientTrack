@@ -9,7 +9,7 @@ import fixtureV1 from './lib/__fixtures__/backup-v1.json'
 vi.mock('./lib/db', () => ({
   deleteEntry: vi.fn(), deleteFood: vi.fn(), deleteWeight: vi.fn(), exportBackup: vi.fn(), clearAllData: vi.fn(),
   getEntries: vi.fn(), getFoods: vi.fn(), getSettings: vi.fn(), getWeights: vi.fn(), importBackup: vi.fn(),
-  requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), saveEntries: vi.fn(), saveEntry: vi.fn(), saveFood: vi.fn(),
+  requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), onLocalChange: vi.fn(() => () => undefined), saveEntries: vi.fn(), saveEntry: vi.fn(), saveFood: vi.fn(),
   saveSettings: vi.fn(), saveWeight: vi.fn(),
 }))
 

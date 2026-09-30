@@ -412,3 +412,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .timeline-hours-toggle { align-self: stretch; }
 }
 .toast-region { position: fixed; right: 0; bottom: 0; width: 0; height: 0; }
+.panel-copy { margin: 0 0 14px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.cloud-form { display: grid; gap: 12px; margin-bottom: 12px; }
+.cloud-panel .privacy-card { margin-bottom: 12px; }
