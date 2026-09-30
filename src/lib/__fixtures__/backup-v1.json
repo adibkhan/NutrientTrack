@@ -1,0 +1,118 @@
+{
+  "format": "nutrienttrack-backup",
+  "version": 1,
+  "exportedAt": "2026-03-15T18:30:00.000Z",
+  "entries": [
+    {
+      "id": "entry-catalog-1",
+      "date": "2026-03-14",
+      "meal": "breakfast",
+      "name": "Oats, rolled, dry",
+      "calories": 389,
+      "protein": 16.9,
+      "carbs": 66.3,
+      "fat": 6.9,
+      "time": "07:45",
+      "grams": 100,
+      "catalogId": "usda-sr-legacy-08120",
+      "catalogSource": "USDA SR Legacy",
+      "createdAt": "2026-03-14T07:46:10.000Z",
+      "updatedAt": "2026-03-14T07:46:10.000Z"
+    },
+    {
+      "id": "entry-manual-1",
+      "date": "2026-03-14",
+      "meal": "lunch",
+      "name": "Office salad",
+      "calories": 420,
+      "protein": 18,
+      "carbs": 30,
+      "fat": 24,
+      "createdAt": "2026-03-14T12:31:00.000Z",
+      "updatedAt": "2026-03-14T12:31:00.000Z"
+    },
+    {
+      "id": "entry-saved-1",
+      "date": "2026-03-15",
+      "meal": "snack",
+      "name": "Greek yogurt",
+      "calories": 130,
+      "protein": 17,
+      "carbs": 6,
+      "fat": 4.5,
+      "foodId": "food-yogurt",
+      "time": "15:20",
+      "sodium": 120,
+      "createdAt": "2026-03-15T15:21:00.000Z",
+      "updatedAt": "2026-03-15T15:40:00.000Z"
+    }
+  ],
+  "foods": [
+    {
+      "id": "food-yogurt",
+      "name": "Greek yogurt",
+      "serving": "170 g cup",
+      "calories": 130,
+      "protein": 17,
+      "carbs": 6,
+      "fat": 4.5,
+      "createdAt": "2026-03-01T09:00:00.000Z",
+      "updatedAt": "2026-03-01T09:00:00.000Z"
+    },
+    {
+      "id": "food-bar",
+      "name": "Protein bar",
+      "serving": "1 bar",
+      "calories": 210,
+      "protein": 20,
+      "carbs": 22,
+      "fat": 7,
+      "createdAt": "2026-03-02T09:00:00.000Z",
+      "updatedAt": "2026-03-05T10:00:00.000Z"
+    }
+  ],
+  "weights": [
+    {
+      "id": "weight-lb-note",
+      "date": "2026-03-10",
+      "weight": 182.4,
+      "unit": "lb",
+      "note": "morning, after run",
+      "createdAt": "2026-03-10T06:55:00.000Z"
+    },
+    {
+      "id": "weight-lb-plain",
+      "date": "2026-03-12",
+      "weight": 181.8,
+      "unit": "lb",
+      "createdAt": "2026-03-12T06:50:00.000Z"
+    },
+    {
+      "id": "weight-kg-note",
+      "date": "2026-03-14",
+      "weight": 82.5,
+      "unit": "kg",
+      "note": "travelling",
+      "createdAt": "2026-03-14T07:05:00.000Z"
+    },
+    {
+      "id": "weight-kg-plain",
+      "date": "2026-03-15",
+      "weight": 82.3,
+      "unit": "kg",
+      "createdAt": "2026-03-15T07:00:00.000Z"
+    }
+  ],
+  "settings": [
+    {
+      "id": "profile",
+      "goals": {
+        "calories": 2200,
+        "protein": 140,
+        "weightUnit": "kg"
+      },
+      "theme": "dark",
+      "updatedAt": "2026-03-01T09:30:00.000Z"
+    }
+  ]
+}

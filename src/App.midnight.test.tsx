@@ -15,7 +15,7 @@ vi.mock('./lib/db', () => ({
   getSettings: vi.fn(),
   getWeights: vi.fn(),
   importBackup: vi.fn(),
-  requestPersistentStorage: vi.fn(),
+  requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined),
   saveEntries: vi.fn(),
   saveEntry: vi.fn(),
   saveFood: vi.fn(),

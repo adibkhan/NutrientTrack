@@ -1,10 +1,39 @@
 import type { BackupPayload, DiaryEntry, Goals, MealCategory, Settings, WeightEntry } from '../types'
 import { isoFromDate } from './utils'
 
+/** Current backup format. Bump it only together with a new BACKUP_MIGRATIONS step and a fixture test. */
+export const BACKUP_VERSION = 1
+
+type BackupRecord = Record<string, unknown>
+
+/**
+ * Step N upgrades a version N backup to version N + 1. Never edit or remove a shipped step, so a file
+ * exported by any earlier release still restores.
+ */
+const BACKUP_MIGRATIONS: Array<(backup: BackupRecord) => BackupRecord> = []
+
+export type BackupReadResult =
+  | { ok: true; backup: BackupPayload }
+  | { ok: false; reason: 'invalid' | 'newer' }
+
+/** Check an imported file, upgrading older backup versions to the current one before validating. */
+export const readBackup = (value: unknown): BackupReadResult => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { ok: false, reason: 'invalid' }
+  const candidate = value as BackupRecord
+  const version = candidate.version
+  if (candidate.format !== 'nutrienttrack-backup' || typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
+    return { ok: false, reason: 'invalid' }
+  }
+  if (version > BACKUP_VERSION) return { ok: false, reason: 'newer' }
+  let upgraded = candidate
+  for (let from = version; from < BACKUP_VERSION; from += 1) upgraded = { ...BACKUP_MIGRATIONS[from - 1](upgraded), version: from + 1 }
+  return validateBackup(upgraded) ? { ok: true, backup: upgraded } : { ok: false, reason: 'invalid' }
+}
+
 export const validateBackup = (value: unknown): value is BackupPayload => {
   if (!value || typeof value !== 'object') return false
   const candidate = value as Partial<BackupPayload>
-  if (candidate.format !== 'nutrienttrack-backup' || candidate.version !== 1) return false
+  if (candidate.format !== 'nutrienttrack-backup' || candidate.version !== BACKUP_VERSION) return false
   if (!Array.isArray(candidate.entries) || !Array.isArray(candidate.foods) || !Array.isArray(candidate.weights) || !Array.isArray(candidate.settings)) return false
   const isISODate = (value: unknown) => {
     if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false

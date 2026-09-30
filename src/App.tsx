@@ -23,6 +23,7 @@ import {
   deleteWeight,
   exportBackup,
   getEntries,
+  onDatabaseEvent,
   getFoods,
   getSettings,
   getWeights,
@@ -50,7 +51,7 @@ import {
 } from './lib/utils'
 import { Icon, type IconName } from './components/Icon'
 import { Modal } from './components/Modal'
-import { validateBackup } from './lib/backup'
+import { readBackup } from './lib/backup'
 import NutritionInsights from './components/NutritionInsights'
 import './styles.css'
 
@@ -118,6 +119,9 @@ const emptyEntryDraft: EntryDraft = {
   saveAsFood: false,
   serving: '1 serving',
 }
+
+/** Optional entry fields the entry form owns: cleared on save when the form leaves them empty. */
+const ENTRY_FORM_OPTIONAL_KEYS = ['foodId', 'catalogId', 'catalogSource', 'grams', 'time'] as const
 
 const emptyFoodDraft: FoodDraft = {
   name: '',
@@ -223,6 +227,16 @@ export default function App() {
   }, [refresh])
 
   useEffect(() => {
+    const unsubscribe = onDatabaseEvent((event) => setToast({
+      tone: 'error',
+      message: event === 'blocked'
+        ? 'NutrientTrack is updating. Close its other open tabs to finish.'
+        : 'NutrientTrack was updated in another tab. Reload this page to keep saving.',
+    }))
+    return () => { unsubscribe() }
+  }, [])
+
+  useEffect(() => {
     // A long-lived installed app can stay open across midnight; move "today" forward, and follow it only if the user was viewing it.
     const syncToday = () => {
       const next = todayISO()
@@ -278,7 +292,7 @@ export default function App() {
 
   const saveEntryDraft = async (draft: EntryDraft, existing?: DiaryEntry, food?: Food) => {
     const timestamp = nowISO()
-    const entry: DiaryEntry = {
+    const fromForm: DiaryEntry = {
       id: existing?.id ?? newId(),
       date: draft.date || existing?.date || selectedDate,
       meal: draft.meal,
@@ -295,7 +309,9 @@ export default function App() {
       createdAt: existing?.createdAt ?? timestamp,
       updatedAt: timestamp,
     }
-    if (existing && !draft.time.trim()) delete entry.time
+    // Start from the stored record so fields this form does not know about (added by other versions) survive an edit.
+    const entry: DiaryEntry = { ...existing, ...fromForm }
+    for (const key of ENTRY_FORM_OPTIONAL_KEYS) if (!(key in fromForm)) delete entry[key]
     try {
       await saveEntry(entry)
     } catch {
@@ -393,6 +409,7 @@ export default function App() {
     const timestamp = nowISO()
     try {
       await saveFood({
+        ...existing,
         id: existing?.id ?? newId(),
         name: draft.name.trim(),
         serving: draft.serving.trim() || '1 serving',
@@ -425,15 +442,18 @@ export default function App() {
     const timestamp = nowISO()
     const weight = Number(draft.weight)
     if (!draft.date || !Number.isFinite(weight) || weight <= 0) return
+    const next: WeightEntry = {
+      ...existing,
+      id: existing?.id ?? newId(),
+      date: draft.date,
+      weight,
+      unit: draft.unit,
+      ...(draft.note.trim() ? { note: draft.note.trim() } : {}),
+      createdAt: existing?.createdAt ?? timestamp,
+    }
+    if (!draft.note.trim()) delete next.note
     try {
-      await saveWeight({
-        id: existing?.id ?? newId(),
-        date: draft.date,
-        weight,
-        unit: draft.unit,
-        ...(draft.note.trim() ? { note: draft.note.trim() } : {}),
-        createdAt: existing?.createdAt ?? timestamp,
-      })
+      await saveWeight(next)
     } catch {
       announce('That weight could not be saved. Try again.', 'error')
       return
@@ -453,7 +473,7 @@ export default function App() {
   }
 
   const updateGoals = async (nextGoals: Goals) => {
-    const nextSettings: Settings = { id: 'profile', goals: nextGoals, updatedAt: nowISO() }
+    const nextSettings: Settings = { ...settings, id: 'profile', goals: { ...settings?.goals, ...nextGoals }, updatedAt: nowISO() }
     await attempt('Goals could not be saved. Try again.', async () => {
       await saveSettings(nextSettings)
       setSettings(nextSettings)
@@ -490,12 +510,15 @@ export default function App() {
     if (!file) return
     try {
       const parsed: unknown = JSON.parse(await file.text())
-      if (!validateBackup(parsed)) {
-        announce('That file is not a valid NutrientTrack backup.', 'error')
+      const result = readBackup(parsed)
+      if (!result.ok) {
+        announce(result.reason === 'newer'
+          ? 'This backup was made by a newer version of NutrientTrack. Reload the app to update, then try again.'
+          : 'That file is not a valid NutrientTrack backup.', 'error')
         return
       }
       if (!window.confirm('Restore this backup? It will replace the entries, foods, weight logs, and goals currently stored in this browser.')) return
-      await importBackup(parsed)
+      await importBackup(result.backup)
       setBackupInitiatedAt(undefined)
       try {
         localStorage.removeItem(BACKUP_INITIATED_KEY)
