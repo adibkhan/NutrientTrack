@@ -20,16 +20,21 @@ const pageAssetUrls = (html) => {
   return [...new Set(assets)]
 }
 
+// Vite build files carry a content hash in their name, so a cached copy never goes stale.
+const isHashedAsset = (url) => new URL(url).pathname.startsWith(new URL('./assets/', scopeUrl()).pathname)
+
 const cachePageAndAssets = async (cache, response) => {
   const html = await response.clone().text()
   const assetUrls = pageAssetUrls(html)
-  const assetResponses = await Promise.all(assetUrls.map((url) => fetch(url, { cache: 'no-store' })))
+  const cached = await Promise.all(assetUrls.map((url) => (isHashedAsset(url) ? cache.match(url) : undefined)))
+  const missingUrls = assetUrls.filter((_, index) => !cached[index])
+  const assetResponses = await Promise.all(missingUrls.map((url) => fetch(url, { cache: 'no-store' })))
   if (assetResponses.some((assetResponse) => !assetResponse.ok)) throw new Error('A page asset could not be cached.')
 
   const indexUrl = absoluteUrl('./index.html')
   await cache.put(indexUrl, response.clone())
   await cache.put(absoluteUrl('./'), response.clone())
-  await Promise.all(assetUrls.map((url, index) => cache.put(url, assetResponses[index].clone())))
+  await Promise.all(missingUrls.map((url, index) => cache.put(url, assetResponses[index].clone())))
 }
 
 self.addEventListener('install', (event) => {
@@ -58,11 +63,17 @@ self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
-        .then(async (response) => {
-          try {
-            await cachePageAndAssets(await caches.open(CACHE_NAME), response.clone())
-          } catch {
-            // Keep the last known-good HTML and matching assets when an update is incomplete.
+        .then((response) => {
+          // Show the page now; refresh the offline copy in the background.
+          if (response.ok) {
+            const copy = response.clone()
+            event.waitUntil(
+              caches.open(CACHE_NAME)
+                .then((cache) => cachePageAndAssets(cache, copy))
+                .catch(() => {
+                  // Keep the last known-good HTML and matching assets when an update is incomplete.
+                }),
+            )
           }
           return response
         })
@@ -79,7 +90,7 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response.ok && new URL(event.request.url).origin === self.location.origin) {
             const copy = response.clone()
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request.url, copy))
+            event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(event.request.url, copy)).catch(() => undefined))
           }
           return response
         })
