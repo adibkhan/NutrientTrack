@@ -1,4 +1,4 @@
-import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react'
 import { Icon } from './Icon'
 
 interface ModalProps {
@@ -6,17 +6,20 @@ interface ModalProps {
   eyebrow?: string
   children: ReactNode
   onClose: () => void
+  closeOnBackdrop?: boolean
 }
 
-export function Modal({ title, eyebrow, children, onClose }: ModalProps) {
+export function Modal({ title, eyebrow, children, onClose, closeOnBackdrop = true }: ModalProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const modalRef = useRef<HTMLElement>(null)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
+  // Captured during render, before any child autoFocus runs, so it is the element that opened the dialog.
+  const [trigger] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null))
+
   useEffect(() => {
-    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    closeButtonRef.current?.focus()
+    if (!modalRef.current?.contains(document.activeElement)) closeButtonRef.current?.focus()
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onCloseRef.current()
     }
@@ -25,7 +28,7 @@ export function Modal({ title, eyebrow, children, onClose }: ModalProps) {
       window.removeEventListener('keydown', handleKey)
       trigger?.focus()
     }
-  }, [])
+  }, [trigger])
 
   const trapFocus = (event: ReactKeyboardEvent<HTMLElement>) => {
     if (event.key !== 'Tab') return
@@ -47,7 +50,7 @@ export function Modal({ title, eyebrow, children, onClose }: ModalProps) {
   }
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => closeOnBackdrop && event.target === event.currentTarget && onClose()}>
       <section ref={modalRef} aria-modal="true" className="modal" role="dialog" aria-labelledby="modal-title" onKeyDown={trapFocus}>
         <div className="modal-header">
           <div>
