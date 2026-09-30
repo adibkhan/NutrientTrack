@@ -34,14 +34,13 @@ import {
   saveSettings,
   saveWeight,
 } from './lib/db'
-import type { BackupPayload, DiaryEntry, Food, Goals, MealCategory, Settings, View, WeightEntry } from './types'
+import type { DiaryEntry, Food, Goals, MealCategory, Settings, View, WeightEntry } from './types'
 import {
   clampPercent,
   formatDateLabel,
   formatInputNumber,
   formatNumber,
   formatShortDate,
-  isoFromDate,
   isDateToday,
   newId,
   nowISO,
@@ -51,6 +50,7 @@ import {
 } from './lib/utils'
 import { Icon, type IconName } from './components/Icon'
 import { Modal } from './components/Modal'
+import { validateBackup } from './lib/backup'
 import NutritionInsights from './components/NutritionInsights'
 import './styles.css'
 
@@ -484,57 +484,6 @@ export default function App() {
     }
   }
 
-  const validateBackup = (value: unknown): value is BackupPayload => {
-    if (!value || typeof value !== 'object') return false
-    const candidate = value as Partial<BackupPayload>
-    if (candidate.format !== 'nutrienttrack-backup' || candidate.version !== 1) return false
-    if (!Array.isArray(candidate.entries) || !Array.isArray(candidate.foods) || !Array.isArray(candidate.weights) || !Array.isArray(candidate.settings)) return false
-    const isISODate = (value: unknown) => {
-      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
-      const parsed = new Date(`${value}T12:00:00`)
-      return !Number.isNaN(parsed.getTime()) && isoFromDate(parsed) === value
-    }
-    const isNonNegativeNumber = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0
-    const isOptionalNonNegativeNumber = (item: unknown, key: string) => {
-      const value = item && typeof item === 'object' ? (item as Record<string, unknown>)[key] : undefined
-      return value === undefined || isNonNegativeNumber(value)
-    }
-    const isOptionalIdentifier = (item: unknown, key: string) => {
-      const value = item && typeof item === 'object' ? (item as Record<string, unknown>)[key] : undefined
-      return value === undefined || (typeof value === 'string' && value.trim().length > 0)
-    }
-    const isOptionalCatalogSource = (item: unknown) => {
-      const value = item && typeof item === 'object' ? (item as Record<string, unknown>).catalogSource : undefined
-      return value === undefined || value === 'USDA SR Legacy' || value === 'USDA Foundation'
-    }
-    const isOptionalTime = (item: unknown) => {
-      const value = item && typeof item === 'object' ? (item as Record<string, unknown>).time : undefined
-      return value === undefined || (typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value))
-    }
-    const hasStrings = (item: unknown, keys: string[]) =>
-      Boolean(item && typeof item === 'object' && keys.every((key) => typeof (item as Record<string, unknown>)[key] === 'string'))
-    const hasNumbers = (item: unknown, keys: string[]) =>
-      Boolean(item && typeof item === 'object' && keys.every((key) => isNonNegativeNumber((item as Record<string, unknown>)[key])))
-    const validMeal = (value: unknown): value is MealCategory => ['breakfast', 'lunch', 'dinner', 'snack', 'other'].includes(String(value))
-    const validUnit = (value: unknown): value is 'lb' | 'kg' => value === 'lb' || value === 'kg'
-    const validGoals = (value: unknown) => {
-      if (!value || typeof value !== 'object' || !validUnit((value as Goals).weightUnit)) return false
-      return ['calories', 'protein', 'carbs', 'fat'].every((key) => {
-        const goal = (value as Record<string, unknown>)[key]
-        return goal === undefined || isNonNegativeNumber(goal)
-      })
-    }
-    const hasUniqueIds = (items: unknown[]) => {
-      const ids = items.map((item) => (item && typeof item === 'object' ? (item as Record<string, unknown>).id : undefined))
-      return ids.every((id): id is string => typeof id === 'string' && id.trim().length > 0) && new Set(ids).size === ids.length
-    }
-    return hasUniqueIds(candidate.entries) && hasUniqueIds(candidate.foods) && hasUniqueIds(candidate.weights) && hasUniqueIds(candidate.settings) &&
-      candidate.entries.every((item) => hasStrings(item, ['id', 'date', 'name', 'createdAt', 'updatedAt']) && isISODate((item as DiaryEntry).date) && validMeal((item as DiaryEntry).meal) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat']) && isOptionalTime(item) && isOptionalNonNegativeNumber(item, 'grams') && isOptionalIdentifier(item, 'foodId') && isOptionalIdentifier(item, 'catalogId') && isOptionalCatalogSource(item)) &&
-      candidate.foods.every((item) => hasStrings(item, ['id', 'name', 'serving', 'createdAt', 'updatedAt']) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat'])) &&
-      candidate.weights.every((item) => hasStrings(item, ['id', 'date', 'unit', 'createdAt']) && isISODate((item as WeightEntry).date) && validUnit((item as WeightEntry).unit) && Number.isFinite((item as WeightEntry).weight) && (item as WeightEntry).weight > 0) &&
-      candidate.settings.length <= 1 && candidate.settings.every((item) => hasStrings(item, ['id', 'updatedAt']) && (item as Settings).id === 'profile' && validGoals((item as Settings).goals))
-  }
-
   const importFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
@@ -562,21 +511,25 @@ export default function App() {
 
   const clearLocalData = async () => {
     if (!window.confirm('Clear all NutrientTrack data from this browser? This cannot be undone unless you have a backup.')) return
-    await clearAllData()
-    setBackupInitiatedAt(undefined)
-    try {
-      localStorage.removeItem(BACKUP_INITIATED_KEY)
-    } catch {
-      // The local status cue can still be cleared for this session.
-    }
-    await refresh()
-    announce('Local data cleared.')
+    await attempt('Local data could not be cleared. Nothing was removed.', async () => {
+      await clearAllData()
+      setBackupInitiatedAt(undefined)
+      try {
+        localStorage.removeItem(BACKUP_INITIATED_KEY)
+      } catch {
+        // The local status cue can still be cleared for this session.
+      }
+      await refresh()
+      announce('Local data cleared.')
+    })
   }
 
   const requestPersistence = async () => {
-    const persisted = await requestPersistentStorage()
-    setPersistentStatus(persisted ? 'granted' : 'available')
-    announce(persisted ? 'This browser will try to keep local data available.' : 'The browser did not grant persistent storage.')
+    await attempt('The browser could not be asked for persistent storage.', async () => {
+      const persisted = await requestPersistentStorage()
+      setPersistentStatus(persisted ? 'granted' : 'available')
+      announce(persisted ? 'This browser will try to keep local data available.' : 'The browser did not grant persistent storage.')
+    })
   }
 
   if (loading) return <LoadingShell />
@@ -868,15 +821,27 @@ interface TrendsViewProps {
   onDelete: (weight: WeightEntry) => void
 }
 
+type WeightRange = 7 | 30 | 90 | 'all'
+
+const weightRanges: Array<{ value: WeightRange; label: string }> = [
+  { value: 7, label: '7d' },
+  { value: 30, label: '30d' },
+  { value: 90, label: '90d' },
+  { value: 'all', label: 'All' },
+]
+
 function TrendsView({ entries, goals, weights, unit, onAdd, onEdit, onDelete }: TrendsViewProps) {
   const unitEntries = weights
     .map((entry) => ({ ...entry, weight: convertWeight(entry.weight, entry.unit, unit), unit }))
     .sort((a, b) => a.date.localeCompare(b.date))
-  const [range, setRange] = useState<7 | 30>(30)
+  const [range, setRange] = useState<WeightRange>(30)
   const endDate = todayISO()
-  const startDate = shiftDate(endDate, -(range - 1))
+  const firstDate = unitEntries[0]?.date
+  const startDate = range === 'all'
+    ? (firstDate && firstDate < endDate ? firstDate : endDate)
+    : shiftDate(endDate, -(range - 1))
   const recent = unitEntries.filter((entry) => entry.date >= startDate && entry.date <= endDate)
-  return <div className="page"><div className="page-intro"><div><p className="eyebrow">A longer view</p><h2>Your trends</h2><p className="page-description">Small, consistent check-ins are enough to see your direction over time.</p></div><button className="button primary compact" type="button" onClick={onAdd}><Icon name="plus" size={17} />Log weight</button></div><NutritionInsights entries={entries} goals={goals} /><section className="panel trend-panel"><div className="panel-header"><div><p className="eyebrow">Weight</p><h2>Last {range} days</h2></div><div className="trend-controls"><div className="range-toggle" role="group" aria-label="Trend range"><button className={range === 7 ? 'active' : ''} type="button" onClick={() => setRange(7)}>7d</button><button className={range === 30 ? 'active' : ''} type="button" onClick={() => setRange(30)}>30d</button></div><span className="unit-chip">{unit}</span></div></div>{recent.length < 2 ? <div className="empty-state compact-empty"><span className="empty-orb"><Icon name="scale" size={21} /></span><h3>{recent.length === 0 ? 'No weight entries in this window.' : 'Add one more check-in.'}</h3><p>{recent.length === 0 ? 'Your first entry will start a truthful trend line.' : 'A line appears after two entries. Days without a check-in stay unplotted.'}</p><button className="button secondary" type="button" onClick={onAdd}><Icon name="plus" size={16} />Log weight</button></div> : <TrendChart entries={recent} unit={unit} startDate={startDate} endDate={endDate} />}</section><section className="panel weight-list-panel"><div className="panel-header"><div><p className="eyebrow">Check-ins</p><h2>Weight log</h2></div><span className="summary-badge">{weights.length} {weights.length === 1 ? 'entry' : 'entries'}</span></div>{weights.length === 0 ? <p className="muted-footnote">Your weight entries will appear here with their date and unit.</p> : <div className="weight-list">{weights.slice().reverse().map((weight) => <div className="weight-row" key={weight.id}><span className="weight-date">{formatShortDate(weight.date)}</span><strong>{formatNumber(weight.weight, 1)} <small>{weight.unit}</small></strong>{weight.note && <span className="weight-note">{weight.note}</span>}<div className="row-actions"><button className="icon-button quiet" type="button" aria-label={`Edit weight from ${formatShortDate(weight.date)}`} onClick={() => onEdit(weight)}><Icon name="edit" size={16} /></button><button className="icon-button quiet danger-hover" type="button" aria-label={`Delete weight from ${formatShortDate(weight.date)}`} onClick={() => onDelete(weight)}><Icon name="trash" size={16} /></button></div></div>)}</div>}</section></div>
+  return <div className="page"><div className="page-intro"><div><p className="eyebrow">A longer view</p><h2>Your trends</h2><p className="page-description">Small, consistent check-ins are enough to see your direction over time.</p></div><button className="button primary compact" type="button" onClick={onAdd}><Icon name="plus" size={17} />Log weight</button></div><NutritionInsights entries={entries} goals={goals} /><section className="panel trend-panel"><div className="panel-header"><div><p className="eyebrow">Weight</p><h2>{range === 'all' ? 'All time' : `Last ${range} days`}</h2></div><div className="trend-controls"><div className="range-toggle" role="group" aria-label="Trend range">{weightRanges.map((option) => <button aria-pressed={range === option.value} className={range === option.value ? 'active' : ''} key={option.label} type="button" onClick={() => setRange(option.value)}>{option.label}</button>)}</div><span className="unit-chip">{unit}</span></div></div>{recent.length < 2 ? <div className="empty-state compact-empty"><span className="empty-orb"><Icon name="scale" size={21} /></span><h3>{recent.length === 0 ? 'No weight entries in this window.' : 'Add one more check-in.'}</h3><p>{recent.length === 0 ? 'Your first entry will start a truthful trend line.' : 'A line appears after two entries. Days without a check-in stay unplotted.'}</p><button className="button secondary" type="button" onClick={onAdd}><Icon name="plus" size={16} />Log weight</button></div> : <TrendChart entries={recent} unit={unit} startDate={startDate} endDate={endDate} />}</section><section className="panel weight-list-panel"><div className="panel-header"><div><p className="eyebrow">Check-ins</p><h2>Weight log</h2></div><span className="summary-badge">{weights.length} {weights.length === 1 ? 'entry' : 'entries'}</span></div>{weights.length === 0 ? <p className="muted-footnote">Your weight entries will appear here with their date and unit.</p> : <div className="weight-list">{weights.slice().reverse().map((weight) => <div className="weight-row" key={weight.id}><span className="weight-date">{formatShortDate(weight.date)}</span><strong>{formatNumber(weight.weight, 1)} <small>{weight.unit}</small></strong>{weight.note && <span className="weight-note">{weight.note}</span>}<div className="row-actions"><button className="icon-button quiet" type="button" aria-label={`Edit weight from ${formatShortDate(weight.date)}`} onClick={() => onEdit(weight)}><Icon name="edit" size={16} /></button><button className="icon-button quiet danger-hover" type="button" aria-label={`Delete weight from ${formatShortDate(weight.date)}`} onClick={() => onDelete(weight)}><Icon name="trash" size={16} /></button></div></div>)}</div>}</section></div>
 }
 
 function TrendChart({ entries, unit, startDate, endDate }: { entries: WeightEntry[]; unit: 'lb' | 'kg'; startDate: string; endDate: string }) {
