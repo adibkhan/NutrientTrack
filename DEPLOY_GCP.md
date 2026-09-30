@@ -9,7 +9,7 @@ docker build -t nutrienttrack:local .
 docker run --rm -p 8080:8080 -e PORT=8080 nutrienttrack:local
 ```
 
-Open `http://localhost:8080/` and check `http://localhost:8080/healthz`. The latter should return `ok`. The app remains installable and can cache its shell and catalog after its first successful visit.
+Open `http://localhost:8080/` and check `http://localhost:8080/health`. The latter should return `ok`. (Cloud Run reserves paths ending in `z`, such as `/healthz`, so the health check uses `/health`.) The app remains installable and can cache its shell and catalog after its first successful visit.
 
 ## Deploy from this folder
 
