@@ -57,9 +57,9 @@ jobs:
       - name: Smoke-test live site
         run: |
           URL=$(gcloud run services describe $SERVICE --region=$REGION --project=$PROJECT_ID --format='value(status.url)')
-          for path in / /healthz /sw.js /manifest.webmanifest /data/usda-common-v1.json; do
+          for path in / /health /sw.js /manifest.webmanifest /data/usda-common-v1.json; do
             code=$(curl -A "nutrienttrack-deploy-smoke/1.0" -s -o /dev/null -w "%{http_code}" -L "$URL$path")
             [ "$code" = "200" ] || { echo "::error::$path returned $code"; exit 1; }
           done
-          [ "$(curl -s "$URL/healthz")" = "ok" ] || { echo "::error::/healthz body is not ok"; exit 1; }
+          [ "$(curl -s "$URL/health")" = "ok" ] || { echo "::error::/health body is not ok"; exit 1; }
           echo "::notice::Live at $URL"
