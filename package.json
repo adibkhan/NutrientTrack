@@ -9,7 +9,9 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:test": "node scripts/db-test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -27,6 +29,7 @@
     "@testing-library/user-event": "^14.6.7",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^30.1.1",
+    "pg": "^8.23.1",
     "vitest": "^5.0.2"
   }
 }
