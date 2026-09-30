@@ -2,7 +2,7 @@
 
 ## Current implementation
 
-The browser-local PWA now includes an offline USDA common-food catalog, search as you type, gram-based portion preview, saved and recent foods, meal-grouped daily logging, a 24-hour timeline, drag movement between meals or hours, editable local timestamps, weight records, basic trends, goals, and JSON backup/restore. [REFERENCE_FEATURES.md](REFERENCE_FEATURES.md) tracks each major reference capability; [FEATURE_PARITY.md](FEATURE_PARITY.md) records the design review. The current catalog does not yet provide packaged-food lookup or micronutrients.
+The browser-local PWA now includes an offline USDA common-food catalog, search as you type with recent and saved results, gram-based portion preview, meal-grouped daily logging, repeat-previous-meal actions, a compact or full 24-hour timeline, drag movement between meals or hours, editable local timestamps, weight records, coverage-aware energy and protein trends, goals, and JSON backup/restore. [REFERENCE_FEATURES.md](REFERENCE_FEATURES.md) tracks each major reference capability; [FEATURE_PARITY.md](FEATURE_PARITY.md) records the design review. The current catalog does not yet provide packaged-food lookup or micronutrients.
 
 ## Promise
 
@@ -21,7 +21,7 @@ Success should be evaluated with real use: whether someone can complete the firs
 ### Now: trustworthy local journal
 
 - Daily meal entries, quick add, reusable custom foods, editable calorie and macro targets.
-- Weight records and transparent trends; missing days stay missing rather than being presented as zero intake.
+- Weight records and transparent energy/protein trends; missing days stay missing rather than being presented as zero intake. Logged-day averages show coverage and acknowledge that a logged day can be partial.
 - IndexedDB persistence, installable and offline app shell, explicit JSON backup and restore.
 - Accessible responsive screens, clear empty and error states.
 

@@ -32,6 +32,12 @@ export const loadCatalog = (): Promise<CatalogFood[]> => {
   return catalogPromise
 }
 
+/** Find the original catalog record for a previously logged snapshot. */
+export const findCatalogFood = async (id: string, source?: CatalogFood['source']): Promise<CatalogFood | undefined> => {
+  const catalog = await loadCatalog()
+  return catalog.find((food) => food.id === id && (!source || food.source === source))
+}
+
 type SearchRecord = {
   food: CatalogFood
   name: string

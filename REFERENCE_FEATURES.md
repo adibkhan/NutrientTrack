@@ -9,7 +9,7 @@ Updated 2026-09-29. This is a source-backed audit of major user-visible capabili
 | Capability | Reference | Status | Priority and completion gate |
 | --- | --- | --- | --- |
 | Search food as you type | MF, MFP | **Partial** — 7,793 offline USDA common foods | P0 — branded/regional coverage, source shown |
-| Recent foods and remembered servings | MF, MFP | **Partial** — recent/saved results; amount not learned | P0 — one-tap repeat with remembered portion |
+| Recent foods and remembered servings | MF, MFP | **Partial** — recent/saved search results, recent catalog grams recalled | P0 — preserve serving units beyond grams |
 | Favorite/custom foods | MF, MFP | **Ready** — private saved foods | P0 — maintain edit/delete/quick log |
 | Branded packaged foods | MF, MFP | **Gap** | P0 — licensed, verified product data |
 | Barcode lookup | MF, MFP | **Gap** | P0 — camera/manual code, missing-item fallback |
@@ -36,11 +36,11 @@ Updated 2026-09-29. This is a source-backed audit of major user-visible capabili
 | Move to another hour | MF | **Ready** — mouse/touch drag and dialog | P0 — preserve meal and nutrition |
 | Move to another date | MF | **Ready** via dialog | P0 — preserve nutrition and amount |
 | Edit amount/nutrition/date/time; delete | MF, MFP | **Ready** | P0 — visible controls, destructive confirmation |
-| Copy/paste food, meal, or day | MF | **Gap** | P0 — explicit destination, avoid duplicates |
+| Copy/paste food, meal, or day | MF | **Partial** — repeat latest earlier meal into selected date with duplicate confirmation | P0 — individual food/day copy and destination chooser |
 | Multi-day logging | MFP | **Gap** | P1 — explicit dates and duplicate prevention |
 | Multi-select batch actions | MF | **Gap** | P1 — move/copy/delete selected foods |
 | Custom meal names/count | MFP | **Gap** | P1 — preserve logs when renamed |
-| Timeline hour range/density | MF | **Gap** | P1 — saved local preference, all hours reachable |
+| Timeline hour range/density | MF | **Partial** — compact occupied hours or all 24 hours | P1 — save a local preference and customize range |
 | Hide/show timestamps, details, empty hours | MF | **Gap** | P1 — do not hide needed destinations |
 | Daily notes | MF | **Gap** | P1 — included in backup |
 | Daily calorie/macro progress | MF, MFP | **Ready** | P0 — truthful empty/goal states |
@@ -61,12 +61,12 @@ Updated 2026-09-29. This is a source-backed audit of major user-visible capabili
 | Micronutrients, fiber, sodium, vitamins | MF, MFP | **Gap** | P1 — complete food data, units, source |
 | Custom nutrient dashboard/targets | MF, MFP | **Gap** | P1 — selected measures, missing data visible |
 | Top nutrient food sources | MF | **Gap** | P1 — tied to logged foods |
-| Daily/weekly/monthly averages | MF, MFP | **Gap** | P1 — unlogged ≠ zero intake |
+| Daily/weekly/monthly averages | MF, MFP | **Partial** — energy/protein logged-day averages in 7/30-day views | P1 — more nutrients and period summaries |
 | Nutrient timing insights | MF, MFP | **Gap** | P2 — enough timestamps, clear calculation |
 | Fasting windows | MFP | **Gap** | P2 — optional, no inferred advice |
 | Weight entries and chart | MF, MFP, Health | **Partial** — 7/30-day weight chart | P0 — longer ranges and data table |
 | Smoothed weight trend | MF | **Gap** | P1 — documented algorithm |
-| Nutrition/weight habits and highlights | MF, MFP, Health | **Gap** | P1 — truthful trend summaries |
+| Nutrition/weight habits and highlights | MF, MFP, Health | **Partial** — energy/protein history with coverage and weight trend | P1 — cautious personalized highlights |
 | Body measurements/progress photos | MF, Health | **Gap** | P2 — private storage and export |
 
 ## Health and adjacent tracking
@@ -79,7 +79,7 @@ Updated 2026-09-29. This is a source-backed audit of major user-visible capabili
 | Medication log/reminders | Health | **Gap** | P2 — clinical/safety review, no dosing advice |
 | GLP-1 tolerance, symptoms, hydration | NutrientTrack direction | **Gap** | P2 — optional journal and clinical review |
 | Pinned health summary/highlights | Health | **Partial** — nutrition/weight cards | P1 — user-selected cards |
-| Weekly/monthly/yearly health views | Health | **Partial** — weight 7/30 days only | P1 — consistent scales and detail |
+| Weekly/monthly/yearly health views | Health | **Partial** — energy/protein and weight in 7/30-day views | P1 — longer ranges and more measures |
 | Health records/provider data | Health | **Native** | P2 — consent and standards path |
 | Apple Health/HealthKit sync | MF, MFP, Health | **Native** | P1 — iOS companion or file import |
 | Android Health Connect sync | MF, MFP | **Native** | P1 — Android companion/permissions |

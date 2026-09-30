@@ -79,6 +79,16 @@ export const getSettings = async (): Promise<Settings | undefined> => {
 }
 
 export const saveEntry = (entry: DiaryEntry): Promise<void> => put('entries', entry)
+/** Persist a group of diary entries in one transaction so a repeated meal is all-or-nothing. */
+export const saveEntries = async (entries: DiaryEntry[]): Promise<void> => {
+  if (entries.length === 0) return
+  const database = await openDatabase()
+  const transaction = database.transaction('entries', 'readwrite')
+  const completion = transactionToPromise(transaction)
+  const store = transaction.objectStore('entries')
+  entries.forEach((entry) => store.put(entry))
+  await completion
+}
 export const deleteEntry = (id: string): Promise<void> => remove('entries', id)
 export const saveFood = (food: Food): Promise<void> => put('foods', food)
 export const deleteFood = (id: string): Promise<void> => remove('foods', id)
