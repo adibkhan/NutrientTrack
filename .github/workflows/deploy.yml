@@ -1,0 +1,65 @@
+name: test-and-deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  PROJECT_ID: prisential-prod
+  REGION: us-central1
+  SERVICE: nutrienttrack
+  REPO: web
+  WIF_PROVIDER: projects/433065418998/locations/global/workloadIdentityPools/github/providers/nutrienttrack
+  WIF_SERVICE_ACCOUNT: deploy-nutrienttrack@prisential-prod.iam.gserviceaccount.com
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
+      - name: Build and deploy
+        run: |
+          gcloud builds submit --config cloudbuild.yaml \
+            --substitutions=_REGION=$REGION,_REPO=$REPO,_SERVICE=$SERVICE,_SHA=${{ github.sha }} \
+            --project=$PROJECT_ID
+      - name: Smoke-test live site
+        run: |
+          URL=$(gcloud run services describe $SERVICE --region=$REGION --project=$PROJECT_ID --format='value(status.url)')
+          for path in / /healthz /sw.js /manifest.webmanifest /data/usda-common-v1.json; do
+            code=$(curl -A "nutrienttrack-deploy-smoke/1.0" -s -o /dev/null -w "%{http_code}" -L "$URL$path")
+            [ "$code" = "200" ] || { echo "::error::$path returned $code"; exit 1; }
+          done
+          [ "$(curl -s "$URL/healthz")" = "ok" ] || { echo "::error::/healthz body is not ok"; exit 1; }
+          echo "::notice::Live at $URL"

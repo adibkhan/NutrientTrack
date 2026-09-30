@@ -234,7 +234,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .search-input-wrap:focus-within { border-color: var(--coral); box-shadow: 0 0 0 3px rgba(233,126,110,.12); }
 .search-input-wrap input { min-width: 0; flex: 1; height: 100%; padding: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 13px; }
 .search-input-wrap input::placeholder { color: #a7aba8; }
-.search-shortcut { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); background: var(--surface-soft); font-size: 11px; }
 .logger-switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 2px; color: var(--muted); font-size: 10px; }
 .logger-switch button, .logger-back { display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; color: var(--coral-dark); background: transparent; font-size: 11px; font-weight: 760; }
 .logger-switch button:hover, .logger-back:hover { color: var(--ink); }
@@ -322,7 +321,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .logger-meta-grid { grid-template-columns: 1fr; gap: 13px; }
   .logger-search-heading { gap: 10px; }
   .logger-copy { max-width: 240px; }
-  .search-shortcut { display: none; }
   .logger-switch { align-items: flex-start; flex-direction: column; gap: 6px; }
   .logger-switch button { min-height: 30px; }
   .result-kcal { display: none; }
@@ -413,3 +411,4 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .timeline-controls { align-items: flex-start; flex-direction: column; gap: 8px; }
   .timeline-hours-toggle { align-self: stretch; }
 }
+.toast-region { position: fixed; right: 0; bottom: 0; width: 0; height: 0; }
