@@ -83,8 +83,8 @@ describe('opening the database', () => {
     await closeDatabase()
     expect(await inspect()).toEqual({
       version: DB_VERSION,
-      stores: ['entries', 'foods', 'settings', 'weights'],
-      indexes: { entries: ['date'], foods: ['name'], settings: [], weights: ['date'] },
+      stores: ['entries', 'foods', 'meta', 'outbox', 'settings', 'weights'],
+      indexes: { entries: ['date'], foods: ['name'], meta: [], outbox: [], settings: [], weights: ['date'] },
     })
   })
 
@@ -106,8 +106,8 @@ describe('opening the database', () => {
     await closeDatabase()
     expect(await inspect()).toEqual({
       version: DB_VERSION,
-      stores: ['entries', 'foods', 'settings', 'weights'],
-      indexes: { entries: ['date'], foods: ['name'], settings: [], weights: ['date'] },
+      stores: ['entries', 'foods', 'meta', 'outbox', 'settings', 'weights'],
+      indexes: { entries: ['date'], foods: ['name'], meta: [], outbox: [], settings: [], weights: ['date'] },
     })
   })
 

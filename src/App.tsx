@@ -450,6 +450,7 @@ export default function App() {
       unit: draft.unit,
       ...(draft.note.trim() ? { note: draft.note.trim() } : {}),
       createdAt: existing?.createdAt ?? timestamp,
+      updatedAt: timestamp,
     }
     if (!draft.note.trim()) delete next.note
     try {

@@ -5,6 +5,15 @@ const DB_NAME = 'nutrienttrack-local'
 
 type StoreName = 'entries' | 'foods' | 'weights' | 'settings'
 
+/** A local change waiting to be pushed to cloud sync. One per record: a later change replaces an earlier one. */
+export interface PendingChange {
+  key: string
+  store: StoreName
+  id: string
+  deleted: boolean
+  clientUpdatedAt: string
+}
+
 type Migration = (database: IDBDatabase, transaction: IDBTransaction) => void
 
 /**
@@ -31,6 +40,11 @@ const MIGRATIONS: Migration[] = [
     if (!weights.indexNames.contains('date')) weights.createIndex('date', 'date', { unique: false })
 
     if (!database.objectStoreNames.contains('settings')) database.createObjectStore('settings', { keyPath: 'id' })
+  },
+  // 2: cloud sync bookkeeping. outbox holds unsent changes; meta holds sync state such as the pull cursor.
+  (database) => {
+    database.createObjectStore('outbox', { keyPath: 'key' })
+    database.createObjectStore('meta', { keyPath: 'key' })
   },
 ]
 
@@ -113,23 +127,41 @@ const queueOrAbort = (transaction: IDBTransaction, work: () => void) => {
   }
 }
 
-const getAll = async <T>(storeName: StoreName): Promise<T[]> => {
+const changeFor = (store: StoreName, record: { id: string; updatedAt?: string }, deleted = false): PendingChange => ({
+  key: `${store}:${record.id}`,
+  store,
+  id: record.id,
+  deleted,
+  clientUpdatedAt: (!deleted && record.updatedAt) || new Date().toISOString(),
+})
+
+const getAll = async <T>(storeName: StoreName | 'outbox'): Promise<T[]> => {
   const database = await openDatabase()
   const transaction = database.transaction(storeName, 'readonly')
   return requestToPromise(transaction.objectStore(storeName).getAll())
 }
 
-const put = async <T extends { id: string }>(storeName: StoreName, value: T): Promise<void> => {
+/** Run writes to a store and record their pending sync changes in the same transaction, so neither can be lost alone. */
+const writeWithChanges = async (storeName: StoreName, work: (store: IDBObjectStore, outbox: IDBObjectStore) => void): Promise<void> => {
   const database = await openDatabase()
-  const transaction = database.transaction(storeName, 'readwrite')
-  await Promise.all([requestToPromise(transaction.objectStore(storeName).put(value)), transactionToPromise(transaction)])
+  const transaction = database.transaction([storeName, 'outbox'], 'readwrite')
+  const completion = transactionToPromise(transaction)
+  completion.catch(() => undefined)
+  queueOrAbort(transaction, () => work(transaction.objectStore(storeName), transaction.objectStore('outbox')))
+  await completion
 }
 
-const remove = async (storeName: StoreName, id: string): Promise<void> => {
-  const database = await openDatabase()
-  const transaction = database.transaction(storeName, 'readwrite')
-  await Promise.all([requestToPromise(transaction.objectStore(storeName).delete(id)), transactionToPromise(transaction)])
-}
+const put = <T extends { id: string; updatedAt?: string }>(storeName: StoreName, value: T): Promise<void> =>
+  writeWithChanges(storeName, (store, outbox) => {
+    store.put(value)
+    outbox.put(changeFor(storeName, value))
+  })
+
+const remove = (storeName: StoreName, id: string): Promise<void> =>
+  writeWithChanges(storeName, (store, outbox) => {
+    store.delete(id)
+    outbox.put(changeFor(storeName, { id }, true))
+  })
 
 export const getEntries = (): Promise<DiaryEntry[]> => getAll<DiaryEntry>('entries')
 export const getFoods = (): Promise<Food[]> => getAll<Food>('foods')
@@ -144,13 +176,10 @@ export const saveEntry = (entry: DiaryEntry): Promise<void> => put('entries', en
 /** Persist a group of diary entries in one transaction so a repeated meal is all-or-nothing. */
 export const saveEntries = async (entries: DiaryEntry[]): Promise<void> => {
   if (entries.length === 0) return
-  const database = await openDatabase()
-  const transaction = database.transaction('entries', 'readwrite')
-  const completion = transactionToPromise(transaction)
-  completion.catch(() => undefined)
-  const store = transaction.objectStore('entries')
-  queueOrAbort(transaction, () => entries.forEach((entry) => store.put(entry)))
-  await completion
+  await writeWithChanges('entries', (store, outbox) => entries.forEach((entry) => {
+    store.put(entry)
+    outbox.put(changeFor('entries', entry))
+  }))
 }
 export const deleteEntry = (id: string): Promise<void> => remove('entries', id)
 export const saveFood = (food: Food): Promise<void> => put('foods', food)
@@ -172,9 +201,10 @@ export const exportBackup = async (): Promise<BackupPayload> => {
   }
 }
 
+/** Replace local data with a backup. Restored records are queued for sync; records it removes are NOT deleted from the cloud. */
 export const importBackup = async (backup: BackupPayload): Promise<void> => {
   const database = await openDatabase()
-  const transaction = database.transaction(['entries', 'foods', 'weights', 'settings'], 'readwrite')
+  const transaction = database.transaction(['entries', 'foods', 'weights', 'settings', 'outbox'], 'readwrite')
   const completion = new Promise<void>((resolve, reject) => {
     transaction.addEventListener('complete', () => resolve())
     transaction.addEventListener('error', () => reject(transaction.error ?? new Error('Unable to import backup.')))
@@ -186,17 +216,23 @@ export const importBackup = async (backup: BackupPayload): Promise<void> => {
     transaction.objectStore('foods').clear()
     transaction.objectStore('weights').clear()
     transaction.objectStore('settings').clear()
-    backup.entries.forEach((entry) => transaction.objectStore('entries').put(entry))
-    backup.foods.forEach((food) => transaction.objectStore('foods').put(food))
-    backup.weights.forEach((weight) => transaction.objectStore('weights').put(weight))
-    backup.settings.forEach((settings) => transaction.objectStore('settings').put(settings))
+    const outbox = transaction.objectStore('outbox')
+    const restore = (store: StoreName, records: Array<{ id: string; updatedAt?: string }>) => records.forEach((record) => {
+      transaction.objectStore(store).put(record)
+      outbox.put(changeFor(store, record))
+    })
+    restore('entries', backup.entries)
+    restore('foods', backup.foods)
+    restore('weights', backup.weights)
+    restore('settings', backup.settings)
   })
   await completion
 }
 
+/** Clear this browser only, including sync bookkeeping. Never deletes anything from the cloud. */
 export const clearAllData = async (): Promise<void> => {
   const database = await openDatabase()
-  const transaction = database.transaction(['entries', 'foods', 'weights', 'settings'], 'readwrite')
+  const transaction = database.transaction(['entries', 'foods', 'weights', 'settings', 'outbox', 'meta'], 'readwrite')
   const completion = new Promise<void>((resolve, reject) => {
     transaction.addEventListener('complete', () => resolve())
     transaction.addEventListener('error', () => reject(transaction.error ?? new Error('Unable to clear local data.')))
@@ -208,7 +244,29 @@ export const clearAllData = async (): Promise<void> => {
     transaction.objectStore('foods').clear()
     transaction.objectStore('weights').clear()
     transaction.objectStore('settings').clear()
+    transaction.objectStore('outbox').clear()
+    transaction.objectStore('meta').clear()
   })
+  await completion
+}
+
+export const getPendingChanges = (): Promise<PendingChange[]> => getAll<PendingChange>('outbox')
+
+/** Drop pushed changes, but only those not replaced by a newer local change while the push was in flight. */
+export const acknowledgeChanges = async (changes: PendingChange[]): Promise<void> => {
+  if (changes.length === 0) return
+  const database = await openDatabase()
+  const transaction = database.transaction('outbox', 'readwrite')
+  const completion = transactionToPromise(transaction)
+  completion.catch(() => undefined)
+  const outbox = transaction.objectStore('outbox')
+  for (const change of changes) {
+    const request = outbox.get(change.key)
+    request.addEventListener('success', () => {
+      const current = request.result as PendingChange | undefined
+      if (current && current.clientUpdatedAt === change.clientUpdatedAt && current.deleted === change.deleted) outbox.delete(change.key)
+    })
+  }
   await completion
 }
 
