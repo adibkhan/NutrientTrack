@@ -11,6 +11,8 @@ npm run dev
 
 Create a production build with `npm run build`, then serve `dist/` from a static HTTPS host to enable installation and the offline shell. `npm run typecheck` runs the TypeScript check.
 
+For a container deployment on Google Cloud Run, see [DEPLOY_GCP.md](DEPLOY_GCP.md). The image builds the static PWA and serves it on Cloud Run's `PORT` without adding a database.
+
 ## Current scope
 
 - Daily diary with date navigation, Breakfast, Lunch, Dinner, Snacks, and Other sections. Repeat the latest earlier meal into the selected day, with a confirmation when that section already has entries.
