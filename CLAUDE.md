@@ -43,6 +43,13 @@ The browser holds the primary copy, and most users have no server copy at all be
   - Last write wins on `client_updated_at`, enforced by the database trigger.
   - Deletes are markers; devices never hard-delete rows.
   - Restoring a backup and "Clear local data" never delete anything in the cloud.
+- **Failure rules** (each has a test in `src/lib/sync.test.ts`, `src/lib/outbox.test.ts`, `src/lib/cloud.test.ts` or `src/App.cloud.test.tsx`):
+  - A record the server rejects is set aside and reported, never retried forever; one bad row must not block the rest.
+  - Pull always runs, even when push failed.
+  - Cloud records are validated before they are stored locally (`isValidSyncRecord`).
+  - Restoring a backup resets the pull cursor; deletes are queued only once a device has synced (`everSynced`).
+  - "Clear local data" decides from the stored session (`hasStoredSession`), and sign-out works offline.
+- **Database scripts:** `npm run db:migrate` and `db:test` verify the server certificate against `supabase/prod-ca-2021.crt` (Supabase's public root CA, valid to 2031). Never turn verification off; point `DATABASE_CA` at another CA file if the host changes.
 - **Loading:** the Supabase library is loaded only when someone asks for a sign-in link or already has a session (`src/lib/cloud.ts`, gated by `mightBeSignedIn`). People who never sign in never download it, and the offline app must not depend on it.
 
 ## Conventions

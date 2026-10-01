@@ -10,7 +10,10 @@ if (!url) {
   process.exit(1)
 }
 
-const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } })
+// Verify the server certificate against Supabase's root CA: this connection carries the database password.
+// DATABASE_CA can point at another CA file, e.g. for a self-hosted database.
+const ca = await readFile(process.env.DATABASE_CA ?? new URL('../supabase/prod-ca-2021.crt', import.meta.url), 'utf8')
+const client = new pg.Client({ connectionString: url, ssl: { ca, rejectUnauthorized: true } })
 await client.connect()
 let failed = 0
 try {
