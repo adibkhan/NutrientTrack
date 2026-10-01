@@ -31,7 +31,7 @@ The bundled catalog is derived from USDA FoodData Central SR Legacy (April 2018)
 
 ## Local data caveat
 
-Entries, saved foods, goals, and weight logs are stored in IndexedDB in the current browser profile. There is no account, API, database, or sync service. Browser storage is best effort unless the browser grants persistent storage, and clearing site data, using private browsing, or changing devices can remove it. Export a JSON backup before clearing data or moving to another device. Imported backups replace the current local data only after confirmation.
+Entries, saved foods, goals, and weight logs are stored in IndexedDB in the current browser profile. Nothing leaves the device unless you turn on the optional backup and sync in Settings, which signs in with an emailed link and keeps a copy in your NutrientTrack account. Browser storage is best effort unless the browser grants persistent storage, and clearing site data, using private browsing, or changing devices can remove it. Export a JSON backup before clearing data or moving to another device. Imported backups replace the current local data only after confirmation.
 
 ## Roadmap
 

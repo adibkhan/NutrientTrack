@@ -43,6 +43,8 @@ export interface WeightEntry {
   unit: 'lb' | 'kg'
   note?: string
   createdAt: string
+  /** Added for sync conflict resolution; absent on weights saved before cloud sync existed. */
+  updatedAt?: string
 }
 
 export interface Goals {

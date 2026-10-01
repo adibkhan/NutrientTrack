@@ -1,6 +1,6 @@
 # NutrientTrack
 
-Local-first nutrition diary PWA (React 18, TypeScript, Vite). All user data lives in the visitor's browser (IndexedDB `nutrienttrack-local`). There is no server-side storage; the Cloud Run container only serves static files.
+Local-first nutrition diary PWA (React 18, TypeScript, Vite). All user data lives in the visitor's browser (IndexedDB `nutrienttrack-local`), which stays the primary copy. Signing in turns on optional cloud backup and sync through Supabase (`public.sync_records`, see `supabase/`). The Cloud Run container only serves static files.
 
 ## Gates
 
@@ -16,7 +16,7 @@ Merging to `main` deploys via `.github/workflows/deploy.yml`, which uses Cloud B
 
 ## Data invariants
 
-Users have no server copy of their diary. A change that breaks stored data loses it for good. These rules outrank feature work. Breaking one is a blocking defect, and a rule without an enforcing test is itself a finding.
+The browser holds the primary copy, and most users have no server copy at all because sync is opt-in. A change that breaks stored data loses it for good. These rules outrank feature work. Breaking one is a blocking defect, and a rule without an enforcing test is itself a finding.
 
 1. **Fields are additive.** New fields are optional. A missing value means "not recorded", never zero. Never rename, remove, or repurpose a stored field.
    - Enforced by: `src/lib/db.test.ts` (the v1 fixture round-trips with its unknown fields intact) and `src/lib/backup.fixtures.test.ts`.
@@ -34,6 +34,23 @@ Users have no server copy of their diary. A change that breaks stored data loses
    - Enforced by: `src/lib/invariants.test.ts`, which pins the catalog content to its file name and checks the service worker precaches that file.
 8. **Multiple tabs are expected.** `db.ts` handles `blocked` and `versionchange`, so an old tab closes its connection instead of blocking an upgrade, and the UI asks the user to reload.
    - Enforced by: the database events tests in `src/lib/db.test.ts` and the event message tests in `src/App.durability.test.tsx`.
+
+## Cloud sync
+
+- **Schema:** changes go in a new file under `supabase/migrations/` (never edit an applied one). Apply with `npm run db:migrate` and test with `npm run db:test`; both need `DATABASE_URL`, the Supabase session pooler (IPv4) URL. Never commit it.
+- **Keys:** the app uses only the publishable key in `src/lib/cloud.ts`, which is public by design. Never put a secret or service-role key in the app, the repo, or CI.
+- **Sync rules** (note that clearing local data while signed in signs the device out first, so the next sync can't pull the data back):
+  - Last write wins on `client_updated_at`, enforced by the database trigger.
+  - Deletes are markers; devices never hard-delete rows.
+  - Restoring a backup and "Clear local data" never delete anything in the cloud.
+- **Failure rules** (each has a test in `src/lib/sync.test.ts`, `src/lib/outbox.test.ts`, `src/lib/cloud.test.ts` or `src/App.cloud.test.tsx`):
+  - A record the server rejects is set aside and reported, never retried forever; one bad row must not block the rest.
+  - Pull always runs, even when push failed.
+  - Cloud records are validated before they are stored locally (`isValidSyncRecord`).
+  - Restoring a backup resets the pull cursor; deletes are queued only once a device has synced (`everSynced`).
+  - "Clear local data" decides from the stored session (`hasStoredSession`), and sign-out works offline.
+- **Database scripts:** `npm run db:migrate` and `db:test` verify the server certificate against `supabase/prod-ca-2021.crt` (Supabase's public root CA, valid to 2031). Never turn verification off; point `DATABASE_CA` at another CA file if the host changes.
+- **Loading:** the Supabase library is loaded only when someone asks for a sign-in link or already has a session (`src/lib/cloud.ts`, gated by `mightBeSignedIn`). People who never sign in never download it, and the offline app must not depend on it.
 
 ## Conventions
 
