@@ -18,14 +18,6 @@ interface DaySummary {
   protein: number
 }
 
-interface ChartPoint {
-  date: string
-  value: number | null
-  entryCount: number
-  x: number
-  y: number | null
-}
-
 interface MetricCardProps {
   metric: MetricKey
   points: DaySummary[]
@@ -34,13 +26,6 @@ interface MetricCardProps {
   endDate: string
   loggedDays: number
 }
-
-const CHART_WIDTH = 720
-const CHART_HEIGHT = 218
-const PLOT_LEFT = 46
-const PLOT_RIGHT = 17
-const PLOT_TOP = 24
-const PLOT_BOTTOM = 39
 
 const numericValue = (value: number): number => (Number.isFinite(value) ? value : 0)
 
@@ -78,25 +63,9 @@ const buildDays = (entries: DiaryEntry[], rangeDays: RangeDays, endDate: string)
   return days.map((date) => byDate.get(date) as DaySummary)
 }
 
-const contiguousSegments = (points: ChartPoint[]): ChartPoint[][] => {
-  const segments: ChartPoint[][] = []
-  let current: ChartPoint[] = []
-
-  points.forEach((point) => {
-    if (point.value === null) {
-      if (current.length > 0) segments.push(current)
-      current = []
-      return
-    }
-    current.push(point)
-  })
-
-  if (current.length > 0) segments.push(current)
-  return segments
-}
-
 function MetricCard({ metric, points, goal, rangeDays, endDate, loggedDays }: MetricCardProps) {
   const instanceId = useId().replace(/:/g, '')
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const label = metricLabel(metric)
   const unit = metricUnit(metric)
   const colorClass = metricColorClass(metric)
@@ -107,26 +76,21 @@ function MetricCard({ metric, points, goal, rangeDays, endDate, loggedDays }: Me
   const values = points.map((point) => (point.entryCount > 0 ? point[valueKey] : null))
   const loggedValues = values.filter((value): value is number => value !== null)
   const average = loggedValues.length > 0 ? loggedValues.reduce((sum, value) => sum + value, 0) / loggedValues.length : null
-  const safeGoal = goal !== undefined && Number.isFinite(goal) ? Math.max(0, goal) : undefined
+  const safeGoal = goal !== undefined && Number.isFinite(goal) && goal > 0 ? goal : undefined
   const maxValue = Math.max(safeGoal ?? 0, ...loggedValues, 0)
   const scaleMax = niceScaleMax(maxValue)
-  const plotWidth = CHART_WIDTH - PLOT_LEFT - PLOT_RIGHT
-  const plotHeight = CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM
-  const chartPoints: ChartPoint[] = points.map((point, index) => {
-    const value = values[index]
-    const x = PLOT_LEFT + (points.length <= 1 ? plotWidth / 2 : (index / (points.length - 1)) * plotWidth)
-    const y = value === null ? null : PLOT_TOP + plotHeight - (Math.max(0, value) / scaleMax) * plotHeight
-    return { date: point.date, value, entryCount: point.entryCount, x, y }
-  })
-  const segments = contiguousSegments(chartPoints)
-  const goalY = safeGoal === undefined ? null : PLOT_TOP + plotHeight - (safeGoal / scaleMax) * plotHeight
+  const goalPercent = safeGoal === undefined ? null : Math.min(100, (safeGoal / scaleMax) * 100)
   const firstDate = points[0]?.date ?? shiftDate(endDate, -rangeDays + 1)
   const middleDate = points[Math.floor(Math.max(0, points.length - 1) / 2)]?.date ?? firstDate
   const lastDate = points.at(-1)?.date ?? endDate
   const hasData = loggedDays > 0
-  const accessibleSummary = chartPoints
-    .map((point) => `${formatShortDate(point.date)}: ${point.value === null ? 'no food logged' : `${metricValue(metric, point.value)} ${unit}`}`)
+  const accessibleSummary = points
+    .map((point, index) => `${formatShortDate(point.date)}: ${values[index] === null ? 'no food logged' : `${metricValue(metric, values[index])} ${unit}`}`)
     .join('. ')
+  const selectedIndex = points.findIndex((point) => point.date === selectedDate)
+  const readout = selectedIndex === -1
+    ? 'Tap or hover a bar for that day’s value.'
+    : `${formatShortDate(points[selectedIndex].date)} · ${values[selectedIndex] === null ? 'No food logged' : `${metricValue(metric, values[selectedIndex])} ${unit}`}`
 
   return (
     <section className={`nutrition-card nutrition-card-${colorClass}`} aria-labelledby={titleId}>
@@ -150,57 +114,32 @@ function MetricCard({ metric, points, goal, rangeDays, endDate, loggedDays }: Me
       </div>
 
       <div className="nutrition-chart-shell">
-        <svg
+        <p className={`nutrition-readout ${selectedIndex === -1 ? 'hint' : ''}`} aria-hidden="true">{readout}</p>
+        <div
           aria-describedby={chartDescriptionId}
           aria-labelledby={chartTitleId}
-          className="nutrition-chart"
+          className={`bar-plot bar-plot-${rangeDays}`}
           role="img"
-          viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
         >
-          <title id={chartTitleId}>{label} over the last {rangeDays} days</title>
-          <desc id={chartDescriptionId}>{accessibleSummary}. Empty dates are shown as gaps; a logged day may be partial.</desc>
-          {[0, 0.5, 1].map((position) => {
-            const y = PLOT_TOP + plotHeight * position
-            const labelValue = scaleMax * (1 - position)
+          <span hidden id={chartTitleId}>{label} over the last {rangeDays} days</span>
+          <span hidden id={chartDescriptionId}>{accessibleSummary}. Empty dates are shown as gaps; a logged day may be partial.</span>
+          {goalPercent !== null && <div className="bar-goal" style={{ bottom: `${goalPercent}%` }}><span>Goal</span></div>}
+          {points.map((point, index) => {
+            const value = values[index]
+            const height = value === null ? 0 : Math.max(2, (Math.max(0, value) / scaleMax) * 100)
             return (
-              <g key={position}>
-                <line className="nutrition-grid-line" x1={PLOT_LEFT} x2={CHART_WIDTH - PLOT_RIGHT} y1={y} y2={y} />
-                {(hasData || safeGoal !== undefined) && <text className="nutrition-y-label" x={PLOT_LEFT - 10} y={y + 3} textAnchor="end">{formatNumber(labelValue, metric === 'protein' ? 1 : 0)}</text>}
-              </g>
+              <span
+                className={`bar-col ${point.date === selectedDate ? 'selected' : ''}`}
+                key={point.date}
+                onClick={() => setSelectedDate(point.date)}
+                onPointerEnter={() => setSelectedDate(point.date)}
+                title={`${formatShortDate(point.date)}: ${value === null ? 'no food logged' : `${metricValue(metric, value)} ${unit}`}`}
+              >
+                <span className={`bar ${value === null ? 'empty' : ''}`} style={value === null ? undefined : { height: `${height}%` }} />
+              </span>
             )
           })}
-          {chartPoints.map((point) => (
-            <line
-              className={point.value === null ? 'nutrition-slot-empty' : 'nutrition-slot-tick'}
-              key={`${point.date}-slot`}
-              x1={point.x}
-              x2={point.x}
-              y1={CHART_HEIGHT - PLOT_BOTTOM}
-              y2={CHART_HEIGHT - PLOT_BOTTOM + 5}
-            />
-          ))}
-          {goalY !== null && (
-            <g className="nutrition-goal-guide">
-              <line x1={PLOT_LEFT} x2={CHART_WIDTH - PLOT_RIGHT} y1={goalY} y2={goalY} />
-              <text x={CHART_WIDTH - PLOT_RIGHT - 2} y={goalY - 6} textAnchor="end">Goal</text>
-            </g>
-          )}
-          {segments.map((segment, index) => (
-            segment.length > 1 && <polyline className="nutrition-chart-line" key={`segment-${index}`} fill="none" points={segment.map((point) => `${point.x},${point.y}`).join(' ')} />
-          ))}
-          {chartPoints.map((point) => point.value !== null && point.y !== null && (
-            <circle
-              className="nutrition-chart-point"
-              cx={point.x}
-              cy={point.y}
-              key={point.date}
-              r="5"
-              tabIndex={0}
-            >
-              <title>{formatShortDate(point.date)}: {metricValue(metric, point.value)} {unit}</title>
-            </circle>
-          ))}
-        </svg>
+        </div>
         <div className="nutrition-chart-axis" aria-hidden="true">
           <span>{formatShortDate(firstDate)}</span>
           <span>{formatShortDate(middleDate)}</span>
@@ -251,23 +190,18 @@ export default function NutritionInsights({ entries, goals }: NutritionInsightsP
     <section className="nutrition-insights" aria-labelledby={insightsTitleId}>
       <div className="nutrition-insights-header">
         <div>
-          <p className="nutrition-eyebrow">Patterns in your local log</p>
           <h2 id={insightsTitleId}>Nutrition insights</h2>
-          <p className="nutrition-description">A compact view of what you have recorded, with quiet gaps where no food was logged.</p>
+          <p className="nutrition-insights-context" role="status">
+            {loggedDays} of {rangeDays} days logged · {formatShortDate(rangeStart)} – {formatShortDate(endDate)}
+          </p>
         </div>
         <div className="nutrition-range-control" role="group" aria-label="Nutrition insight range">
-          <span className="nutrition-range-label">Window</span>
           {([7, 30] as const).map((days) => (
             <button aria-pressed={rangeDays === days} className={rangeDays === days ? 'nutrition-is-active' : ''} key={days} onClick={() => setRangeDays(days)} type="button">
               {days} days
             </button>
           ))}
         </div>
-      </div>
-      <div className="nutrition-insights-context" role="status">
-        <span className="nutrition-local-badge"><i aria-hidden="true" />Local data</span>
-        <span>{loggedDays} of {rangeDays} days include food entries</span>
-        <span>{formatShortDate(rangeStart)} – {formatShortDate(endDate)}</span>
       </div>
       <div className="nutrition-chart-grid">
         <MetricCard metric="calories" points={points} goal={goals?.calories} rangeDays={rangeDays} endDate={endDate} loggedDays={loggedDays} />
