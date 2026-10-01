@@ -415,3 +415,4 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .panel-copy { margin: 0 0 14px; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .cloud-form { display: grid; gap: 12px; margin-bottom: 12px; }
 .cloud-panel .privacy-card { margin-bottom: 12px; }
+.link-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }

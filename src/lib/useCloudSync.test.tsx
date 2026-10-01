@@ -37,7 +37,7 @@ beforeEach(() => {
   cloud.getCloudClient.mockReset()
   cloud.signInLinkError.mockReturnValue(undefined)
   sync.syncOnce.mockReset()
-  sync.syncOnce.mockResolvedValue({ pushed: 0, applied: 0 })
+  sync.syncOnce.mockResolvedValue({ pushed: 0, applied: 0, skipped: 0 })
 })
 afterEach(() => {
   cleanup()
@@ -59,7 +59,7 @@ describe('useCloudSync', () => {
   it('syncs on restoring a session and refreshes the screen only when the pull changed data', async () => {
     cloud.mightBeSignedIn.mockReturnValue(true)
     cloud.getCloudClient.mockResolvedValue(signedInClient())
-    sync.syncOnce.mockResolvedValue({ pushed: 0, applied: 3 })
+    sync.syncOnce.mockResolvedValue({ pushed: 0, applied: 3, skipped: 0 })
     const onRemoteChanges = vi.fn()
     const { result } = renderHook(() => useCloudSync(onRemoteChanges, vi.fn()))
     await flush()
@@ -67,7 +67,7 @@ describe('useCloudSync', () => {
     expect(onRemoteChanges).toHaveBeenCalledTimes(1)
     expect(result.current).toMatchObject({ status: 'synced', email: 'me@example.com' })
 
-    sync.syncOnce.mockResolvedValue({ pushed: 1, applied: 0 })
+    sync.syncOnce.mockResolvedValue({ pushed: 1, applied: 0, skipped: 0 })
     await act(async () => { await result.current.syncNow() })
     expect(sync.syncOnce).toHaveBeenCalledTimes(2)
     expect(onRemoteChanges).toHaveBeenCalledTimes(1)
@@ -109,7 +109,7 @@ describe('useCloudSync', () => {
     sync.syncOnce.mockImplementation(() => new Promise((resolve) => {
       active += 1
       peak = Math.max(peak, active)
-      releases.push(() => { active -= 1; resolve({ pushed: 0, applied: 0 }) })
+      releases.push(() => { active -= 1; resolve({ pushed: 0, applied: 0, skipped: 0 }) })
     }))
     const { result } = renderHook(() => useCloudSync(vi.fn(), vi.fn()))
     await flush()
@@ -135,7 +135,7 @@ describe('useCloudSync', () => {
     expect(result.current.status).toBe('error')
     expect(result.current.message).toMatch(/saved on this device/)
 
-    sync.syncOnce.mockResolvedValue({ pushed: 0, applied: 0 })
+    sync.syncOnce.mockResolvedValue({ pushed: 0, applied: 0, skipped: 0 })
     await act(async () => { await result.current.syncNow() })
     expect(result.current.status).toBe('synced')
     expect(result.current.message).toBeUndefined()
@@ -191,5 +191,88 @@ describe('useCloudSync', () => {
     localEdit()
     await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
     expect(sync.syncOnce).not.toHaveBeenCalled()
+  })
+
+  it('waits for a sync already running before signing out, so it cannot re-apply the cloud copy after a clear', async () => {
+    cloud.mightBeSignedIn.mockReturnValue(true)
+    cloud.getCloudClient.mockResolvedValue(signedInClient())
+    const events: string[] = []
+    let release: () => void = () => undefined
+    sync.syncOnce.mockImplementation(() => new Promise((resolve) => {
+      release = () => { events.push('sync finished'); resolve({ pushed: 0, applied: 0, skipped: 0 }) }
+    }))
+    cloud.signOutCloud.mockImplementation(async () => { events.push('signOutCloud') })
+    const { result } = renderHook(() => useCloudSync(vi.fn(), vi.fn()))
+    await flush()
+    expect(sync.syncOnce).toHaveBeenCalledTimes(1)
+
+    let signedOut = false
+    await act(async () => { void result.current.signOut().then(() => { signedOut = true }); await vi.advanceTimersByTimeAsync(0) })
+    expect(cloud.signOutCloud).not.toHaveBeenCalled()
+    expect(signedOut).toBe(false)
+
+    await act(async () => { release(); await vi.advanceTimersByTimeAsync(0) })
+    expect(events).toEqual(['sync finished', 'signOutCloud'])
+    expect(signedOut).toBe(true)
+    expect(result.current.status).toBe('off')
+    expect(sync.syncOnce).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not start a queued second sync once sign-out began during the first', async () => {
+    cloud.mightBeSignedIn.mockReturnValue(true)
+    cloud.getCloudClient.mockResolvedValue(signedInClient())
+    let release: () => void = () => undefined
+    sync.syncOnce.mockImplementation(() => new Promise((resolve) => { release = () => resolve({ pushed: 0, applied: 0, skipped: 0 }) }))
+    const { result } = renderHook(() => useCloudSync(vi.fn(), vi.fn()))
+    await flush()
+    await act(async () => { void result.current.syncNow() }) // queues a re-run
+    await act(async () => { void result.current.signOut(); await vi.advanceTimersByTimeAsync(0) })
+    await act(async () => { release(); await vi.advanceTimersByTimeAsync(0) })
+    expect(sync.syncOnce).toHaveBeenCalledTimes(1)
+  })
+
+  it('goes back from link-sent to off with resetLink', async () => {
+    const { result } = renderHook(() => useCloudSync(vi.fn(), vi.fn()))
+    await act(async () => { await result.current.sendLink('me@example.com') })
+    expect(result.current.status).toBe('link-sent')
+    act(() => result.current.resetLink())
+    expect(result.current.status).toBe('off')
+  })
+
+  it('says how many items stay on this device and announces it as an error when the sync skipped some', async () => {
+    cloud.mightBeSignedIn.mockReturnValue(true)
+    cloud.getCloudClient.mockResolvedValue(signedInClient())
+    sync.syncOnce.mockResolvedValue({ pushed: 3, applied: 0, skipped: 2 })
+    const announce = vi.fn()
+    const { result } = renderHook(() => useCloudSync(vi.fn(), announce))
+    await flush()
+    expect(result.current.status).toBe('synced')
+    expect(result.current.message).toBe('2 items could not be backed up and stay on this device only.')
+    expect(announce).toHaveBeenCalledWith('2 items could not be backed up and stay on this device only.', 'error')
+  })
+
+  it('uses the singular for one skipped item', async () => {
+    cloud.mightBeSignedIn.mockReturnValue(true)
+    cloud.getCloudClient.mockResolvedValue(signedInClient())
+    sync.syncOnce.mockResolvedValue({ pushed: 0, applied: 0, skipped: 1 })
+    const { result } = renderHook(() => useCloudSync(vi.fn(), vi.fn()))
+    await flush()
+    expect(result.current.message).toBe('1 item could not be backed up and stays on this device only.')
+  })
+
+  it('clears the skipped message and does not announce when a later sync skips nothing', async () => {
+    cloud.mightBeSignedIn.mockReturnValue(true)
+    cloud.getCloudClient.mockResolvedValue(signedInClient())
+    sync.syncOnce.mockResolvedValue({ pushed: 0, applied: 0, skipped: 1 })
+    const announce = vi.fn()
+    const { result } = renderHook(() => useCloudSync(vi.fn(), announce))
+    await flush()
+    expect(result.current.message).toBeTruthy()
+    announce.mockClear()
+
+    sync.syncOnce.mockResolvedValue({ pushed: 0, applied: 0, skipped: 0 })
+    await act(async () => { await result.current.syncNow() })
+    expect(result.current.message).toBeUndefined()
+    expect(announce).not.toHaveBeenCalled()
   })
 })

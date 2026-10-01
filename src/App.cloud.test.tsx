@@ -19,6 +19,7 @@ vi.mock('./lib/useCloudSync', async (importOriginal) => ({
   useCloudSync: () => cloud,
 }))
 
+import { SESSION_STORAGE_KEY } from './lib/cloud'
 import * as db from './lib/db'
 import App from './App'
 
@@ -28,6 +29,7 @@ const fakeCloud = (status: CloudSync['status']): CloudSync => ({
   status,
   email: 'me@example.com',
   sendLink: vi.fn(async () => undefined),
+  resetLink: vi.fn(),
   syncNow: vi.fn(async () => undefined),
   signOut: vi.fn(async () => { calls.push('signOut') }),
   deleteAccount: vi.fn(async () => undefined),
@@ -35,6 +37,7 @@ const fakeCloud = (status: CloudSync['status']): CloudSync => ({
 
 beforeEach(() => {
   calls.length = 0
+  localStorage.clear()
   vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline'))))
   Object.defineProperty(navigator, 'storage', { configurable: true, value: { persisted: () => Promise.resolve(false) } })
   m.getEntries.mockResolvedValue([])
@@ -48,6 +51,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  localStorage.clear()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
 })
@@ -82,5 +86,30 @@ describe('clearing local data with cloud sync', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false)
     await clearFromSettings()
     expect(calls).toEqual([])
+  })
+
+  it('signs out first when the status is still checking but a session is stored', async () => {
+    cloud = fakeCloud('checking')
+    localStorage.setItem(SESSION_STORAGE_KEY, '{}')
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await clearFromSettings()
+    await waitFor(() => expect(calls).toEqual(['signOut', 'clearAllData']))
+    expect(String(confirm.mock.calls[0][0])).toMatch(/sign out of backup here/i)
+  })
+
+  it('signs out first when the status is off but a session is stored', async () => {
+    cloud = fakeCloud('off')
+    localStorage.setItem(SESSION_STORAGE_KEY, '{}')
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await clearFromSettings()
+    await waitFor(() => expect(calls).toEqual(['signOut', 'clearAllData']))
+  })
+
+  it('only clears when the status is off and no session is stored', async () => {
+    cloud = fakeCloud('off')
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await clearFromSettings()
+    await waitFor(() => expect(calls).toEqual(['clearAllData']))
+    expect(cloud.signOut).not.toHaveBeenCalled()
   })
 })

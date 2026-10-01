@@ -7,7 +7,7 @@ import {
   acknowledgeChanges, applyRemoteChanges, closeDatabase, deleteEntry, exportBackup, getEntries, getMeta, getPendingChanges, getWeights,
   importBackup, saveEntry, saveWeight, type RemoteChange,
 } from './db'
-import { syncOnce, type OutgoingChange, type SyncBackend } from './sync'
+import { RejectedRecordError, syncOnce, type OutgoingChange, type SyncBackend } from './sync'
 
 interface Row extends RemoteChange { user: string }
 
@@ -17,6 +17,8 @@ class FakeBackend implements SyncBackend {
   pullSinces: Array<string | undefined> = []
   pushCalls = 0
   failNextPush = false
+  /** Ids the server will never accept (like a check constraint). A batch containing one fails as a whole and stores nothing. */
+  rejectIds = new Set<string>()
   onPush?: () => Promise<void>
   private tick = 0
   constructor(private user = 'user-1', private stepMs = 1000) {}
@@ -32,6 +34,7 @@ class FakeBackend implements SyncBackend {
     this.pushCalls += 1
     if (this.failNextPush) { this.failNextPush = false; throw new Error('network down') }
     await this.onPush?.()
+    if (changes.some((change) => this.rejectIds.has(change.id))) throw new RejectedRecordError('violates check constraint')
     for (const change of changes) {
       const key = `${this.user}|${change.store}|${change.id}`
       const existing = this.rows.get(key)
@@ -104,7 +107,7 @@ describe('first sync on a device with existing data', () => {
   it('does nothing on an empty device with an empty cloud', async () => {
     await useDevice('a')
     const backend = new FakeBackend()
-    expect(await syncOnce(backend, 'user-1')).toEqual({ pushed: 0, applied: 0 })
+    expect(await syncOnce(backend, 'user-1')).toEqual({ pushed: 0, applied: 0, skipped: 0 })
     expect(await getMeta('pullCursor')).toBeUndefined()
   })
 })
@@ -229,7 +232,7 @@ describe('pulling', () => {
 
     await useDevice('b')
     const first = await syncOnce(backend, 'user-1')
-    expect(first).toEqual({ pushed: 0, applied: total })
+    expect(first).toEqual({ pushed: 0, applied: total, skipped: 0 })
     expect(await getEntries()).toHaveLength(total)
     const lastStamp = [...backend.rows.values()].map((row) => row.server_updated_at).sort().at(-1)
     expect(await getMeta('pullCursor')).toBe(lastStamp)
@@ -416,5 +419,103 @@ describe('everSynced', () => {
     await syncOnce(backend, 'user-1')
     await deleteEntry('e1')
     expect(await getPendingChanges()).toMatchObject([{ key: 'entries:e1', deleted: true }])
+  })
+})
+
+describe('records the server will never accept', () => {
+  it('sets aside one rejected row among five, sends the other four, and the next sync is clean', async () => {
+    const backend = new FakeBackend()
+    backend.rejectIds.add('e3')
+    await useDevice('a')
+    for (let i = 1; i <= 5; i += 1) await saveEntry(entry(`e${i}`, T(i)))
+
+    const result = await syncOnce(backend, 'user-1')
+
+    expect(result).toEqual({ pushed: 4, applied: 4, skipped: 1 })
+    expect([...backend.rows.values()].map((row) => row.id).sort()).toEqual(['e1', 'e2', 'e4', 'e5'])
+    expect(await getPendingChanges()).toEqual([])
+    expect((await getEntries()).map((item) => item.id).sort()).toEqual(['e1', 'e2', 'e3', 'e4', 'e5'])
+
+    backend.pushCalls = 0
+    expect(await syncOnce(backend, 'user-1')).toMatchObject({ pushed: 0, skipped: 0 })
+    expect(backend.pushCalls).toBe(0)
+  })
+
+  it('never sends an id of 201 characters or a 70 KB note, and keeps them locally', async () => {
+    const backend = new FakeBackend()
+    await useDevice('a')
+    const longId = 'x'.repeat(201)
+    await saveEntry(entry(longId, T(1)))
+    await saveEntry(entry('big', T(2), { name: 'n'.repeat(70_000) }))
+
+    const result = await syncOnce(backend, 'user-1')
+
+    expect(result).toMatchObject({ pushed: 0, skipped: 2 })
+    expect(backend.pushCalls).toBe(0)
+    expect(backend.rows.size).toBe(0)
+    expect(await getPendingChanges()).toEqual([])
+    expect((await getEntries()).map((item) => item.id).sort()).toEqual(['big', longId].sort())
+  })
+
+  it('sends an id of exactly 200 characters', async () => {
+    const backend = new FakeBackend()
+    await useDevice('a')
+    await saveEntry(entry('y'.repeat(200), T(1)))
+    expect(await syncOnce(backend, 'user-1')).toMatchObject({ pushed: 1, skipped: 0 })
+    expect(backend.rows.size).toBe(1)
+  })
+
+  it('keeps every change pending, still pulls and applies remote changes, and rethrows when the push fails with a network error', async () => {
+    const backend = new FakeBackend()
+    await backend.push([{ store: 'entries', id: 'remote', data: entry('remote', T(1)) as unknown as Record<string, unknown>, deleted: false, client_updated_at: T(1) }])
+    await useDevice('a')
+    await saveEntry(entry('e1', T(1)))
+    await saveEntry(entry('e2', T(2)))
+    const before = await getPendingChanges()
+    backend.failNextPush = true
+    backend.pullSinces = []
+
+    await expect(syncOnce(backend, 'user-1')).rejects.toThrow('network down')
+
+    expect(backend.pullSinces.length).toBeGreaterThan(0)
+    expect(await getPendingChanges()).toEqual(before)
+    expect((await getEntries()).map((item) => item.id).sort()).toEqual(['e1', 'e2', 'remote'])
+  })
+
+  it('reports the push error, not the pull error, when both fail', async () => {
+    const backend = new FakeBackend()
+    await useDevice('a')
+    await saveEntry(entry('e1', T(1)))
+    backend.failNextPush = true
+    vi.spyOn(backend, 'pull').mockRejectedValue(new Error('pull down'))
+    await expect(syncOnce(backend, 'user-1')).rejects.toThrow('network down')
+  })
+
+  it('pushes an unparseable client time with a valid timestamp and leaves the record data alone', async () => {
+    const backend = new FakeBackend()
+    await useDevice('a')
+    await saveEntry(entry('e1', 'not a date'))
+    const pushSpy = vi.spyOn(backend, 'push')
+
+    expect(await syncOnce(backend, 'user-1')).toMatchObject({ pushed: 1, skipped: 0 })
+
+    const sent = pushSpy.mock.calls[0][0][0]
+    expect(Number.isNaN(Date.parse(sent.client_updated_at))).toBe(false)
+    expect(backend.rows.get('user-1|entries|e1')?.data).toMatchObject({ updatedAt: 'not a date' })
+    expect(await getPendingChanges()).toEqual([])
+  })
+
+  it.each(['e0230', 'e0000'])('works across the 200-row batch boundary with row %s rejected', async (bad) => {
+    const backend = new FakeBackend()
+    backend.rejectIds.add(bad)
+    await useDevice('a')
+    for (let i = 0; i < 250; i += 1) await saveEntry(entry(`e${String(i).padStart(4, '0')}`, T(1)))
+
+    const result = await syncOnce(backend, 'user-1')
+
+    expect(result).toMatchObject({ pushed: 249, skipped: 1 })
+    expect(backend.rows.size).toBe(249)
+    expect(backend.rows.has(`user-1|entries|${bad}`)).toBe(false)
+    expect(await getPendingChanges()).toEqual([])
   })
 })

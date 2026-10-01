@@ -18,6 +18,8 @@ export const isSignedInStatus = (status: CloudStatus): boolean =>
 
 export interface CloudSync extends CloudSyncState {
   sendLink: (email: string) => Promise<void>
+  /** Leave the "check your email" state, e.g. to correct a mistyped address. */
+  resetLink: () => void
   syncNow: () => Promise<void>
   signOut: () => Promise<void>
   deleteAccount: () => Promise<void>
@@ -41,6 +43,7 @@ export const useCloudSync = (onRemoteChanges: () => void, announce: (message: st
   const [state, setState] = useState<CloudSyncState>(() => ({ status: mightBeSignedIn() ? 'checking' : 'off' }))
   const userRef = useRef<User | null>(null)
   const running = useRef(false)
+  const inflight = useRef<Promise<void> | null>(null)
   const runAgain = useRef(false)
   const connecting = useRef(false)
   const authUnsubscribe = useRef<(() => void) | null>(null)
@@ -63,13 +66,21 @@ export const useCloudSync = (onRemoteChanges: () => void, announce: (message: st
     }
     running.current = true
     setState((current) => ({ ...current, status: 'syncing' }))
+    let finish: () => void = () => undefined
+    inflight.current = new Promise<void>((resolve) => { finish = resolve })
     try {
+      let skipped = 0
       do {
         runAgain.current = false
         const result = await syncOnce(createSupabaseBackend(await getCloudClient()), user.id)
+        skipped = Math.max(skipped, result.skipped)
         if (result.applied > 0) onRemoteChangesRef.current()
       } while (runAgain.current && userRef.current)
-      setState((current) => ({ ...current, status: 'synced', lastSyncedAt: new Date().toISOString(), message: undefined }))
+      const message = skipped > 0
+        ? `${skipped} ${skipped === 1 ? 'item' : 'items'} could not be backed up and ${skipped === 1 ? 'stays' : 'stay'} on this device only.`
+        : undefined
+      setState((current) => ({ ...current, status: 'synced', lastSyncedAt: new Date().toISOString(), message }))
+      if (message) announceRef.current(message, 'error')
     } catch {
       setState((current) => ({
         ...current,
@@ -78,6 +89,8 @@ export const useCloudSync = (onRemoteChanges: () => void, announce: (message: st
       }))
     } finally {
       running.current = false
+      inflight.current = null
+      finish()
     }
   }, [])
 
@@ -170,6 +183,8 @@ export const useCloudSync = (onRemoteChanges: () => void, announce: (message: st
   }, [])
 
   const signOut = useCallback(async () => {
+    userRef.current = null // stop any queued re-run, then let a sync already underway finish before signing out
+    await inflight.current
     try {
       await signOutCloud()
     } finally {
@@ -178,6 +193,8 @@ export const useCloudSync = (onRemoteChanges: () => void, announce: (message: st
       announceRef.current('Signed out. Your data is still on this device.')
     }
   }, [])
+
+  const resetLink = useCallback(() => setState({ status: 'off' }), [])
 
   const deleteAccount = useCallback(async () => {
     try {
@@ -190,5 +207,5 @@ export const useCloudSync = (onRemoteChanges: () => void, announce: (message: st
     }
   }, [])
 
-  return { ...state, sendLink, syncNow: syncOrConnect, signOut, deleteAccount }
+  return { ...state, sendLink, resetLink, syncNow: syncOrConnect, signOut, deleteAccount }
 }

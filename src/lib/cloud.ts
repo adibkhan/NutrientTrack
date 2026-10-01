@@ -2,7 +2,7 @@
 // so people who never turn sync on download nothing extra and the app stays fully offline.
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { setMeta } from './db'
-import type { OutgoingChange, SyncBackend } from './sync'
+import { RejectedRecordError, type OutgoingChange, type SyncBackend } from './sync'
 import type { RemoteChange } from './db'
 
 const SUPABASE_URL = 'https://ithvjtxemjtkdwxaovfq.supabase.co'
@@ -26,14 +26,23 @@ export const getCloudClient = (): Promise<SupabaseClient> => {
   return clientPromise
 }
 
-/** Cheap check that avoids loading Supabase for people who have never signed in. */
-export const mightBeSignedIn = (): boolean => {
+/** Whether this browser holds a sign-in session. Works without loading Supabase. */
+export const hasStoredSession = (): boolean => {
   try {
-    if (/access_token=|error_description=/.test(window.location.hash)) return true
     return localStorage.getItem(SESSION_STORAGE_KEY) !== null
   } catch {
     return false
   }
+}
+
+/** Cheap check that avoids loading Supabase for people who have never signed in. */
+export const mightBeSignedIn = (): boolean => {
+  try {
+    if (/access_token=|error_description=/.test(window.location.hash)) return true
+  } catch {
+    return false
+  }
+  return hasStoredSession()
 }
 
 /** A sign-in problem reported by the emailed link (e.g. it expired), taken from the page address. */
@@ -55,10 +64,23 @@ export const getCloudUser = async (): Promise<User | null> => {
   return data.session?.user ?? null
 }
 
-/** Sign out on this device only. Local data stays; the next sign-in merges it into that account. */
+/**
+ * Sign out on this device only. Local data stays; the next sign-in merges it into that account.
+ * Works offline and even when the Supabase library could not be downloaded: the stored session is removed directly.
+ */
 export const signOutCloud = async (): Promise<void> => {
-  const client = await getCloudClient()
-  await client.auth.signOut({ scope: 'local' })
+  try {
+    const client = await getCloudClient()
+    await client.auth.signOut({ scope: 'local' })
+  } catch {
+    // The library is unavailable (e.g. offline right after an update); the stored session is dropped below.
+  } finally {
+    try {
+      localStorage.removeItem(SESSION_STORAGE_KEY)
+    } catch {
+      // Storage is unavailable; there is no stored session to remove.
+    }
+  }
   await setMeta('syncUserId', undefined)
   await setMeta('pullCursor', undefined)
 }
@@ -74,6 +96,8 @@ export const deleteCloudAccount = async (): Promise<void> => {
 export const createSupabaseBackend = (client: SupabaseClient): SyncBackend => ({
   async push(changes: OutgoingChange[]) {
     const { error } = await client.from('sync_records').upsert(changes, { onConflict: 'user_id,store,id' })
+    // SQLSTATE classes 22 (data exception) and 23 (constraint violation): this record will never be accepted.
+    if (error && /^(22|23)/.test(error.code ?? '')) throw new RejectedRecordError(error.message)
     if (error) throw error
   },
   async pull(since: string | undefined, limit: number) {

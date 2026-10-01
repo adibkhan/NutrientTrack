@@ -70,6 +70,10 @@ export function CloudSyncPanel({ cloud }: { cloud: CloudSync }) {
           <div>
             <strong>Check your email</strong>
             <p>We sent a sign-in link to {cloud.email}. Open it on this device to turn on backup and sync. It expires in an hour.</p>
+            <div className="link-actions">
+              <button className="button secondary compact" type="button" onClick={() => { void cloud.sendLink(cloud.email ?? '') }}>Send again</button>
+              <button className="button secondary compact" type="button" onClick={cloud.resetLink}>Use a different email</button>
+            </div>
           </div>
         </div>
       ) : (

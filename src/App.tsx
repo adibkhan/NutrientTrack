@@ -52,6 +52,7 @@ import {
 import { Icon, type IconName } from './components/Icon'
 import { Modal } from './components/Modal'
 import { CloudSyncPanel } from './components/CloudSyncPanel'
+import { hasStoredSession } from './lib/cloud'
 import { isSignedInStatus, useCloudSync, type CloudSync } from './lib/useCloudSync'
 import { readBackup } from './lib/backup'
 import NutritionInsights from './components/NutritionInsights'
@@ -537,7 +538,8 @@ export default function App() {
   }
 
   const clearLocalData = async () => {
-    const signedIn = isSignedInStatus(cloud.status)
+    // A stored session counts even while the status is still 'checking' or the sync code could not load.
+    const signedIn = isSignedInStatus(cloud.status) || hasStoredSession()
     if (!window.confirm(signedIn
       ? 'Clear all NutrientTrack data from this browser and sign out of backup here? Your cloud copy is kept; signing in again brings it back.'
       : 'Clear all NutrientTrack data from this browser? This cannot be undone unless you have a backup.')) return

@@ -7,6 +7,7 @@ import { CloudSyncPanel } from './CloudSyncPanel'
 const fakeCloud = (overrides: Partial<CloudSync> = {}): CloudSync => ({
   status: 'off',
   sendLink: vi.fn(async () => undefined),
+  resetLink: vi.fn(),
   syncNow: vi.fn(async () => undefined),
   signOut: vi.fn(async () => undefined),
   deleteAccount: vi.fn(async () => undefined),
@@ -46,6 +47,23 @@ describe('CloudSyncPanel other states', () => {
     expect(screen.getAllByText('Check your email').length).toBeGreaterThan(0)
     expect(screen.getByText(/me@example\.com/)).toBeTruthy()
     expect(screen.queryByLabelText('Email')).toBeNull()
+  })
+
+  it('sends the link again to the same address from the check-your-email state', async () => {
+    const cloud = fakeCloud({ status: 'link-sent', email: 'me@example.com' })
+    render(<CloudSyncPanel cloud={cloud} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Send again' }))
+    expect(cloud.sendLink).toHaveBeenCalledTimes(1)
+    expect(cloud.sendLink).toHaveBeenCalledWith('me@example.com')
+    expect(cloud.resetLink).not.toHaveBeenCalled()
+  })
+
+  it('lets the user pick a different email from the check-your-email state', async () => {
+    const cloud = fakeCloud({ status: 'link-sent', email: 'me@example.com' })
+    render(<CloudSyncPanel cloud={cloud} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Use a different email' }))
+    expect(cloud.resetLink).toHaveBeenCalledTimes(1)
+    expect(cloud.sendLink).not.toHaveBeenCalled()
   })
 
   it('shows the signed-in email and syncs on request', async () => {
