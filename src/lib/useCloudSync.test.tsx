@@ -8,6 +8,7 @@ const cloud = vi.hoisted(() => ({
   sendSignInLink: vi.fn(async (_email: string) => undefined),
   signInLinkError: vi.fn((): string | undefined => undefined),
   signOutCloud: vi.fn(async () => undefined),
+  deleteCloudAccount: vi.fn(async () => undefined),
 }))
 const sync = vi.hoisted(() => ({ syncOnce: vi.fn() }))
 const db = vi.hoisted(() => ({ listeners: new Set<() => void>() }))
@@ -274,5 +275,167 @@ describe('useCloudSync', () => {
     await act(async () => { await result.current.syncNow() })
     expect(result.current.message).toBeUndefined()
     expect(announce).not.toHaveBeenCalled()
+  })
+})
+
+describe('useCloudSync sign-out while something is in flight', () => {
+  const pendingSession = () => {
+    let resolve: (value: { data: { session: unknown } }) => void = () => undefined
+    const promise = new Promise<{ data: { session: unknown } }>((r) => { resolve = r })
+    const client = signedInClient()
+    client.auth.getSession.mockReturnValue(promise)
+    return { client, resolveWith: (session: unknown) => resolve({ data: { session } }) }
+  }
+
+  beforeEach(() => {
+    cloud.signOutCloud.mockReset()
+    cloud.signOutCloud.mockImplementation(async () => { cloud.mightBeSignedIn.mockReturnValue(false) })
+    cloud.deleteCloudAccount.mockReset()
+    cloud.deleteCloudAccount.mockImplementation(async () => { cloud.mightBeSignedIn.mockReturnValue(false) })
+  })
+
+  it('signs out after waiting five seconds when the running sync never settles', async () => {
+    cloud.mightBeSignedIn.mockReturnValue(true)
+    cloud.getCloudClient.mockResolvedValue(signedInClient())
+    sync.syncOnce.mockImplementation(() => new Promise(() => undefined))
+    const { result } = renderHook(() => useCloudSync(vi.fn(), vi.fn()))
+    await flush()
+    expect(sync.syncOnce).toHaveBeenCalledTimes(1)
+
+    let signedOut = false
+    await act(async () => { void result.current.signOut().then(() => { signedOut = true }); await vi.advanceTimersByTimeAsync(4999) })
+    expect(cloud.signOutCloud).not.toHaveBeenCalled()
+    expect(signedOut).toBe(false)
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+    expect(cloud.signOutCloud).toHaveBeenCalledTimes(1)
+    expect(signedOut).toBe(true)
+    expect(result.current.status).toBe('off')
+  })
+
+  const stallThenSignOut = async (onRemoteChanges = vi.fn()) => {
+    cloud.mightBeSignedIn.mockReturnValue(true)
+    cloud.getCloudClient.mockResolvedValue(signedInClient())
+    let settle: { resolve: (value: { pushed: number; applied: number; skipped: number }) => void; reject: (error: Error) => void } = { resolve: () => undefined, reject: () => undefined }
+    sync.syncOnce.mockImplementation(() => new Promise((resolve, reject) => { settle = { resolve, reject } }))
+    const hook = renderHook(() => useCloudSync(onRemoteChanges, vi.fn()))
+    await flush()
+    expect(sync.syncOnce).toHaveBeenCalledTimes(1)
+    await act(async () => { void hook.result.current.signOut(); await vi.advanceTimersByTimeAsync(5000) })
+    expect(hook.result.current.status).toBe('off')
+    return { ...hook, settle: () => settle }
+  }
+
+  it('keeps the status off when a sync abandoned by sign-out fails later', async () => {
+    const { result, settle } = await stallThenSignOut()
+    await act(async () => { settle().reject(new Error('boom')); await vi.advanceTimersByTimeAsync(0) })
+    expect(result.current.status).toBe('off')
+    expect(result.current.message).toBeUndefined()
+  })
+
+  it('keeps the status off and records no sync time when a sync abandoned by sign-out succeeds later', async () => {
+    const onRemoteChanges = vi.fn()
+    const { result, settle } = await stallThenSignOut(onRemoteChanges)
+    await act(async () => { settle().resolve({ pushed: 0, applied: 1, skipped: 2 }); await vi.advanceTimersByTimeAsync(0) })
+    expect(result.current.status).toBe('off')
+    expect(result.current.lastSyncedAt).toBeUndefined()
+    expect(result.current.message).toBeUndefined()
+  })
+
+  it('ignores online and visibility triggers while sign-out waits for a stalled sync', async () => {
+    cloud.mightBeSignedIn.mockReturnValue(true)
+    cloud.getCloudClient.mockResolvedValue(signedInClient())
+    sync.syncOnce.mockImplementation(() => new Promise(() => undefined))
+    const { result } = renderHook(() => useCloudSync(vi.fn(), vi.fn()))
+    await flush()
+    cloud.getCloudClient.mockClear()
+    sync.syncOnce.mockClear()
+    const client = signedInClient()
+    cloud.getCloudClient.mockResolvedValue(client)
+
+    await act(async () => { void result.current.signOut(); await vi.advanceTimersByTimeAsync(2000) })
+    await act(async () => {
+      window.dispatchEvent(new Event('online'))
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+      document.dispatchEvent(new Event('visibilitychange'))
+      void result.current.syncNow()
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(cloud.getCloudClient).not.toHaveBeenCalled()
+    expect(client.auth.getSession).not.toHaveBeenCalled()
+    expect(sync.syncOnce).not.toHaveBeenCalled()
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000) })
+    expect(cloud.signOutCloud).toHaveBeenCalledTimes(1)
+    expect(result.current.status).toBe('off')
+    expect(sync.syncOnce).not.toHaveBeenCalled()
+  })
+
+  it('can sign in again after a completed sign-out, so the sign-out guard does not stay stuck', async () => {
+    cloud.mightBeSignedIn.mockReturnValue(true)
+    cloud.getCloudClient.mockResolvedValue(signedInClient())
+    const { result } = renderHook(() => useCloudSync(vi.fn(), vi.fn()))
+    await flush()
+    await act(async () => { await result.current.signOut() })
+    expect(result.current.status).toBe('off')
+    sync.syncOnce.mockClear()
+    cloud.getCloudClient.mockClear()
+
+    await act(async () => { await result.current.sendLink('me@example.com') })
+    expect(result.current.status).toBe('link-sent')
+    cloud.mightBeSignedIn.mockReturnValue(true) // the emailed link was followed and stored a session
+    await act(async () => { await result.current.syncNow() })
+    expect(cloud.getCloudClient).toHaveBeenCalled()
+    expect(sync.syncOnce).toHaveBeenCalledTimes(1)
+    expect(result.current.status).toBe('synced')
+  })
+
+  it('does not wait the full five seconds when the running sync finishes after one second', async () => {
+    cloud.mightBeSignedIn.mockReturnValue(true)
+    cloud.getCloudClient.mockResolvedValue(signedInClient())
+    sync.syncOnce.mockImplementation(() => new Promise((resolve) => { setTimeout(() => resolve({ pushed: 0, applied: 0, skipped: 0 }), 1000) }))
+    const { result } = renderHook(() => useCloudSync(vi.fn(), vi.fn()))
+    await flush()
+
+    await act(async () => { void result.current.signOut(); await vi.advanceTimersByTimeAsync(999) })
+    expect(cloud.signOutCloud).not.toHaveBeenCalled()
+    await act(async () => { await vi.advanceTimersByTimeAsync(1) })
+    expect(cloud.signOutCloud).toHaveBeenCalledTimes(1)
+    expect(result.current.status).toBe('off')
+  })
+
+  it('does not sign the device back in when sign-out happens while the session is still being restored', async () => {
+    cloud.mightBeSignedIn.mockReturnValue(true)
+    const { client, resolveWith } = pendingSession()
+    cloud.getCloudClient.mockResolvedValue(client)
+    const { result } = renderHook(() => useCloudSync(vi.fn(), vi.fn()))
+    await flush()
+    expect(client.auth.getSession).toHaveBeenCalledTimes(1)
+
+    await act(async () => { await result.current.signOut() })
+    await act(async () => { resolveWith({ user }); await vi.advanceTimersByTimeAsync(0) })
+
+    expect(sync.syncOnce).not.toHaveBeenCalled()
+    expect(client.auth.onAuthStateChange).not.toHaveBeenCalled()
+    expect(result.current.status).toBe('off')
+    await act(async () => { await result.current.syncNow() })
+    expect(sync.syncOnce).not.toHaveBeenCalled()
+    expect(result.current.status).toBe('off')
+  })
+
+  it('does not sign the device back in when the account is deleted while the session is still being restored', async () => {
+    cloud.mightBeSignedIn.mockReturnValue(true)
+    const { client, resolveWith } = pendingSession()
+    cloud.getCloudClient.mockResolvedValue(client)
+    const { result } = renderHook(() => useCloudSync(vi.fn(), vi.fn()))
+    await flush()
+
+    await act(async () => { await result.current.deleteAccount() })
+    expect(cloud.deleteCloudAccount).toHaveBeenCalledTimes(1)
+    await act(async () => { resolveWith({ user }); await vi.advanceTimersByTimeAsync(0) })
+
+    expect(sync.syncOnce).not.toHaveBeenCalled()
+    expect(client.auth.onAuthStateChange).not.toHaveBeenCalled()
+    expect(result.current.status).toBe('off')
   })
 })

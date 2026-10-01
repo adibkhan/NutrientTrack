@@ -88,3 +88,37 @@ describe('isValidSyncRecord with the frozen v1 fixture records', () => {
     expect(isValidSyncRecord('entries', withoutUpdatedAt, entry.id as string)).toBe(false)
   })
 })
+
+describe('string-typed fields that would crash rendering if they were not strings', () => {
+  const weightRecord = (extra: Record<string, unknown>, drop?: string) => {
+    const base: Record<string, unknown> = { ...(fixture().weights as Array<Record<string, unknown>>)[0], ...extra }
+    if (drop) delete base[drop]
+    return base
+  }
+  const entryRecord = (extra: Record<string, unknown>) => ({ ...(fixture().entries as Array<Record<string, unknown>>)[1], ...extra })
+  const backupWith = (store: 'weights' | 'entries', record: Record<string, unknown>) => ({ ...fixture(), [store]: [record] })
+
+  it.each([['an object', { evil: 1 }], ['a number', 5], ['an array', ['x']], ['null', null]])('rejects a weight note that is %s', (_name, note) => {
+    const record = weightRecord({ note })
+    expect(isValidSyncRecord('weights', record, record.id as string)).toBe(false)
+    expect(readBackup(backupWith('weights', record))).toEqual({ ok: false, reason: 'invalid' })
+  })
+
+  it('accepts a weight note that is a string, an empty string, or absent', () => {
+    for (const record of [weightRecord({ note: 'after run' }), weightRecord({ note: '' }), weightRecord({}, 'note')]) {
+      expect(isValidSyncRecord('weights', record, record.id as string)).toBe(true)
+      expect(readBackup(backupWith('weights', record)).ok).toBe(true)
+    }
+  })
+
+  it.each([['an array holding a valid meal', ['lunch']], ['an object', {}], ['a number', 5], ['null', null], ['an unknown name', 'brunch']])('rejects an entry whose meal is %s', (_name, meal) => {
+    const record = entryRecord({ meal })
+    expect(isValidSyncRecord('entries', record, record.id as string)).toBe(false)
+    expect(readBackup(backupWith('entries', record))).toEqual({ ok: false, reason: 'invalid' })
+  })
+
+  it.each(['breakfast', 'lunch', 'dinner', 'snack', 'other'])('accepts the meal %s', (meal) => {
+    const record = entryRecord({ meal })
+    expect(isValidSyncRecord('entries', record, record.id as string)).toBe(true)
+  })
+})

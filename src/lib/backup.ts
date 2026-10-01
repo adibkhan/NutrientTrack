@@ -78,7 +78,11 @@ export const validateBackup = (value: unknown): value is BackupPayload => {
     Boolean(item && typeof item === 'object' && keys.every((key) => typeof (item as Record<string, unknown>)[key] === 'string'))
   const hasNumbers = (item: unknown, keys: string[]) =>
     Boolean(item && typeof item === 'object' && keys.every((key) => isNonNegativeNumber((item as Record<string, unknown>)[key])))
-  const validMeal = (value: unknown): value is MealCategory => ['breakfast', 'lunch', 'dinner', 'snack', 'other'].includes(String(value))
+  const validMeal = (value: unknown): value is MealCategory => typeof value === 'string' && ['breakfast', 'lunch', 'dinner', 'snack', 'other'].includes(value)
+  const isOptionalString = (item: unknown, key: string) => {
+    const value = item && typeof item === 'object' ? (item as Record<string, unknown>)[key] : undefined
+    return value === undefined || typeof value === 'string'
+  }
   const validUnit = (value: unknown): value is 'lb' | 'kg' => value === 'lb' || value === 'kg'
   const validGoals = (value: unknown) => {
     if (!value || typeof value !== 'object' || !validUnit((value as Goals).weightUnit)) return false
@@ -94,6 +98,6 @@ export const validateBackup = (value: unknown): value is BackupPayload => {
   return hasUniqueIds(candidate.entries) && hasUniqueIds(candidate.foods) && hasUniqueIds(candidate.weights) && hasUniqueIds(candidate.settings) &&
     candidate.entries.every((item) => hasStrings(item, ['id', 'date', 'name', 'createdAt', 'updatedAt']) && isISODate((item as DiaryEntry).date) && validMeal((item as DiaryEntry).meal) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat']) && isOptionalTime(item) && isOptionalNonNegativeNumber(item, 'grams') && isOptionalIdentifier(item, 'foodId') && isOptionalIdentifier(item, 'catalogId') && isOptionalCatalogSource(item)) &&
     candidate.foods.every((item) => hasStrings(item, ['id', 'name', 'serving', 'createdAt', 'updatedAt']) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat'])) &&
-    candidate.weights.every((item) => hasStrings(item, ['id', 'date', 'unit', 'createdAt']) && isISODate((item as WeightEntry).date) && validUnit((item as WeightEntry).unit) && Number.isFinite((item as WeightEntry).weight) && (item as WeightEntry).weight > 0) &&
+    candidate.weights.every((item) => hasStrings(item, ['id', 'date', 'unit', 'createdAt']) && isOptionalString(item, 'note') && isISODate((item as WeightEntry).date) && validUnit((item as WeightEntry).unit) && Number.isFinite((item as WeightEntry).weight) && (item as WeightEntry).weight > 0) &&
     candidate.settings.length <= 1 && candidate.settings.every((item) => hasStrings(item, ['id', 'updatedAt']) && (item as Settings).id === 'profile' && validGoals((item as Settings).goals))
 }

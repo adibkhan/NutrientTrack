@@ -91,6 +91,16 @@ describe('settings actions report failures', () => {
 })
 
 describe('weight trend range', () => {
+  it('renders a weight with a string note in the log without crashing', async () => {
+    m.getWeights.mockResolvedValue([{ ...weightAt(2, 170), note: 'after a long run' }])
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findAllByRole('button', { name: 'Log food' })
+    await user.click(first('Trends'))
+    expect(await screen.findByText('after a long run')).toBeTruthy()
+    expect(screen.getByText('Weight log')).toBeTruthy()
+  })
+
   async function openTrends() {
     m.getWeights.mockResolvedValue([weightAt(120, 200), weightAt(60, 190), weightAt(20, 180), weightAt(2, 170)])
     const user = userEvent.setup()

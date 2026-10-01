@@ -1,8 +1,8 @@
 // applyRemoteChanges must not let one malformed cloud row into the local database.
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { DiaryEntry } from '../types'
-import { applyRemoteChanges, closeDatabase, getEntries, getFoods, type RemoteChange } from './db'
+import type { DiaryEntry, WeightEntry } from '../types'
+import { applyRemoteChanges, closeDatabase, getEntries, getFoods, getWeights, type RemoteChange } from './db'
 
 const T = '2020-01-01T10:00:00.000Z'
 const entry = (id: string, extra: Record<string, unknown> = {}): DiaryEntry => ({
@@ -59,5 +59,26 @@ describe('applying cloud changes that may be malformed', () => {
   it('validates against the row store, so an entry shaped record in foods is skipped', async () => {
     expect(await applyRemoteChanges([change('e1', entry('e1'), { store: 'foods' })])).toBe(0)
     expect(await getFoods()).toEqual([])
+  })
+})
+
+describe('applying cloud rows whose fields have the wrong type', () => {
+  const weight = (id: string, extra: Record<string, unknown> = {}): WeightEntry =>
+    ({ id, date: '2026-09-30', weight: 180, unit: 'lb', createdAt: T, ...extra } as WeightEntry)
+
+  it('skips a weights row whose note is an object and still applies valid siblings', async () => {
+    const applied = await applyRemoteChanges([
+      change('w1', weight('w1', { note: 'ok' }), { store: 'weights' }),
+      change('w2', weight('w2', { note: { evil: 1 } }), { store: 'weights' }),
+      change('w3', weight('w3'), { store: 'weights' }),
+    ])
+    expect(applied).toBe(2)
+    expect((await getWeights()).map((w) => w.id).sort()).toEqual(['w1', 'w3'])
+  })
+
+  it('skips an entry whose meal is an array and still applies valid siblings', async () => {
+    const applied = await applyRemoteChanges([change('good1', entry('good1')), change('bad', entry('bad', { meal: ['lunch'] })), change('good2', entry('good2'))])
+    expect(applied).toBe(2)
+    expect((await getEntries()).map((e) => e.id).sort()).toEqual(['good1', 'good2'])
   })
 })

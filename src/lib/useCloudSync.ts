@@ -27,6 +27,8 @@ export interface CloudSync extends CloudSyncState {
 
 /** Wait after a local edit before syncing, so a burst of edits goes up together. */
 const LOCAL_CHANGE_DELAY_MS = 2000
+/** How long sign-out waits for a sync already underway; a stalled network must not block signing out. */
+const SIGN_OUT_WAIT_MS = 5000
 
 const friendlyAuthError = (error: unknown): string => {
   const message = error instanceof Error ? error.message : String(error)
@@ -44,6 +46,10 @@ export const useCloudSync = (onRemoteChanges: () => void, announce: (message: st
   const userRef = useRef<User | null>(null)
   const running = useRef(false)
   const inflight = useRef<Promise<void> | null>(null)
+  /** Bumped by sign-out and account deletion so a connect() that was already running cannot sign the device back in. */
+  const generation = useRef(0)
+  /** True while sign-out is waiting for a sync underway, so nothing can sign the device back in meanwhile. */
+  const signingOut = useRef(false)
   const runAgain = useRef(false)
   const connecting = useRef(false)
   const authUnsubscribe = useRef<(() => void) | null>(null)
@@ -65,6 +71,7 @@ export const useCloudSync = (onRemoteChanges: () => void, announce: (message: st
       return
     }
     running.current = true
+    const startedIn = generation.current
     setState((current) => ({ ...current, status: 'syncing' }))
     let finish: () => void = () => undefined
     inflight.current = new Promise<void>((resolve) => { finish = resolve })
@@ -76,12 +83,14 @@ export const useCloudSync = (onRemoteChanges: () => void, announce: (message: st
         skipped = Math.max(skipped, result.skipped)
         if (result.applied > 0) onRemoteChangesRef.current()
       } while (runAgain.current && userRef.current)
+      if (generation.current !== startedIn) return // signed out while this sync was running: leave the status alone
       const message = skipped > 0
         ? `${skipped} ${skipped === 1 ? 'item' : 'items'} could not be backed up and ${skipped === 1 ? 'stays' : 'stay'} on this device only.`
         : undefined
       setState((current) => ({ ...current, status: 'synced', lastSyncedAt: new Date().toISOString(), message }))
       if (message) announceRef.current(message, 'error')
     } catch {
+      if (generation.current !== startedIn) return
       setState((current) => ({
         ...current,
         status: navigator.onLine ? 'error' : 'offline',
@@ -96,15 +105,16 @@ export const useCloudSync = (onRemoteChanges: () => void, announce: (message: st
 
   /** Restore a session, or finish signing in from an emailed link. Safe to call again, e.g. after an offline start. */
   const connect = useCallback(async () => {
-    if (!mightBeSignedIn() || connecting.current || userRef.current) return
+    if (!mightBeSignedIn() || connecting.current || userRef.current || signingOut.current) return
     connecting.current = true
+    const startedIn = generation.current
     // Read the link before supabase-js consumes it: it clears the address while restoring the session.
     const fromLink = /access_token=/.test(window.location.hash)
     const linkError = signInLinkError()
     try {
       const client = await getCloudClient()
       const { data } = await client.auth.getSession()
-      if (!mounted.current) return
+      if (!mounted.current || generation.current !== startedIn) return
       if (fromLink || linkError || window.location.href.endsWith('#')) window.history.replaceState(null, '', window.location.pathname + window.location.search)
       if (linkError) announceRef.current(`That sign-in link didn't work: ${linkError}. Send a new one from Settings.`, 'error')
       userRef.current = data.session?.user ?? null
@@ -183,11 +193,16 @@ export const useCloudSync = (onRemoteChanges: () => void, announce: (message: st
   }, [])
 
   const signOut = useCallback(async () => {
-    userRef.current = null // stop any queued re-run, then let a sync already underway finish before signing out
-    await inflight.current
+    generation.current += 1
+    signingOut.current = true
+    userRef.current = null // stop any queued re-run, then give a sync already underway a moment to finish
+    let timer: number | undefined
+    await Promise.race([inflight.current, new Promise<void>((resolve) => { timer = window.setTimeout(resolve, SIGN_OUT_WAIT_MS) })])
+    window.clearTimeout(timer)
     try {
       await signOutCloud()
     } finally {
+      signingOut.current = false
       userRef.current = null
       setState({ status: 'off' })
       announceRef.current('Signed out. Your data is still on this device.')
@@ -199,6 +214,7 @@ export const useCloudSync = (onRemoteChanges: () => void, announce: (message: st
   const deleteAccount = useCallback(async () => {
     try {
       await deleteCloudAccount()
+      generation.current += 1
       userRef.current = null
       setState({ status: 'off' })
       announceRef.current('Your cloud account and its copy of your diary were deleted. Everything on this device is still here.')
