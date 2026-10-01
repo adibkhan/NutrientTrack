@@ -11,7 +11,7 @@ import { syncOnce, type OutgoingChange, type SyncBackend } from './sync'
 
 interface Row extends RemoteChange { user: string }
 
-/** Mirrors sync_records: keyed (user, store, id), stale writes ignored, deletes null the data, server clock strictly increasing. */
+/** Mirrors sync_records: keyed (user, store, id), stale writes keep the winner but bump its server stamp, deletes null the data, server clock strictly increasing. */
 class FakeBackend implements SyncBackend {
   rows = new Map<string, Row>()
   pullSinces: Array<string | undefined> = []
@@ -35,7 +35,11 @@ class FakeBackend implements SyncBackend {
     for (const change of changes) {
       const key = `${this.user}|${change.store}|${change.id}`
       const existing = this.rows.get(key)
-      if (existing && new Date(change.client_updated_at) < new Date(existing.client_updated_at)) continue
+      if (existing && new Date(change.client_updated_at) < new Date(existing.client_updated_at)) {
+        // 0004_stale_write_bumps_cursor.sql: the winner is kept as is, only its server stamp moves forward.
+        this.rows.set(key, { ...existing, server_updated_at: this.stamp() })
+        continue
+      }
       this.rows.set(key, {
         user: this.user, store: change.store, id: change.id, deleted: change.deleted,
         data: change.deleted ? null : structuredClone(change.data), client_updated_at: change.client_updated_at,
@@ -340,5 +344,77 @@ describe('restoring an older backup while syncing', () => {
     expect((await getEntries()).map((e) => e.name)).toEqual(['Soup'])
     // The record's own data is restored exactly, including its original updatedAt.
     expect((await getEntries())[0].updatedAt).toBe(T(10))
+  })
+})
+
+describe('restoring a backup that lacks records the cloud still has', () => {
+  it('brings the missing record back from the cloud and keeps the restored version everywhere, leaving the cloud copy', async () => {
+    const backend = new FakeBackend('user-1', 60_000)
+    await useDevice('a')
+    await saveEntry(entry('e1', T(1), { name: 'Soup' }))
+    const backup = await exportBackup() // only e1, at its older version
+    await saveEntry(entry('e9', T(4)))
+    await syncOnce(backend, 'user-1')
+    await saveEntry(entry('e1', T(3), { name: 'Soup edited' })) // pushed after e9, so A's cursor is well past e9
+    await syncOnce(backend, 'user-1')
+    await useDevice('b')
+    await syncOnce(backend, 'user-1')
+
+    await useDevice('a')
+    await importBackup(backup)
+    expect((await getEntries()).map((e) => e.id)).toEqual(['e1'])
+    await syncOnce(backend, 'user-1')
+
+    expect((await getEntries()).map((e) => e.id).sort()).toEqual(['e1', 'e9'])
+    expect((await getEntries()).find((e) => e.id === 'e1')).toMatchObject({ name: 'Soup', updatedAt: T(1) })
+    const cloud = [...backend.rows.values()]
+    expect(cloud.find((row) => row.id === 'e9')).toMatchObject({ deleted: false, data: { id: 'e9' } })
+    expect(cloud.find((row) => row.id === 'e1')?.data).toMatchObject({ name: 'Soup' })
+    expect(await getPendingChanges()).toEqual([])
+
+    await useDevice('b')
+    expect((await getEntries()).map((e) => e.id).sort()).toEqual(['e1', 'e9'])
+    await syncOnce(backend, 'user-1')
+    expect((await getEntries()).find((e) => e.id === 'e1')).toMatchObject({ name: 'Soup' })
+    expect((await getEntries()).map((e) => e.id).sort()).toEqual(['e1', 'e9'])
+  })
+})
+
+describe('a device whose clock is behind', () => {
+  it('ends up with the winning version after its next sync, even though its cursor was already past that row', async () => {
+    const backend = new FakeBackend('user-1', 60_000)
+    await useDevice('a')
+    await saveEntry(entry('e1', T(1)))
+    await syncOnce(backend, 'user-1')
+    await useDevice('b')
+    await syncOnce(backend, 'user-1')
+    await useDevice('a')
+    await saveEntry(entry('e1', T(8), { name: 'winner from A' }))
+    await saveEntry(entry('e2', T(9))) // a later row, so B's cursor moves well past e1's
+    await syncOnce(backend, 'user-1')
+    await useDevice('b')
+    await syncOnce(backend, 'user-1') // B's cursor is now more than the overlap window past A's e1 row
+
+    await saveEntry(entry('e1', T(2), { name: 'stale from B' })) // B's clock is behind
+    const result = await syncOnce(backend, 'user-1')
+
+    expect(result.pushed).toBe(1)
+    expect((await getEntries()).find((e) => e.id === 'e1')).toMatchObject({ name: 'winner from A', updatedAt: T(8) })
+    expect(await getPendingChanges()).toEqual([])
+    expect(backend.rows.get('user-1|entries|e1')?.data).toMatchObject({ name: 'winner from A' })
+  })
+})
+
+describe('everSynced', () => {
+  it('is set by a sync, so later deletes are queued for the cloud', async () => {
+    const backend = new FakeBackend()
+    await useDevice('a')
+    expect(await getMeta('everSynced')).toBeUndefined()
+    await syncOnce(backend, 'user-1')
+    expect(await getMeta('everSynced')).toBe(true)
+    await saveEntry(entry('e1', T(1)))
+    await syncOnce(backend, 'user-1')
+    await deleteEntry('e1')
+    expect(await getPendingChanges()).toMatchObject([{ key: 'entries:e1', deleted: true }])
   })
 })

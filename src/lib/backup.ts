@@ -30,6 +30,23 @@ export const readBackup = (value: unknown): BackupReadResult => {
   return validateBackup(upgraded) ? { ok: true, backup: upgraded } : { ok: false, reason: 'invalid' }
 }
 
+/**
+ * Whether one record read from the cloud is safe to store locally: the same rules a backup file must pass, and
+ * its own id must match the cloud row it came from. Unknown extra fields are allowed (newer builds add them).
+ */
+export const isValidSyncRecord = (store: 'entries' | 'foods' | 'weights' | 'settings', data: unknown, id: string): boolean => {
+  if (!data || typeof data !== 'object' || (data as { id?: unknown }).id !== id) return false
+  return validateBackup({
+    format: 'nutrienttrack-backup',
+    version: BACKUP_VERSION,
+    exportedAt: '',
+    entries: store === 'entries' ? [data] : [],
+    foods: store === 'foods' ? [data] : [],
+    weights: store === 'weights' ? [data] : [],
+    settings: store === 'settings' ? [data] : [],
+  })
+}
+
 export const validateBackup = (value: unknown): value is BackupPayload => {
   if (!value || typeof value !== 'object') return false
   const candidate = value as Partial<BackupPayload>

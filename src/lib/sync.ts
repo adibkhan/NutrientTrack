@@ -42,6 +42,8 @@ export const syncOnce = async (backend: SyncBackend, userId: string): Promise<Sy
     await setMeta('pullCursor', undefined)
     await setMeta('syncUserId', userId)
   }
+  // From now on deletes must be queued too, even while signed out, so other devices learn about them.
+  await setMeta('everSynced', true)
 
   let pushed = 0
   const pending = await getPendingChanges()

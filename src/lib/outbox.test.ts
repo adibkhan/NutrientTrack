@@ -5,7 +5,7 @@ import type { BackupPayload, DiaryEntry, WeightEntry } from '../types'
 import fixtureV1 from './__fixtures__/backup-v1.json'
 import {
   acknowledgeChanges, clearAllData, closeDatabase, deleteEntry, getEntries, getPendingChanges, importBackup,
-  saveEntries, saveEntry, saveWeight,
+  deleteFood, deleteWeight, getMeta, saveEntries, saveEntry, saveFood, saveWeight, setMeta,
 } from './db'
 
 const fixture = () => structuredClone(fixtureV1) as unknown as BackupPayload
@@ -35,6 +35,7 @@ describe('local change queue', () => {
   it('keeps one change per record, the latest', async () => {
     await saveEntry(entry('a', '2020-01-01T10:00:00.000Z'))
     await saveEntry(entry('a', '2020-01-01T11:00:00.000Z'))
+    await setMeta('everSynced', true)
     await deleteEntry('a')
     const [change] = await getPendingChanges()
     expect(await getPendingChanges()).toHaveLength(1)
@@ -84,6 +85,7 @@ describe('acknowledging pushed changes', () => {
   it('keeps a delete made while an earlier save was being pushed', async () => {
     await saveEntry(entry('a', '2026-09-30T10:00:00.000Z'))
     const pushed = await getPendingChanges()
+    await setMeta('everSynced', true)
     await deleteEntry('a')
     await acknowledgeChanges(pushed)
     expect(await getPendingChanges()).toMatchObject([{ key: 'entries:a', deleted: true }])
@@ -105,5 +107,95 @@ describe('restore and clear', () => {
     await saveEntry(entry('a', '2026-09-30T10:00:00.000Z'))
     await clearAllData()
     expect(await getPendingChanges()).toEqual([])
+  })
+})
+
+describe('deleting on a device that never synced', () => {
+  const food = { id: 'f', name: 'Soup', serving: '1 bowl', calories: 1, protein: 1, carbs: 1, fat: 1, createdAt: '2026-09-30T10:00:00.000Z', updatedAt: '2026-09-30T10:00:00.000Z' }
+  const weight: WeightEntry = { id: 'w', date: '2026-09-30', weight: 80, unit: 'kg', createdAt: '2026-09-30T08:00:00.000Z', updatedAt: '2026-09-30T09:00:00.000Z' }
+
+  it('leaves no outbox row when a record with a pending save is deleted, and removes that pending save', async () => {
+    await saveEntry(entry('a', '2026-09-30T10:00:00.000Z'))
+    expect(await getPendingChanges()).toHaveLength(1)
+    await deleteEntry('a')
+    expect(await getEntries()).toEqual([])
+    expect(await getPendingChanges()).toEqual([])
+  })
+
+  it('leaves no outbox row for a delete of a record that had no pending change', async () => {
+    await saveEntry(entry('a', '2026-09-30T10:00:00.000Z'))
+    await acknowledgeChanges(await getPendingChanges())
+    await deleteEntry('a')
+    expect(await getPendingChanges()).toEqual([])
+  })
+
+  it('does the same for foods and weights', async () => {
+    await saveFood(food)
+    await saveWeight(weight)
+    await deleteFood('f')
+    await deleteWeight('w')
+    expect(await getPendingChanges()).toEqual([])
+  })
+
+  it('only drops the deleted record pending change, not other records', async () => {
+    await saveEntry(entry('a', '2026-09-30T10:00:00.000Z'))
+    await saveEntry(entry('b', '2026-09-30T10:00:00.000Z'))
+    await deleteEntry('a')
+    expect((await getPendingChanges()).map((change) => change.key)).toEqual(['entries:b'])
+  })
+
+  it.each([
+    ['entry', 'entries:a', () => deleteEntry('a')],
+    ['food', 'foods:f', () => deleteFood('f')],
+    ['weight', 'weights:w', () => deleteWeight('w')],
+  ])('queues a tombstone for a %s once the device has synced', async (_name, key, remove) => {
+    await saveEntry(entry('a', '2026-09-30T10:00:00.000Z'))
+    await saveFood(food)
+    await saveWeight(weight)
+    await acknowledgeChanges(await getPendingChanges())
+    await setMeta('everSynced', true)
+    await remove()
+    expect(await getPendingChanges()).toMatchObject([{ key, deleted: true }])
+  })
+
+  it('keeps queueing tombstones after signing out, which only clears the account and cursor', async () => {
+    await setMeta('everSynced', true)
+    await setMeta('syncUserId', 'user-1')
+    await saveEntry(entry('a', '2026-09-30T10:00:00.000Z'))
+    await acknowledgeChanges(await getPendingChanges())
+    await setMeta('syncUserId', undefined) // what signOutCloud does
+    await setMeta('pullCursor', undefined)
+    await deleteEntry('a')
+    expect(await getPendingChanges()).toMatchObject([{ key: 'entries:a', deleted: true }])
+  })
+
+  it('forgets that sync was used when all local data is cleared', async () => {
+    await setMeta('everSynced', true)
+    await clearAllData()
+    expect(await getMeta('everSynced')).toBeUndefined()
+    await saveEntry(entry('a', '2026-09-30T10:00:00.000Z'))
+    await acknowledgeChanges(await getPendingChanges())
+    await deleteEntry('a')
+    expect(await getPendingChanges()).toEqual([])
+  })
+})
+
+describe('restore resets the pull cursor', () => {
+  it('removes pullCursor so the next sync re-reads the cloud', async () => {
+    await setMeta('pullCursor', '2026-09-30T12:00:00.000000+00:00')
+    await importBackup(fixture())
+    expect(await getMeta('pullCursor')).toBeUndefined()
+  })
+
+  it('keeps the other sync bookkeeping', async () => {
+    await setMeta('syncUserId', 'user-1')
+    await setMeta('everSynced', true)
+    await importBackup(fixture())
+    expect(await getMeta('syncUserId')).toBe('user-1')
+    expect(await getMeta('everSynced')).toBe(true)
+  })
+
+  it('does not fail when there is no cursor yet', async () => {
+    await expect(importBackup(fixture())).resolves.toBeUndefined()
   })
 })
