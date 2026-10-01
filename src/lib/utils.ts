@@ -1,4 +1,4 @@
-import type { DiaryEntry, MacroKey, MacroTotals } from '../types'
+import type { DiaryEntry, MacroKey, MacroTotals, MealCategory } from '../types'
 
 export const todayISO = (): string => {
   const now = new Date()
@@ -35,6 +35,13 @@ export const formatDateLabel = (value: string, options: Intl.DateTimeFormatOptio
   }).format(dateFromISO(value))
 }
 
+/** An "HH:MM" wall-clock time in the viewer's own clock style (e.g. "7:40 AM"); unreadable values come back unchanged. */
+export const formatClockTime = (time: string): string => {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(time)
+  if (!match) return time
+  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(2020, 0, 1, Number(match[1]), Number(match[2])))
+}
+
 export const formatShortDate = (value: string): string => {
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(dateFromISO(value))
 }
@@ -69,6 +76,17 @@ export const macroLabel = (key: MacroKey): string => {
   if (key === 'protein') return 'Protein'
   if (key === 'carbs') return 'Carbs'
   return 'Fat'
+}
+
+/** The meal a food most likely belongs to at an "HH:MM" wall-clock time; 'other' when the time is unreadable. */
+export const mealForTime = (time: string): MealCategory => {
+  const match = /^([01]\d|2[0-3]):[0-5]\d$/.exec(time)
+  if (!match) return 'other'
+  const hour = Number(match[1])
+  if (hour >= 5 && hour < 11) return 'breakfast'
+  if (hour >= 11 && hour < 15) return 'lunch'
+  if (hour >= 17 && hour < 22) return 'dinner'
+  return 'snack'
 }
 
 export const clampPercent = (value: number): number => Math.max(0, Math.min(value, 100))
