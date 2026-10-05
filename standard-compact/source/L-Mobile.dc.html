@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Standard Compact — Dashboard (phone)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#ffffff}
+a{color:#2e6fe8}a:hover{color:#1f54b8}
+.scroller{scrollbar-width:none}.scroller::-webkit-scrollbar{display:none}
+.card{background:#fff;border-radius:10px;border:1px solid #e4e7ec}
+.seg{transition:background .25s,color .25s}
+.row:active{background:#ffffff}
+.bar{transition:width .6s cubic-bezier(.2,.8,.2,1)}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; box-sizing: border-box; background: #ffffff; color: #101828; font-family: IBM Plex Sans, system-ui, sans-serif">
+  <div class="scroller" style="position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 60px 16px 110px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px">
+
+    <header style="display: flex; justify-content: space-between; align-items: center">
+      <div><div style="font-size: 13px; color: #667085; font-weight: 500">Thursday, Oct 1</div><div style="font-size: 21px; font-weight: 700; letter-spacing: -.02em">Dashboard</div></div>
+      <div style="display: flex; gap: 6px; background: #eef0f3; padding: 3px; border-radius: 8px">
+        <button type="button" onClick="{{ setDay }}" class="seg" style="min-height: 38px; padding: 0 12px; border: 0; border-radius: 8px; background: {{ dayBg }}; color: {{ dayFg }}; font: 600 13px IBM Plex Sans, sans-serif; cursor: pointer">Today</button>
+        <button type="button" onClick="{{ setWeek }}" class="seg" style="min-height: 38px; padding: 0 12px; border: 0; border-radius: 8px; background: {{ weekBg }}; color: {{ weekFg }}; font: 600 13px IBM Plex Sans, sans-serif; cursor: pointer">Week</button>
+      </div>
+    </header>
+
+    <section class="card" style="padding: 14px; display: flex; flex-direction: column; gap: 14px" aria-label="Nutrition">
+      <div style="display: flex; align-items: center; gap: 16px">
+        <svg width="96" height="96" viewBox="0 0 112 112" aria-label="Calories: 1,380 eaten of 2,140">
+          <circle cx="56" cy="56" r="48" fill="none" stroke="#eef0f3" stroke-width="10"></circle>
+          <circle cx="56" cy="56" r="48" fill="none" stroke="#2e6fe8" stroke-width="10" pathLength="100" stroke-dasharray="{{ kcalPct }} 100" stroke-linecap="round" transform="rotate(-90 56 56)" style="transition: stroke-dasharray .8s cubic-bezier(.2,.8,.2,1)"></circle>
+          <text x="56" y="54" text-anchor="middle" font-family="IBM Plex Sans" font-weight="800" font-size="24" fill="#101828">{{ remaining }}</text>
+          <text x="56" y="70" text-anchor="middle" font-family="IBM Plex Sans" font-size="11" fill="#667085">remaining</text>
+        </svg>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 10px">
+          <div><div style="display: flex; justify-content: space-between; font-size: 13px"><span style="font-weight: 600">Protein</span><span style="color: #667085">{{ protein }} / 180 g</span></div><div style="height: 6px; border-radius: 99px; background: #eef0f3; margin-top: 5px"><div class="bar" style="width: {{ proteinPct }}%; height: 100%; border-radius: 99px; background: #2e6fe8"></div></div></div>
+          <div><div style="display: flex; justify-content: space-between; font-size: 13px"><span style="font-weight: 600">Carbs</span><span style="color: #667085">{{ carbs }} / 210 g</span></div><div style="height: 6px; border-radius: 99px; background: #eef0f3; margin-top: 5px"><div class="bar" style="width: {{ carbsPct }}%; height: 100%; border-radius: 99px; background: #7a5af8"></div></div></div>
+          <div><div style="display: flex; justify-content: space-between; font-size: 13px"><span style="font-weight: 600">Fat</span><span style="color: #667085">{{ fat }} / 70 g</span></div><div style="height: 6px; border-radius: 99px; background: #eef0f3; margin-top: 5px"><div class="bar" style="width: {{ fatPct }}%; height: 100%; border-radius: 99px; background: #e08a1e"></div></div></div>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid #eef0f3; font-size: 13px; color: #667085"><span>Eaten <strong style="color: #101828">{{ eaten }}</strong></span><span>Budget <strong style="color: #101828">{{ budget }}</strong></span><span>Fiber <strong style="color: #101828">18 / 30 g</strong></span></div>
+    </section>
+
+    <section style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+      <a href="LM-Weight.dc.html" class="card" style="padding: 12px; display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: #101828">
+        <div style="font-size: 12px; color: #667085; font-weight: 600">Weight trend</div>
+        <div style="font-size: 21px; font-weight: 700; letter-spacing: -.02em">{{ trendNow }} <span style="font-size: 13px; color: #667085; font-weight: 500">lb</span></div>
+        <svg viewBox="0 0 140 40" width="100%" height="40" aria-label="Fourteen day trend"><path d="{{ miniTrend }}" fill="none" stroke="#2e6fe8" stroke-width="2" stroke-linecap="round"></path></svg>
+        <div style="font-size: 12px; color: #2e6fe8; font-weight: 600">{{ weekChange }} lb this week</div>
+      </a>
+      <a href="LM-Expenditure.dc.html" class="card" style="padding: 12px; display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: #101828">
+        <div style="font-size: 12px; color: #667085; font-weight: 600">Expenditure</div>
+        <div style="font-size: 21px; font-weight: 700; letter-spacing: -.02em">2,640 <span style="font-size: 13px; color: #667085; font-weight: 500">kcal</span></div>
+        <div style="display: flex; gap: 3px; align-items: flex-end; height: 40px"><sc-for list="{{ tdee }}" as="t" hint-placeholder-count="14"><div style="flex-grow: 1; height: {{ t.h }}%; border-radius: 2px; background: {{ t.c }}"></div></sc-for></div>
+        <div style="font-size: 12px; color: #667085">+60 vs last week</div>
+      </a>
+    </section>
+
+    <section id="meds" class="card" style="padding: 12px; display: flex; flex-direction: column; gap: 12px" aria-label="Medication">
+      <div style="display: flex; justify-content: space-between; align-items: center">
+        <div><div style="font-size: 12px; color: #667085; font-weight: 600">Medication</div><div style="font-size: 17px; font-weight: 700">Semaglutide · {{ dose }} mg weekly</div></div>
+        <span style="font-size: 12px; font-weight: 600; color: #b54708; background: #fff4e5; padding: 5px 10px; border-radius: 99px">Due Sat</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px">
+        <sc-for list="{{ week }}" as="w" hint-placeholder-count="7"><div style="display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: #667085"><span>{{ w.l }}</span><span style="width: 28px; height: 28px; border-radius: 99px; background: {{ w.bg }}; border: 1.5px solid {{ w.bd }}; display: flex; align-items: center; justify-content: center; color: {{ w.fg }}; font-weight: 700">{{ w.m }}</span></div></sc-for>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 13px; color: #667085"><span>Last: left abdomen, Sat</span><span>Next site: right thigh</span></div>
+      <div style="display: flex; gap: 8px">
+        <button type="button" onClick="{{ logDose }}" style="flex-grow: 1; min-height: 44px; border-radius: 8px; border: 0; background: #2e6fe8; color: #fff; font: 600 14px IBM Plex Sans, sans-serif; cursor: pointer">Log injection</button>
+        <button type="button" onClick="{{ stepDose }}" style="min-height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid #d0d5dd; background: #fff; color: #101828; font: 600 14px IBM Plex Sans, sans-serif; cursor: pointer">Titrate</button>
+      </div>
+    </section>
+
+    <section class="card" style="padding: 4px 0; display: flex; flex-direction: column" aria-label="Food log">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 6px"><div style="font-size: 16px; font-weight: 700">Food log</div><a href="LM-FoodLog.dc.html" style="font-size: 13px; font-weight: 600; text-decoration: none">Quick add</a></div>
+      <sc-for list="{{ meals }}" as="m" hint-placeholder-count="4">
+        <div class="row" style="display: flex; align-items: center; gap: 12px; padding: 9px 14px; border-top: 1px solid #eef0f3">
+          <div style="width: 36px; height: 36px; border-radius: 8px; background: #eaf1fe; color: #2e6fe8; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">{{ m.i }}</div>
+          <div style="flex-grow: 1"><div style="font-weight: 600; font-size: 14px">{{ m.name }}</div><div style="font-size: 12px; color: #667085">{{ m.detail }}</div></div>
+          <div style="text-align: right"><div style="font-weight: 700">{{ m.kcal }}</div><div style="font-size: 11px; color: #667085">kcal</div></div>
+        </div>
+      </sc-for>
+    </section>
+
+    <section style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+      <div class="card" style="padding: 14px"><div style="font-size: 12px; color: #667085; font-weight: 600">Steps</div><div style="font-size: 18px; font-weight: 700">8,412</div><div style="font-size: 12px; color: #667085">486 active kcal</div></div>
+      <div class="card" style="padding: 14px"><div style="font-size: 12px; color: #667085; font-weight: 600">Sleep</div><div style="font-size: 18px; font-weight: 700">7h 12m</div><div style="font-size: 12px; color: #667085">Resting HR 54</div></div>
+      <div class="card" style="padding: 14px"><div style="font-size: 12px; color: #667085; font-weight: 600">Body fat</div><div style="font-size: 18px; font-weight: 700">21.4%</div><div style="font-size: 12px; color: #2e6fe8; font-weight: 600">−0.6 this month</div></div>
+      <div class="card" style="padding: 14px"><div style="font-size: 12px; color: #667085; font-weight: 600">Water</div><div style="font-size: 18px; font-weight: 700">1.8 L</div><div style="font-size: 12px; color: #667085">of 3.0 L</div></div>
+    </section>
+  </div>
+
+  <nav style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; padding: 8px 8px 22px; box-sizing: border-box; background: #fff; border-top: 1px solid #eef0f3; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center">
+    <a href="L-Mobile.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center; text-decoration: none; color: #2e6fe8; font-size: 11px; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="8" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect><rect x="13" y="13" width="8" height="8" rx="2"></rect></svg>Dashboard</a>
+    <a href="LM-FoodLog.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center; text-decoration: none; color: #667085; font-size: 11px; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>Log</a>
+    <a href="LM-AddFood.dc.html" aria-label="Add food" style="justify-self: center; text-decoration: none; width: 52px; height: 52px; border-radius: 99px; border: 0; background: #2e6fe8; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(46,111,232,.3)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg></a>
+    <a href="LM-Weight.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center; text-decoration: none; color: #667085; font-size: 11px; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l5-6 4 3 5-8 4 5"></path></svg>Weight</a>
+    <a href="LM-Meds.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center; text-decoration: none; color: #667085; font-size: 11px; font-weight: 600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3l7 7-9 9-7-7zM5 19l-2 2M9 9l6 6"></path></svg>Meds</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p){ super(p); this.state = { view:'day', dose:1.0, eaten:1380, protein:112, carbs:131, fat:41, scale:[184.2,183.8,184.5,183.1,182.9,183.4,182.2,182.0,182.6,181.5,181.9,181.1,180.8,181.2] }; }
+  smooth(a){ const o=[]; let e=a[0]; a.forEach(v=>{ e=e*0.7+v*0.3; o.push(e); }); return o; }
+  renderVals(){
+    const budget=2140, s=this.state, trend=this.smooth(s.scale), min=Math.min(...trend), max=Math.max(...trend);
+    const day=s.view==='day';
+    const tdeeVals=[2520,2540,2560,2550,2580,2600,2590,2610,2620,2600,2630,2650,2640,2640];
+    const dayL=['S','S','M','T','W','T','F'];
+    return {
+      setDay:()=>this.setState({view:'day'}), setWeek:()=>this.setState({view:'week'}),
+      dayBg: day?'#fff':'transparent', dayFg: day?'#101828':'#667085', weekBg: day?'transparent':'#fff', weekFg: day?'#667085':'#101828',
+      budget:budget.toLocaleString(), eaten:s.eaten.toLocaleString(), remaining:(budget-s.eaten).toLocaleString(), kcalPct:(s.eaten/budget*100).toFixed(0),
+      protein:s.protein, carbs:s.carbs, fat:s.fat, proteinPct:(s.protein/180*100).toFixed(0), carbsPct:(s.carbs/210*100).toFixed(0), fatPct:(s.fat/70*100).toFixed(0),
+      trendNow:trend[13].toFixed(1), weekChange:(trend[13]-trend[6]).toFixed(1),
+      miniTrend: trend.map((v,i)=>(i?'L':'M')+(4+i*(132/13)).toFixed(1)+','+(34-(v-min)/(max-min+0.01)*28).toFixed(1)).join(' '),
+      tdee: tdeeVals.map((v,i)=>({ h:((v-2480)/180*100).toFixed(0), c: i===13?'#2e6fe8':'#cddcf8' })),
+      dose:s.dose.toFixed(2).replace(/0$/,''), logDose:()=>this.setState({}), stepDose:()=>this.setState({ dose:Math.min(2.4,+(s.dose+0.25).toFixed(2)) }),
+      week: dayL.map((l,i)=>({ l, m: i===0?'✓':(i===6?'!':''), bg: i===0?'#2e6fe8':'#fff', bd: i===6?'#e08a1e':(i===0?'#2e6fe8':'#eef0f3'), fg: i===0?'#fff':'#e08a1e' })),
+      meals:[ {i:'B',name:'Greek yogurt, berries, whey',detail:'42 P · 38 C · 6 F',kcal:'378'}, {i:'L',name:'Chicken burrito bowl',detail:'46 P · 61 C · 18 F',kcal:'590'}, {i:'S',name:'Apple + almonds',detail:'5 P · 24 C · 14 F',kcal:'242'}, {i:'D',name:'Planned: salmon, rice, broccoli',detail:'44 P · 58 C · 16 F',kcal:'590'} ]
+    };
+  }
+}
+</script>
+</body>
+</html>

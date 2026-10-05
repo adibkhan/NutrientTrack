@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nutrienttrack-shell-v6'
+const CACHE_NAME = 'nutrienttrack-shell-v7'
 const APP_SHELL = [
   './',
   './index.html',
@@ -6,6 +6,8 @@ const APP_SHELL = [
   './icons/nutrienttrack-192.png',
   './icons/nutrienttrack-512.png',
   './data/usda-common-v1.json',
+  './fonts/ibm-plex-sans-latin.woff2',
+  './fonts/ibm-plex-sans-latin-ext.woff2',
 ]
 
 const scopeUrl = () => new URL(self.registration.scope)

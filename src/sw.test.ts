@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import swSource from '../public/sw.js?raw'
 
 const SCOPE = 'https://app.test/'
-const CACHE_NAME = 'nutrienttrack-shell-v6'
+const CACHE_NAME = 'nutrienttrack-shell-v7'
 const JS = `${SCOPE}assets/index-abc123.js`
 const CSS = `${SCOPE}assets/index-abc123.css`
 const MANIFEST = `${SCOPE}manifest.webmanifest`

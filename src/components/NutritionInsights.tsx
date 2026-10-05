@@ -54,7 +54,7 @@ const buildDays = (entries: DiaryEntry[], rangeDays: RangeDays, endDate: string)
 
   entries.forEach((entry) => {
     const day = byDate.get(entry.date)
-    if (!day) return
+    if (!day || entry.planned) return
     day.entryCount += 1
     day.calories += numericValue(entry.calories)
     day.protein += numericValue(entry.protein)

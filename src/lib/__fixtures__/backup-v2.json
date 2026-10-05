@@ -1,0 +1,88 @@
+{
+  "format": "nutrienttrack-backup",
+  "version": 2,
+  "exportedAt": "2026-10-03T09:00:00.000Z",
+  "entries": [
+    {
+      "id": "entry-v2-nutrients",
+      "date": "2026-10-02",
+      "meal": "breakfast",
+      "name": "Oatmeal with berries",
+      "calories": 310,
+      "protein": 11,
+      "carbs": 56,
+      "fat": 5,
+      "time": "07:30",
+      "fiber": 8,
+      "sodium": 90,
+      "sugar": 12,
+      "satFat": 1,
+      "cholesterol": 0,
+      "futureBadge": "kept-by-older-builds",
+      "createdAt": "2026-10-02T07:31:00.000Z",
+      "updatedAt": "2026-10-02T07:31:00.000Z"
+    },
+    {
+      "id": "entry-v2-planned",
+      "date": "2026-10-03",
+      "meal": "dinner",
+      "name": "Salmon and rice",
+      "calories": 640,
+      "protein": 42,
+      "carbs": 58,
+      "fat": 24,
+      "planned": true,
+      "foodId": "food-v2-recipe",
+      "createdAt": "2026-10-03T08:00:00.000Z",
+      "updatedAt": "2026-10-03T08:00:00.000Z"
+    }
+  ],
+  "foods": [
+    {
+      "id": "food-v2-recipe",
+      "name": "Salmon and rice bowl",
+      "serving": "1 serving",
+      "calories": 640,
+      "protein": 42,
+      "carbs": 58,
+      "fat": 24,
+      "fiber": 4,
+      "favorite": true,
+      "ingredients": [
+        { "name": "Salmon fillet", "calories": 350, "protein": 34, "carbs": 0, "fat": 22, "quantity": 1, "foodId": "food-v2-salmon" },
+        { "name": "Jasmine rice, cooked", "calories": 290, "protein": 8, "carbs": 58, "fat": 2 }
+      ],
+      "recipeServings": 1,
+      "createdAt": "2026-09-20T12:00:00.000Z",
+      "updatedAt": "2026-10-01T12:00:00.000Z"
+    }
+  ],
+  "weights": [
+    {
+      "id": "weight-v2-1",
+      "date": "2026-10-02",
+      "weight": 181.2,
+      "unit": "lb",
+      "bodyFat": 21.4,
+      "note": "morning",
+      "createdAt": "2026-10-02T06:58:00.000Z",
+      "updatedAt": "2026-10-02T06:58:00.000Z"
+    }
+  ],
+  "settings": [
+    {
+      "id": "profile",
+      "goals": { "calories": 2140, "protein": 180, "carbs": 210, "fat": 70, "weightUnit": "lb" },
+      "preferences": { "theme": "dark", "macroDisplay": "percent" },
+      "program": { "direction": "lose", "goalWeight": 170, "weeklyRate": 1, "proteinPerWeight": 0.8, "checkInDay": 0, "lastCheckIn": "2026-09-27", "futureProgramField": 3 },
+      "futureSettingsField": { "kept": true },
+      "updatedAt": "2026-10-01T09:00:00.000Z"
+    }
+  ],
+  "water": [
+    { "id": "2026-10-02", "date": "2026-10-02", "ml": 1750, "createdAt": "2026-10-02T09:00:00.000Z", "updatedAt": "2026-10-02T18:00:00.000Z" }
+  ],
+  "measurements": [
+    { "id": "2026-10-01", "date": "2026-10-01", "unit": "in", "waist": 34.5, "hips": 39, "createdAt": "2026-10-01T07:00:00.000Z", "updatedAt": "2026-10-01T07:00:00.000Z" }
+  ]
+}

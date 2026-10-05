@@ -5,8 +5,10 @@ import type { DiaryEntry, Food, Settings, WeightEntry } from './types'
 import type { DatabaseEvent } from './lib/db'
 import { todayISO } from './lib/utils'
 import fixtureV1 from './lib/__fixtures__/backup-v1.json'
+import { BACKUP_VERSION } from './lib/backup'
 
 vi.mock('./lib/db', () => ({
+  getWaterLogs: vi.fn(() => Promise.resolve([])), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
   deleteEntry: vi.fn(), deleteFood: vi.fn(), deleteWeight: vi.fn(), exportBackup: vi.fn(), clearAllData: vi.fn(),
   getEntries: vi.fn(), getFoods: vi.fn(), getSettings: vi.fn(), getWeights: vi.fn(), importBackup: vi.fn(),
   requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), onLocalChange: vi.fn(() => () => undefined), saveEntries: vi.fn(), saveEntry: vi.fn(), saveFood: vi.fn(),
@@ -221,10 +223,10 @@ describe('importing a backup file', () => {
     await user.upload(input, new File([JSON.stringify(contents)], 'backup.json', { type: 'application/json' }))
   }
 
-  it('explains that a version 2 backup needs a newer app and imports nothing', async () => {
+  it('explains that a backup from the next version needs a newer app and imports nothing', async () => {
     const confirm = vi.spyOn(window, 'confirm')
     const user = await renderApp()
-    await upload(user, { ...fixtureV1, version: 2 })
+    await upload(user, { ...fixtureV1, version: BACKUP_VERSION + 1 })
 
     expect(await screen.findByText('This backup was made by a newer version of NutrientTrack. Reload the app to update, then try again.')).toBeTruthy()
     expect(confirm).not.toHaveBeenCalled()
@@ -247,6 +249,7 @@ describe('importing a backup file', () => {
     await upload(user, fixtureV1)
 
     await waitFor(() => expect(m.importBackup).toHaveBeenCalledTimes(1))
-    expect(m.importBackup.mock.calls[0][0]).toMatchObject({ version: 1, entries: fixtureV1.entries, settings: fixtureV1.settings })
+    // The v1 file is upgraded to the current format on the way in; its records are untouched.
+    expect(m.importBackup.mock.calls[0][0]).toMatchObject({ version: BACKUP_VERSION, entries: fixtureV1.entries, settings: fixtureV1.settings, water: [], measurements: [] })
   })
 })

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Standard Compact — Dashboard</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#ffffff}
+a{color:#2e6fe8}a:hover{color:#1f54b8}
+.card{background:#fff;border-radius:10px;border:1px solid #e4e7ec}
+.nav:hover{background:#ffffff}
+.row:hover{background:#f9fafb}
+.bar{transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.day:hover{background:#eaf1fe}
+@media (max-width:900px){.side{display:none !important}.grid{grid-template-columns:1fr !important}.grid > *{grid-column:auto !important}}
+</style>
+</helmet>
+<div style="width: 100%; min-height: 100vh; box-sizing: border-box; background: #ffffff; color: #101828; font-family: IBM Plex Sans, system-ui, sans-serif; display: flex">
+
+  <nav class="side" style="width: 240px; flex-shrink: 0; background: #fff; border-right: 1px solid #eef0f3; padding: 28px 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px 24px"><span style="width: 28px; height: 28px; border-radius: 8px; background: #2e6fe8"></span><span style="font-weight: 700; font-size: 18px">Standard Compact</span></div>
+    <a href="L-Desktop.dc.html" class="nav" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 8px; background: #eaf1fe; color: #2e6fe8; text-decoration: none; font-weight: 600; font-size: 14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="2"></rect><rect x="13" y="3" width="8" height="8" rx="2"></rect><rect x="3" y="13" width="8" height="8" rx="2"></rect><rect x="13" y="13" width="8" height="8" rx="2"></rect></svg>Dashboard</a>
+    <a href="LD-FoodLog.dc.html" class="nav" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #475467; text-decoration: none; font-weight: 500; font-size: 14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>Food log</a>
+    <a href="LD-Weight.dc.html" class="nav" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #475467; text-decoration: none; font-weight: 500; font-size: 14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l5-6 4 3 5-8 4 5"></path></svg>Weight</a>
+    <a href="LD-Weight.dc.html" class="nav" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #475467; text-decoration: none; font-weight: 500; font-size: 14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L4 14h7l-1 8 9-12h-7z"></path></svg>Expenditure</a>
+    <a href="LD-Meds.dc.html" class="nav" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #475467; text-decoration: none; font-weight: 500; font-size: 14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3l7 7-9 9-7-7zM5 19l-2 2M9 9l6 6"></path></svg>Medication</a>
+    <a href="LD-Weight.dc.html" class="nav" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #475467; text-decoration: none; font-weight: 500; font-size: 14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="2.5"></circle><path d="M8 11h8l-2 10h-4z"></path></svg>Body</a>
+    <a href="LD-Program.dc.html" class="nav" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: #475467; text-decoration: none; font-weight: 500; font-size: 14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="3"></circle></svg>Program</a>
+    <div style="flex-grow: 1"></div>
+    <div style="padding: 14px; border-radius: 12px; background: #ffffff; font-size: 12.5px; color: #475467; line-height: 1.5"><strong style="color: #101828">Weekly check-in Sunday.</strong> Budget updates after the check-in from the last 7 days of intake and trend weight.</div>
+  </nav>
+
+  <main style="flex-grow: 1; padding: 28px 32px 40px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; max-width: 1200px">
+    <header style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap">
+      <div><div style="font-size: 13px; color: #667085; font-weight: 500">Thursday, October 1 · Day 23</div><div style="font-size: 22px; font-weight: 700; letter-spacing: -.02em">Dashboard</div></div>
+      <div style="display: flex; gap: 8px">
+        <button type="button" onClick="{{ logWeight }}" style="min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #d0d5dd; background: #fff; color: #101828; font: 600 14px IBM Plex Sans, sans-serif; cursor: pointer">Log weight</button>
+        <button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 8px; border: 0; background: #2e6fe8; color: #fff; font: 600 14px IBM Plex Sans, sans-serif; cursor: pointer">+ Add food</button>
+      </div>
+    </header>
+
+    <section class="grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 12px">
+      <div id="dashboard" class="card" style="grid-column: span 2; padding: 16px; display: flex; gap: 24px; align-items: center" aria-label="Nutrition today">
+        <svg width="124" height="124" viewBox="0 0 150 150" aria-label="Calories: 1,380 eaten of 2,140">
+          <circle cx="75" cy="75" r="64" fill="none" stroke="#eef0f3" stroke-width="12"></circle>
+          <circle cx="75" cy="75" r="64" fill="none" stroke="#2e6fe8" stroke-width="12" pathLength="100" stroke-dasharray="{{ kcalPct }} 100" stroke-linecap="round" transform="rotate(-90 75 75)" style="transition: stroke-dasharray .8s cubic-bezier(.2,.8,.2,1)"></circle>
+          <text x="75" y="72" text-anchor="middle" font-family="IBM Plex Sans" font-weight="800" font-size="30" fill="#101828">{{ remaining }}</text>
+          <text x="75" y="90" text-anchor="middle" font-family="IBM Plex Sans" font-size="12" fill="#667085">kcal remaining</text>
+        </svg>
+        <div style="flex-grow: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px">
+          <div><div style="font-size: 13px; color: #667085; font-weight: 600">Protein</div><div style="font-size: 18px; font-weight: 700; margin: 2px 0 6px">{{ protein }}<span style="font-size: 13px; color: #667085; font-weight: 500"> / 180 g</span></div><div style="height: 8px; border-radius: 99px; background: #eef0f3"><div class="bar" style="width: {{ proteinPct }}%; height: 100%; border-radius: 99px; background: #2e6fe8"></div></div></div>
+          <div><div style="font-size: 13px; color: #667085; font-weight: 600">Carbs</div><div style="font-size: 18px; font-weight: 700; margin: 2px 0 6px">{{ carbs }}<span style="font-size: 13px; color: #667085; font-weight: 500"> / 210 g</span></div><div style="height: 8px; border-radius: 99px; background: #eef0f3"><div class="bar" style="width: {{ carbsPct }}%; height: 100%; border-radius: 99px; background: #7a5af8"></div></div></div>
+          <div><div style="font-size: 13px; color: #667085; font-weight: 600">Fat</div><div style="font-size: 18px; font-weight: 700; margin: 2px 0 6px">{{ fat }}<span style="font-size: 13px; color: #667085; font-weight: 500"> / 70 g</span></div><div style="height: 8px; border-radius: 99px; background: #eef0f3"><div class="bar" style="width: {{ fatPct }}%; height: 100%; border-radius: 99px; background: #e08a1e"></div></div></div>
+          <div style="grid-column: span 3; display: flex; gap: 24px; padding-top: 12px; border-top: 1px solid #eef0f3; font-size: 13px; color: #667085"><span>Eaten <strong style="color: #101828">{{ eaten }}</strong></span><span>Budget <strong style="color: #101828">{{ budget }}</strong></span><span>Fiber <strong style="color: #101828">18 / 30 g</strong></span><span>Water <strong style="color: #101828">1.8 / 3.0 L</strong></span></div>
+        </div>
+      </div>
+
+      <div id="program" class="card" style="padding: 14px; display: flex; flex-direction: column; gap: 10px" aria-label="Program">
+        <div style="font-size: 13px; color: #667085; font-weight: 600">Program</div>
+        <div style="font-size: 17px; font-weight: 700">Lose 1.0 lb / week</div>
+        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px">
+          <div style="display: flex; justify-content: space-between"><span style="color: #667085">Goal weight</span><strong>170.0 lb</strong></div>
+          <div style="display: flex; justify-content: space-between"><span style="color: #667085">Projected</span><strong>Jan 4, 2027</strong></div>
+          <div style="display: flex; justify-content: space-between"><span style="color: #667085">Adherence (7 d)</span><strong>6 / 7 days logged</strong></div>
+          <div style="display: flex; justify-content: space-between"><span style="color: #667085">Next check-in</span><strong>Sunday</strong></div>
+        </div>
+      </div>
+
+      <div id="weight" class="card" style="grid-column: span 2; padding: 14px; display: flex; flex-direction: column; gap: 10px" aria-label="Weight trend">
+        <div style="display: flex; justify-content: space-between; align-items: baseline">
+          <div><div style="font-size: 13px; color: #667085; font-weight: 600">Weight trend</div><div style="font-size: 24px; font-weight: 700; letter-spacing: -.02em">{{ trendNow }} <span style="font-size: 13px; color: #667085; font-weight: 500">lb · scale {{ scaleNow }}</span></div></div>
+          <div style="display: flex; gap: 16px; font-size: 13px; color: #667085"><span><strong style="color: #2e6fe8">{{ weekChange }}</strong> this week</span><span>Goal <strong style="color: #101828">−1.0</strong></span></div>
+        </div>
+        <svg viewBox="0 0 640 170" width="100%" height="170" aria-label="Fourteen days: scale readings as dots, smoothed trend as a line">
+          <line x1="20" y1="150" x2="620" y2="150" stroke="#eef0f3"></line><line x1="20" y1="90" x2="620" y2="90" stroke="#eef0f3"></line><line x1="20" y1="30" x2="620" y2="30" stroke="#eef0f3"></line>
+          <path d="{{ trendPath }}" fill="none" stroke="#2e6fe8" stroke-width="3" stroke-linecap="round"></path>
+          <path d="{{ dotsPath }}" fill="#fff" stroke="#98a2b3" stroke-width="1.5"></path>
+        </svg>
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #667085"><span>Sep 18</span><span>Sep 25</span><span>Today</span></div>
+      </div>
+
+      <div id="expenditure" class="card" style="padding: 14px; display: flex; flex-direction: column; gap: 10px" aria-label="Expenditure">
+        <div style="font-size: 13px; color: #667085; font-weight: 600">Expenditure</div>
+        <div style="font-size: 24px; font-weight: 700; letter-spacing: -.02em">2,640 <span style="font-size: 13px; color: #667085; font-weight: 500">kcal / day</span></div>
+        <div style="display: flex; gap: 4px; align-items: flex-end; height: 64px"><sc-for list="{{ tdee }}" as="t" hint-placeholder-count="14"><div style="flex-grow: 1; height: {{ t.h }}%; border-radius: 3px; background: {{ t.c }}"></div></sc-for></div>
+        <div style="font-size: 13px; color: #667085; line-height: 1.5">Up 60 from last week. Estimated from 28 days of intake vs trend weight.</div>
+      </div>
+
+      <div id="meds" class="card" style="grid-column: span 2; padding: 14px; display: flex; flex-direction: column; gap: 12px" aria-label="Medication">
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <div><div style="font-size: 13px; color: #667085; font-weight: 600">Medication</div><div style="font-size: 17px; font-weight: 700">Semaglutide · {{ dose }} mg weekly</div></div>
+          <span style="font-size: 12px; font-weight: 600; color: #b54708; background: #fff4e5; padding: 6px 12px; border-radius: 99px">Due Saturday</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px">
+          <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px">
+            <sc-for list="{{ week }}" as="w" hint-placeholder-count="7"><div style="display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: #667085"><span>{{ w.l }}</span><span style="width: 32px; height: 32px; border-radius: 99px; background: {{ w.bg }}; border: 1.5px solid {{ w.bd }}; display: flex; align-items: center; justify-content: center; color: {{ w.fg }}; font-weight: 700">{{ w.m }}</span></div></sc-for>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px">
+            <div style="display: flex; justify-content: space-between"><span style="color: #667085">Last injection</span><strong>Sat, left abdomen</strong></div>
+            <div style="display: flex; justify-content: space-between"><span style="color: #667085">Next site</span><strong>Right thigh</strong></div>
+            <div style="display: flex; justify-content: space-between"><span style="color: #667085">Side effects (7 d)</span><strong>Mild nausea, 2 days</strong></div>
+            <div style="display: flex; justify-content: space-between"><span style="color: #667085">Titration</span><strong>0.25 → 0.5 → 1.0 mg</strong></div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px">
+          <button type="button" onClick="{{ logDose }}" style="min-height: 44px; padding: 0 18px; border-radius: 8px; border: 0; background: #2e6fe8; color: #fff; font: 600 14px IBM Plex Sans, sans-serif; cursor: pointer">Log injection</button>
+          <button type="button" onClick="{{ stepDose }}" style="min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #d0d5dd; background: #fff; color: #101828; font: 600 14px IBM Plex Sans, sans-serif; cursor: pointer">Titrate</button>
+        </div>
+      </div>
+
+      <div id="body" class="card" style="padding: 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px" aria-label="Body and activity">
+        <div><div style="font-size: 12px; color: #667085; font-weight: 600">Steps</div><div style="font-size: 17px; font-weight: 700">8,412</div><div style="font-size: 12px; color: #667085">486 active kcal</div></div>
+        <div><div style="font-size: 12px; color: #667085; font-weight: 600">Sleep</div><div style="font-size: 17px; font-weight: 700">7h 12m</div><div style="font-size: 12px; color: #667085">RHR 54</div></div>
+        <div><div style="font-size: 12px; color: #667085; font-weight: 600">Body fat</div><div style="font-size: 17px; font-weight: 700">21.4%</div><div style="font-size: 12px; color: #2e6fe8; font-weight: 600">−0.6 / month</div></div>
+        <div><div style="font-size: 12px; color: #667085; font-weight: 600">Waist</div><div style="font-size: 17px; font-weight: 700">34.5 in</div><div style="font-size: 12px; color: #2e6fe8; font-weight: 600">−0.5 / month</div></div>
+      </div>
+
+      <div id="food" class="card" style="grid-column: span 3; padding: 4px 0; display: flex; flex-direction: column" aria-label="Food log">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px 8px"><div style="font-size: 16px; font-weight: 700">Food log</div><div style="display: flex; gap: 14px; font-size: 13px; font-weight: 600"><a href="LD-FoodLog.dc.html" style="text-decoration: none">Barcode</a><a href="LD-FoodLog.dc.html" style="text-decoration: none">Photo</a><a href="LD-FoodLog.dc.html" style="text-decoration: none">Describe</a></div></div>
+        <sc-for list="{{ meals }}" as="m" hint-placeholder-count="4">
+          <div class="row" style="display: grid; grid-template-columns: 44px 1fr 110px 110px 110px 80px; gap: 14px; align-items: center; padding: 9px 20px; border-top: 1px solid #eef0f3; font-size: 14px">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #eaf1fe; color: #2e6fe8; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">{{ m.i }}</div>
+            <div><div style="font-weight: 600">{{ m.name }}</div><div style="font-size: 12px; color: #667085">{{ m.meal }}</div></div>
+            <div style="color: #667085">{{ m.p }} g protein</div><div style="color: #667085">{{ m.c }} g carbs</div><div style="color: #667085">{{ m.f }} g fat</div>
+            <div style="text-align: right; font-weight: 700">{{ m.kcal }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(p){ super(p); this.state = { dose:1.0, eaten:1380, protein:112, carbs:131, fat:41, scale:[184.2,183.8,184.5,183.1,182.9,183.4,182.2,182.0,182.6,181.5,181.9,181.1,180.8,181.2] }; }
+  smooth(a){ const o=[]; let e=a[0]; a.forEach(v=>{ e=e*0.7+v*0.3; o.push(e); }); return o; }
+  curve(pts){ let d=`M${pts[0].x},${pts[0].y}`; for(let i=0;i<pts.length-1;i++){ const p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2; d+=` C${(p1.x+(p2.x-p0.x)/6).toFixed(1)},${(p1.y+(p2.y-p0.y)/6).toFixed(1)} ${(p2.x-(p3.x-p1.x)/6).toFixed(1)},${(p2.y-(p3.y-p1.y)/6).toFixed(1)} ${p2.x},${p2.y.toFixed(1)}`; } return d; }
+  renderVals(){
+    const budget=2140, s=this.state, scale=s.scale, trend=this.smooth(scale), min=Math.min(...scale)-0.5, max=Math.max(...scale)+0.5;
+    const X=i=>20+i*(600/13), Y=v=>150-(v-min)/(max-min)*120, tp=trend.map((v,i)=>({x:X(i),y:Y(v)}));
+    const tdeeVals=[2520,2540,2560,2550,2580,2600,2590,2610,2620,2600,2630,2650,2640,2640], dayL=['Sat','Sun','Mon','Tue','Wed','Thu','Fri'];
+    return {
+      budget:budget.toLocaleString(), eaten:s.eaten.toLocaleString(), remaining:(budget-s.eaten).toLocaleString(), kcalPct:(s.eaten/budget*100).toFixed(0),
+      protein:s.protein, carbs:s.carbs, fat:s.fat, proteinPct:(s.protein/180*100).toFixed(0), carbsPct:(s.carbs/210*100).toFixed(0), fatPct:(s.fat/70*100).toFixed(0),
+      trendNow:trend[13].toFixed(1), scaleNow:scale[13].toFixed(1), weekChange:(trend[13]-trend[6]).toFixed(1),
+      trendPath:this.curve(tp), dotsPath:scale.map((v,i)=>`M${(X(i)-3.5).toFixed(1)},${Y(v).toFixed(1)} a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0`).join(' '),
+      logWeight:()=>this.setState({ scale: scale.slice(1).concat([+(scale[13]-0.3).toFixed(1)]) }),
+      tdee: tdeeVals.map((v,i)=>({ h:((v-2480)/180*100).toFixed(0), c: i===13?'#2e6fe8':'#cddcf8' })),
+      dose:s.dose.toFixed(2).replace(/0$/,''), logDose:()=>this.setState({}), stepDose:()=>this.setState({ dose:Math.min(2.4,+(s.dose+0.25).toFixed(2)) }),
+      week: dayL.map((l,i)=>({ l, m: i===0?'✓':(i===6?'!':''), bg: i===0?'#2e6fe8':'#fff', bd: i===6?'#e08a1e':(i===0?'#2e6fe8':'#eef0f3'), fg: i===0?'#fff':'#e08a1e' })),
+      meals:[ {i:'B',meal:'Breakfast · 7:40',name:'Greek yogurt, berries, whey',p:42,c:38,f:6,kcal:'378'}, {i:'L',meal:'Lunch · 12:15',name:'Chicken burrito bowl',p:46,c:61,f:18,kcal:'590'}, {i:'S',meal:'Snack · 15:30',name:'Apple + almonds',p:5,c:24,f:14,kcal:'242'}, {i:'D',meal:'Dinner · planned',name:'Salmon, rice, broccoli',p:44,c:58,f:16,kcal:'590'} ]
+    };
+  }
+}
+</script>
+</body>
+</html>

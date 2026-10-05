@@ -21,7 +21,9 @@ export type IconName =
   | 'plus'
   | 'search'
   | 'scale'
+  | 'scan'
   | 'settings'
+  | 'star'
   | 'trash'
   | 'upload'
   | 'x'
@@ -52,6 +54,8 @@ const paths: Record<IconName, JSX.Element> = {
   plus: <path d="M12 5v14M5 12h14" />,
   search: <><circle cx="10.8" cy="10.8" r="6.2" /><path d="m16 16 4.3 4.3" /></>,
   scale: <path d="M4 19h16M6 19V8m12 11V8M4 8h16M8 8l4-4 4 4M9 13h6m-4-3v3" />,
+  star: <path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8-4.3-4.1 5.9-.9L12 3.5Z" />,
+  scan: <><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" /><path d="M8 9v6M11 9v6M14 9v6M16.5 9v6" /></>,
   settings: <><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" /><path d="m19.4 15 .1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.8 1.8 0 0 0-3 .9v.2a2 2 0 0 1-4 0v-.2a1.8 1.8 0 0 0-3-.9l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.8 1.8 0 0 0-.9-3h-.2a2 2 0 0 1 0-4h.2a1.8 1.8 0 0 0 .9-3l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.8 1.8 0 0 0 3-.9V1.9a2 2 0 0 1 4 0v.2a1.8 1.8 0 0 0 3 .9l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.8 1.8 0 0 0 .9 3h.2a2 2 0 0 1 0 4h-.2a1.8 1.8 0 0 0-.9 3Z" /></>,
   trash: <path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
   upload: <path d="M12 15V3m0 0L8 7m4-4 4 4M4 19h16" />,

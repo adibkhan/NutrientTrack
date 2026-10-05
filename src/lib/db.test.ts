@@ -3,6 +3,7 @@ import { IDBFactory, IDBObjectStore } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BackupPayload } from '../types'
 import fixtureV1 from './__fixtures__/backup-v1.json'
+import { readBackup } from './backup'
 import {
   clearAllData, closeDatabase, DB_VERSION, exportBackup, getEntries, getFoods, getSettings, getWeights, importBackup, onDatabaseEvent,
   saveEntries, saveEntry,
@@ -10,7 +11,12 @@ import {
 } from './db'
 
 const DB_NAME = 'nutrienttrack-local'
-const fixture = () => structuredClone(fixtureV1) as unknown as BackupPayload
+/** The v1 fixture upgraded to the current format, which is what the app hands to importBackup. */
+const fixture = (): BackupPayload => {
+  const result = readBackup(structuredClone(fixtureV1))
+  if (!result.ok) throw new Error('v1 fixture rejected')
+  return result.backup
+}
 
 const wait = (request: IDBRequest | IDBOpenDBRequest) =>
   new Promise<unknown>((resolve, reject) => {
@@ -83,8 +89,8 @@ describe('opening the database', () => {
     await closeDatabase()
     expect(await inspect()).toEqual({
       version: DB_VERSION,
-      stores: ['entries', 'foods', 'meta', 'outbox', 'settings', 'weights'],
-      indexes: { entries: ['date'], foods: ['name'], meta: [], outbox: [], settings: [], weights: ['date'] },
+      stores: ['entries', 'foods', 'measurements', 'meta', 'outbox', 'settings', 'water', 'weights'],
+      indexes: { entries: ['date'], foods: ['name'], measurements: [], meta: [], outbox: [], settings: [], water: [], weights: ['date'] },
     })
   })
 
@@ -106,8 +112,8 @@ describe('opening the database', () => {
     await closeDatabase()
     expect(await inspect()).toEqual({
       version: DB_VERSION,
-      stores: ['entries', 'foods', 'meta', 'outbox', 'settings', 'weights'],
-      indexes: { entries: ['date'], foods: ['name'], meta: [], outbox: [], settings: [], weights: ['date'] },
+      stores: ['entries', 'foods', 'measurements', 'meta', 'outbox', 'settings', 'water', 'weights'],
+      indexes: { entries: ['date'], foods: ['name'], measurements: [], meta: [], outbox: [], settings: [], water: [], weights: ['date'] },
     })
   })
 

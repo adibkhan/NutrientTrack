@@ -63,7 +63,8 @@ export const nowISO = (): string => new Date().toISOString()
 
 export const sumEntries = (entries: DiaryEntry[]): MacroTotals =>
   entries.reduce(
-    (sum, entry) => ({
+    // Planned foods are not eaten yet, so they never count toward a total.
+    (sum, entry) => (entry.planned ? sum : {
       calories: sum.calories + entry.calories,
       protein: sum.protein + entry.protein,
       carbs: sum.carbs + entry.carbs,

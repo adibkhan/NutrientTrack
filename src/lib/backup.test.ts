@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateBackup } from './backup'
+import { BACKUP_VERSION, validateBackup } from './backup'
 
 const stamp = '2026-01-01T00:00:00.000Z'
 const entry = (over: Record<string, unknown> = {}) => ({
@@ -13,7 +13,7 @@ const food = (over: Record<string, unknown> = {}) => ({
 const weight = (over: Record<string, unknown> = {}) => ({ id: 'w1', date: '2026-02-01', weight: 180, unit: 'lb', createdAt: stamp, ...over })
 const settings = (over: Record<string, unknown> = {}) => ({ id: 'profile', goals: { calories: 2000, weightUnit: 'kg' }, updatedAt: stamp, ...over })
 const backup = (over: Record<string, unknown> = {}) => ({
-  format: 'nutrienttrack-backup', version: 1, exportedAt: stamp, entries: [], foods: [], weights: [], settings: [], ...over,
+  format: 'nutrienttrack-backup', version: BACKUP_VERSION, exportedAt: stamp, entries: [], foods: [], weights: [], settings: [], water: [], measurements: [], ...over,
 })
 
 describe('validateBackup accepts', () => {
@@ -50,8 +50,9 @@ describe('validateBackup rejects', () => {
   })
 
   it('a wrong format', () => expect(validateBackup(backup({ format: 'other' }))).toBe(false))
-  it('version 2', () => expect(validateBackup(backup({ version: 2 }))).toBe(false))
-  it.each(['entries', 'foods', 'weights', 'settings'])('a missing %s array', (key) => {
+  it('a version this build does not know', () => expect(validateBackup(backup({ version: BACKUP_VERSION + 1 }))).toBe(false))
+  it('version 1, which must be upgraded by readBackup first', () => expect(validateBackup(backup({ version: 1 }))).toBe(false))
+  it.each(['entries', 'foods', 'weights', 'settings', 'water', 'measurements'])('a missing %s array', (key) => {
     const value = backup() as Record<string, unknown>
     delete value[key]
     expect(validateBackup(value)).toBe(false)

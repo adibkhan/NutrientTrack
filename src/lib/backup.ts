@@ -1,8 +1,8 @@
-import type { BackupPayload, DiaryEntry, Goals, MealCategory, Settings, WeightEntry } from '../types'
+import type { BackupPayload, DiaryEntry, Goals, MealCategory, Settings, WaterLog, WeightEntry } from '../types'
 import { isoFromDate } from './utils'
 
 /** Current backup format. Bump it only together with a new BACKUP_MIGRATIONS step and a fixture test. */
-export const BACKUP_VERSION = 1
+export const BACKUP_VERSION = 2
 
 type BackupRecord = Record<string, unknown>
 
@@ -10,7 +10,10 @@ type BackupRecord = Record<string, unknown>
  * Step N upgrades a version N backup to version N + 1. Never edit or remove a shipped step, so a file
  * exported by any earlier release still restores.
  */
-const BACKUP_MIGRATIONS: Array<(backup: BackupRecord) => BackupRecord> = []
+const BACKUP_MIGRATIONS: Array<(backup: BackupRecord) => BackupRecord> = [
+  // 1 -> 2: water and body measurement logs did not exist yet, so an older backup restores with none.
+  (backup) => ({ ...backup, water: [], measurements: [] }),
+]
 
 export type BackupReadResult =
   | { ok: true; backup: BackupPayload }
@@ -44,6 +47,8 @@ export const isValidSyncRecord = (store: 'entries' | 'foods' | 'weights' | 'sett
     foods: store === 'foods' ? [data] : [],
     weights: store === 'weights' ? [data] : [],
     settings: store === 'settings' ? [data] : [],
+    water: [],
+    measurements: [],
   })
 }
 
@@ -51,7 +56,7 @@ export const validateBackup = (value: unknown): value is BackupPayload => {
   if (!value || typeof value !== 'object') return false
   const candidate = value as Partial<BackupPayload>
   if (candidate.format !== 'nutrienttrack-backup' || candidate.version !== BACKUP_VERSION) return false
-  if (!Array.isArray(candidate.entries) || !Array.isArray(candidate.foods) || !Array.isArray(candidate.weights) || !Array.isArray(candidate.settings)) return false
+  if (!Array.isArray(candidate.entries) || !Array.isArray(candidate.foods) || !Array.isArray(candidate.weights) || !Array.isArray(candidate.settings) || !Array.isArray(candidate.water) || !Array.isArray(candidate.measurements)) return false
   const isISODate = (value: unknown) => {
     if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
     const parsed = new Date(`${value}T12:00:00`)
@@ -61,6 +66,10 @@ export const validateBackup = (value: unknown): value is BackupPayload => {
   const isOptionalNonNegativeNumber = (item: unknown, key: string) => {
     const value = item && typeof item === 'object' ? (item as Record<string, unknown>)[key] : undefined
     return value === undefined || isNonNegativeNumber(value)
+  }
+  const isOptionalPositiveNumber = (item: unknown, key: string) => {
+    const value = item && typeof item === 'object' ? (item as Record<string, unknown>)[key] : undefined
+    return value === undefined || (typeof value === 'number' && Number.isFinite(value) && value > 0)
   }
   const isOptionalIdentifier = (item: unknown, key: string) => {
     const value = item && typeof item === 'object' ? (item as Record<string, unknown>)[key] : undefined
@@ -83,6 +92,19 @@ export const validateBackup = (value: unknown): value is BackupPayload => {
     const value = item && typeof item === 'object' ? (item as Record<string, unknown>)[key] : undefined
     return value === undefined || typeof value === 'string'
   }
+  const NUTRIENT_KEYS = ['fiber', 'sodium', 'sugar', 'satFat', 'cholesterol']
+  const isOptionalBoolean = (item: unknown, key: string) => {
+    const value = item && typeof item === 'object' ? (item as Record<string, unknown>)[key] : undefined
+    return value === undefined || typeof value === 'boolean'
+  }
+  const isOptionalPercent = (item: unknown, key: string) => {
+    const value = item && typeof item === 'object' ? (item as Record<string, unknown>)[key] : undefined
+    return value === undefined || (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100)
+  }
+  const isOptionalIngredients = (item: unknown) => {
+    const value = item && typeof item === 'object' ? (item as Record<string, unknown>).ingredients : undefined
+    return value === undefined || (Array.isArray(value) && value.every((line) => hasStrings(line, ['name']) && hasNumbers(line, ['calories', 'protein', 'carbs', 'fat'])))
+  }
   const validUnit = (value: unknown): value is 'lb' | 'kg' => value === 'lb' || value === 'kg'
   const validGoals = (value: unknown) => {
     if (!value || typeof value !== 'object' || !validUnit((value as Goals).weightUnit)) return false
@@ -95,9 +117,11 @@ export const validateBackup = (value: unknown): value is BackupPayload => {
     const ids = items.map((item) => (item && typeof item === 'object' ? (item as Record<string, unknown>).id : undefined))
     return ids.every((id): id is string => typeof id === 'string' && id.trim().length > 0) && new Set(ids).size === ids.length
   }
-  return hasUniqueIds(candidate.entries) && hasUniqueIds(candidate.foods) && hasUniqueIds(candidate.weights) && hasUniqueIds(candidate.settings) &&
-    candidate.entries.every((item) => hasStrings(item, ['id', 'date', 'name', 'createdAt', 'updatedAt']) && isISODate((item as DiaryEntry).date) && validMeal((item as DiaryEntry).meal) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat']) && isOptionalTime(item) && isOptionalNonNegativeNumber(item, 'grams') && isOptionalIdentifier(item, 'foodId') && isOptionalIdentifier(item, 'catalogId') && isOptionalCatalogSource(item)) &&
-    candidate.foods.every((item) => hasStrings(item, ['id', 'name', 'serving', 'createdAt', 'updatedAt']) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat'])) &&
-    candidate.weights.every((item) => hasStrings(item, ['id', 'date', 'unit', 'createdAt']) && isOptionalString(item, 'note') && isISODate((item as WeightEntry).date) && validUnit((item as WeightEntry).unit) && Number.isFinite((item as WeightEntry).weight) && (item as WeightEntry).weight > 0) &&
+  return hasUniqueIds(candidate.entries) && hasUniqueIds(candidate.foods) && hasUniqueIds(candidate.weights) && hasUniqueIds(candidate.settings) && hasUniqueIds(candidate.water) && hasUniqueIds(candidate.measurements) &&
+    candidate.water.every((item) => hasStrings(item, ['id', 'date', 'createdAt', 'updatedAt']) && isISODate((item as WaterLog).date) && hasNumbers(item, ['ml'])) &&
+    candidate.measurements.every((item) => hasStrings(item, ['id', 'date', 'unit', 'createdAt', 'updatedAt']) && isISODate((item as { date: string }).date) && ['in', 'cm'].includes((item as { unit: string }).unit) && ['waist', 'hips', 'chest', 'arm', 'thigh'].every((key) => isOptionalPositiveNumber(item, key))) &&
+    candidate.entries.every((item) => hasStrings(item, ['id', 'date', 'name', 'createdAt', 'updatedAt']) && isISODate((item as DiaryEntry).date) && validMeal((item as DiaryEntry).meal) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat']) && isOptionalTime(item) && isOptionalNonNegativeNumber(item, 'grams') && NUTRIENT_KEYS.every((key) => isOptionalNonNegativeNumber(item, key)) && isOptionalBoolean(item, 'planned') && isOptionalPositiveNumber(item, 'servings') && isOptionalIdentifier(item, 'foodId') && isOptionalIdentifier(item, 'catalogId') && isOptionalCatalogSource(item)) &&
+    candidate.foods.every((item) => hasStrings(item, ['id', 'name', 'serving', 'createdAt', 'updatedAt']) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat']) && NUTRIENT_KEYS.every((key) => isOptionalNonNegativeNumber(item, key)) && isOptionalBoolean(item, 'favorite') && isOptionalIngredients(item)) &&
+    candidate.weights.every((item) => hasStrings(item, ['id', 'date', 'unit', 'createdAt']) && isOptionalString(item, 'note') && isISODate((item as WeightEntry).date) && validUnit((item as WeightEntry).unit) && Number.isFinite((item as WeightEntry).weight) && (item as WeightEntry).weight > 0 && isOptionalPercent(item, 'bodyFat')) &&
     candidate.settings.length <= 1 && candidate.settings.every((item) => hasStrings(item, ['id', 'updatedAt']) && (item as Settings).id === 'profile' && validGoals((item as Settings).goals))
 }

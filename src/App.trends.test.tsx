@@ -1,4 +1,4 @@
-// Batch 6 of the UI refresh: Trends page. Heading removed, Log weight moved into the Weight panel,
+// Trends page: heading removed, Log weight moved into the Weight panel, smoothed trend weight,
 // weight change figure, low/high bounds, collapsible check-in values and the 5-row weight log preview.
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -7,6 +7,7 @@ import type { Settings, WeightEntry } from './types'
 import { formatShortDate, shiftDate, todayISO } from './lib/utils'
 
 vi.mock('./lib/db', () => ({
+  getWaterLogs: vi.fn(() => Promise.resolve([])), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
   deleteEntry: vi.fn(), deleteFood: vi.fn(), deleteWeight: vi.fn(), exportBackup: vi.fn(), clearAllData: vi.fn(),
   getEntries: vi.fn(), getFoods: vi.fn(), getSettings: vi.fn(), getWeights: vi.fn(), importBackup: vi.fn(),
   requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), onLocalChange: vi.fn(() => () => undefined),
@@ -118,6 +119,26 @@ describe('weight change figure', () => {
   it('shows "0", not a signed zero, when a small gain rounds to zero', async () => {
     await openTrends([weightAt(20, 170), weightAt(2, 170.04)])
     expect(changeText()).toBe(`0 lbsince ${dayLabel(20)}`)
+  })
+
+  it('rounds a loss of exactly 0.25 away from zero to −0.3', async () => {
+    await openTrends([weightAt(20, 180), weightAt(2, 179.75)])
+    expect(changeText()).toBe(`−0.3 lbsince ${dayLabel(20)}`)
+  })
+
+  it('rounds a gain of exactly 0.25 away from zero to +0.3, matching the loss magnitude', async () => {
+    await openTrends([weightAt(20, 179.75), weightAt(2, 180)])
+    expect(changeText()).toBe(`+0.3 lbsince ${dayLabel(20)}`)
+  })
+
+  it('rounds a loss just under the midpoint (0.24) down to −0.2', async () => {
+    await openTrends([weightAt(20, 180), weightAt(2, 179.76)])
+    expect(changeText()).toBe(`−0.2 lbsince ${dayLabel(20)}`)
+  })
+
+  it('rounds a gain just under the midpoint (0.24) down to +0.2', async () => {
+    await openTrends([weightAt(20, 179.76), weightAt(2, 180)])
+    expect(changeText()).toBe(`+0.2 lbsince ${dayLabel(20)}`)
   })
 
   it('uses the latest minus the first entry inside the window, not the first ever', async () => {
@@ -292,5 +313,35 @@ describe('weight log preview', () => {
     await openTrends(series(6))
     expect(within(logPanel()).getAllByRole('button', { name: /^Edit weight from/ })).toHaveLength(5)
     expect(within(logPanel()).queryByRole('button', { name: `Edit weight from ${dayLabel(6)}` })).toBeNull()
+  })
+})
+
+describe('trend weight', () => {
+  // Each check-in moves the trend a tenth of the way toward the scale reading (TREND_SMOOTHING = 0.1).
+  it('shows the smoothed trend beside the latest check-in and a weekly rate', async () => {
+    await openTrends([weightAt(7, 180), weightAt(0, 170)])
+    const tile = document.querySelector('.chart-trend') as HTMLElement
+    expect(tile.textContent).toBe('179 lbTrend · −1 lb/wk') // 180 + 0.1 × (170 − 180) = 179, over 7 days
+  })
+
+  it('lists each check-in with its trend value in the entry unit, newest first', async () => {
+    await openTrends([weightAt(2, 180), weightAt(1, 170), weightAt(0, 175)])
+    const trends = logRows().map((r) => r.querySelector('.weight-trend')?.textContent)
+    expect(trends).toEqual(['178.6 lb', '179 lb', '180 lb']) // 180 → 179 → 178.6
+    expect((document.querySelector('.weight-table-head') as HTMLElement).textContent).toBe('DateScaleTrend')
+  })
+
+  it('carries the trend across unit changes by converting it to each entry’s own unit', async () => {
+    await openTrends([weightAt(1, 100, 'kg'), weightAt(0, 220.46226218, 'lb')], unitSettings('lb'))
+    const trends = logRows().map((r) => r.querySelector('.weight-trend')?.textContent)
+    expect(trends).toEqual(['220.5 lb', '100 kg'])
+  })
+
+  it('keeps the plot in bounds when the window starts mid-trend', async () => {
+    await openTrends([weightAt(60, 200), weightAt(50, 200), weightAt(20, 170), weightAt(2, 170)])
+    expect((document.querySelector('.chart-bounds') as HTMLElement).textContent).toBe('Low 170 lb · High 170 lb')
+    const trend = document.querySelector('.chart-trend-line') as SVGPolylineElement
+    expect(trend.getAttribute('points')).toMatch(/^\S+ \S+$/)
+    for (const y of (trend.getAttribute('points') ?? '').split(' ').map((p) => Number(p.split(',')[1]))) expect(y).toBeGreaterThanOrEqual(32)
   })
 })

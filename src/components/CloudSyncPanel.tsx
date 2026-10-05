@@ -34,7 +34,7 @@ export function CloudSyncPanel({ cloud }: { cloud: CloudSync }) {
   return (
     <section className="panel cloud-panel" aria-labelledby="cloud-heading">
       <div className="panel-header">
-        <div><p className="eyebrow">Optional</p><h2 id="cloud-heading">Backup &amp; sync</h2></div>
+        <div><h2 id="cloud-heading">Backup &amp; sync</h2></div>
         <span className={`storage-status ${cloud.status === 'synced' ? 'synced' : ''}`}><i className={cloud.status === 'synced' ? 'granted' : ''} />{statusLabel[cloud.status]}</span>
       </div>
       {signedIn ? (
@@ -47,6 +47,7 @@ export function CloudSyncPanel({ cloud }: { cloud: CloudSync }) {
             </div>
           </div>
           {cloud.message && <p className="form-note" role="status"><Icon name="info" size={15} />{cloud.message}</p>}
+          <p className="form-note"><Icon name="info" size={15} />Water and body measurements are saved on this device and in your backup files, but are not synced between devices yet.</p>
           <div className="data-tools">
             <div className="tool-row">
               <div><strong>Sync now</strong><p>Changes sync automatically; use this after being offline.</p></div>

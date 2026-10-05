@@ -5,6 +5,7 @@ import type { DiaryEntry, Food } from './types'
 import { shiftDate, todayISO } from './lib/utils'
 
 vi.mock('./lib/db', () => ({
+  getWaterLogs: vi.fn(() => Promise.resolve([])), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
   deleteEntry: vi.fn(),
   deleteFood: vi.fn(),
   deleteWeight: vi.fn(),
@@ -96,6 +97,7 @@ describe('quick add from the Log food sheet', () => {
   it('saves a saved food with its id and without catalog or grams fields', async () => {
     const user = await renderApp()
     await user.click(first('Log food'))
+    await user.click(await screen.findByRole('tab', { name: /My foods/ }))
     await user.click(await screen.findByRole('button', { name: 'Quick add Protein bar' }))
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
     const entry = savedEntry()
@@ -110,6 +112,7 @@ describe('quick add from the Log food sheet', () => {
     const user = await renderApp()
     await user.click(first('Previous day'))
     await user.click(first('Log food'))
+    await user.click(await screen.findByRole('tab', { name: /My foods/ }))
     await user.click(await screen.findByRole('button', { name: 'Quick add Protein bar' }))
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
     expect(savedEntry().date).toBe(shiftDate(todayISO(), -1))
@@ -118,6 +121,7 @@ describe('quick add from the Log food sheet', () => {
   it('picks the meal from the time of day from the top bar', async () => {
     const user = await renderApp()
     await user.click(first('Log food'))
+    await user.click(await screen.findByRole('tab', { name: /My foods/ }))
     await user.click(await screen.findByRole('button', { name: 'Quick add Protein bar' }))
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
     expect(savedEntry().meal).toBe('breakfast')
@@ -127,6 +131,7 @@ describe('quick add from the Log food sheet', () => {
     const user = await renderApp()
     const dinner = await screen.findByRole('region', { name: 'Dinner' })
     await user.click(within(dinner).getByRole('button', { name: 'Add' }))
+    await user.click(await screen.findByRole('tab', { name: /My foods/ }))
     await user.click(await screen.findByRole('button', { name: 'Quick add Protein bar' }))
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
     expect(savedEntry().meal).toBe('dinner')
@@ -134,8 +139,10 @@ describe('quick add from the Log food sheet', () => {
 
   it('shows the error toast, keeps the sheet open and re-enables buttons when the save fails', async () => {
     m.saveEntry.mockRejectedValue(new Error('disk full'))
+    m.getFoods.mockResolvedValue([savedFood, { ...savedFood, id: 'f2', name: 'Protein bar 2' }])
     const user = await renderApp()
     await user.click(first('Log food'))
+    await user.click(await screen.findByRole('tab', { name: /My foods/ }))
     await user.click(await screen.findByRole('button', { name: 'Quick add Protein bar' }))
     expect(await screen.findByText('That entry could not be saved. Try again.')).toBeTruthy()
     const dialog = screen.getByRole('dialog')
@@ -150,10 +157,12 @@ describe('quick add from the Log food sheet', () => {
   it('saves only once when quick add is tapped twice while the save is in flight', async () => {
     let resolveSave: () => void = () => undefined
     m.saveEntry.mockReturnValue(new Promise<void>((resolve) => { resolveSave = resolve }))
+    m.getFoods.mockResolvedValue([savedFood, { ...savedFood, id: 'f2', name: 'Protein bar 2' }])
     const user = await renderApp()
     await user.click(first('Log food'))
+    await user.click(await screen.findByRole('tab', { name: /My foods/ }))
     const same = await screen.findByRole('button', { name: 'Quick add Protein bar' })
-    const other = screen.getByRole('button', { name: 'Quick add Chicken breast' })
+    const other = screen.getByRole('button', { name: 'Quick add Protein bar 2' })
     await user.click(same)
     await waitFor(() => expect(same).toHaveProperty('disabled', true))
     expect(other).toHaveProperty('disabled', true)

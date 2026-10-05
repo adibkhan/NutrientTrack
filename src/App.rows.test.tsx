@@ -7,6 +7,7 @@ import type { DiaryEntry } from './types'
 import { formatClockTime, todayISO } from './lib/utils'
 
 vi.mock('./lib/db', () => ({
+  getWaterLogs: vi.fn(() => Promise.resolve([])), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
   deleteEntry: vi.fn(), deleteFood: vi.fn(), deleteWeight: vi.fn(), exportBackup: vi.fn(), clearAllData: vi.fn(),
   getEntries: vi.fn(), getFoods: vi.fn(), getSettings: vi.fn(), getWeights: vi.fn(), importBackup: vi.fn(),
   requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), onLocalChange: vi.fn(() => () => undefined),
@@ -191,10 +192,28 @@ describe('cloud-aware top bar chip and sidebar note', () => {
     expect(note().textContent).toBe(localOnly)
   })
 
-  it.each(['syncing', 'synced', 'offline', 'error'] as const)('status %s says entries are backed up to the account', async (status) => {
+  it.each(['syncing', 'synced'] as const)('status %s says entries are backed up to the account', async (status) => {
     cloud = fakeCloud(status)
     await renderApp()
+    expect(note().textContent).toBe('Your entries stay in this browser and are backed up to your account. Export a copy before clearing site data.')
     expect(note().textContent).toMatch(/backed up to your account/)
+    expect(note().textContent).not.toBe(localOnly)
+  })
+
+  it('status offline says entries will back up when back online, not that they are backed up', async () => {
+    cloud = fakeCloud('offline')
+    await renderApp()
+    expect(note().textContent).toBe('Your entries stay in this browser and will back up to your account when you are back online.')
+    expect(note().textContent).not.toMatch(/backed up to your account/)
+    expect(note().textContent).not.toBe(localOnly)
+  })
+
+  it('status error says backing up hit a problem and points to Backup & sync, not that entries are backed up', async () => {
+    cloud = fakeCloud('error')
+    await renderApp()
+    expect(note().textContent).toBe('Your entries stay in this browser. Backing up hit a problem, so check Backup & sync in Settings.')
+    expect(note().textContent).toMatch(/Backup & sync/)
+    expect(note().textContent).not.toMatch(/backed up to your account/)
     expect(note().textContent).not.toBe(localOnly)
   })
 })

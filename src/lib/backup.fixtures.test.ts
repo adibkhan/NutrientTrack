@@ -2,8 +2,39 @@
 import { describe, expect, it } from 'vitest'
 import { BACKUP_VERSION, isValidSyncRecord, readBackup } from './backup'
 import fixtureV1 from './__fixtures__/backup-v1.json'
+import fixtureV2 from './__fixtures__/backup-v2.json'
 
 const fixture = () => structuredClone(fixtureV1) as unknown as Record<string, unknown>
+
+describe('readBackup with the frozen v2 fixture', () => {
+  const fixture2 = () => structuredClone(fixtureV2) as unknown as Record<string, unknown>
+
+  it('accepts the v2 fixture at the current version with every record kept', () => {
+    const result = readBackup(fixture2())
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.backup.version).toBe(BACKUP_VERSION)
+    expect(result.backup.entries).toHaveLength(2)
+    expect(result.backup.foods).toHaveLength(1)
+    expect(result.backup.water).toHaveLength(1)
+    expect(result.backup.measurements).toHaveLength(1)
+  })
+
+  it('keeps the optional and unknown fields the v2 fixture carries', () => {
+    const result = readBackup(fixture2())
+    if (!result.ok) throw new Error('fixture rejected')
+    const entry = result.backup.entries[0] as unknown as Record<string, unknown>
+    expect(entry.fiber).toBe(8)
+    expect(entry.futureBadge).toBe('kept-by-older-builds')
+    expect(result.backup.entries[1].planned).toBe(true)
+    expect(result.backup.foods[0].favorite).toBe(true)
+    expect(result.backup.foods[0].ingredients).toHaveLength(2)
+    expect(result.backup.weights[0].bodyFat).toBe(21.4)
+    const settings = result.backup.settings[0] as unknown as Record<string, unknown>
+    expect(settings.futureSettingsField).toEqual({ kept: true })
+    expect((settings.program as Record<string, unknown>).futureProgramField).toBe(3)
+  })
+})
 
 describe('readBackup with the frozen v1 fixture', () => {
   it('accepts the v1 fixture and returns it at the current version', () => {
@@ -23,8 +54,15 @@ describe('readBackup with the frozen v1 fixture', () => {
     expect((result.backup.settings[0] as unknown as Record<string, unknown>).theme).toBe('dark')
   })
 
-  it('reports a version 2 backup as newer, not invalid', () => {
-    expect(readBackup({ ...fixture(), version: 2 })).toEqual({ ok: false, reason: 'newer' })
+  it('reports a backup from the next version as newer, not invalid', () => {
+    expect(readBackup({ ...fixture(), version: BACKUP_VERSION + 1 })).toEqual({ ok: false, reason: 'newer' })
+  })
+
+  it('upgrades the v1 fixture with empty water and measurement logs', () => {
+    const result = readBackup(fixture())
+    if (!result.ok) throw new Error('fixture rejected')
+    expect(result.backup.water).toEqual([])
+    expect(result.backup.measurements).toEqual([])
   })
 
   it.each([

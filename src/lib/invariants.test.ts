@@ -4,6 +4,7 @@ import catalogSource from '../catalog/index.ts?raw'
 import swSource from '../../public/sw.js?raw'
 import catalogV1 from '../../public/data/usda-common-v1.json?raw'
 import backupV1 from './__fixtures__/backup-v1.json?raw'
+import backupV2 from './__fixtures__/backup-v2.json?raw'
 
 /** FNV-1a over the text with line endings normalised, so a Windows checkout hashes the same as CI. */
 const fingerprint = (text: string): string => {
@@ -17,7 +18,7 @@ const fingerprint = (text: string): string => {
 
 describe('frozen backup fixtures (invariant 5)', () => {
   // A fixture records a format real users hold. Never edit one: add backup-vN.json and pin it here.
-  it.each([['backup-v1.json', backupV1, '441ee9e1']])('%s is unchanged', (_name, text, pinned) => {
+  it.each([['backup-v1.json', backupV1, '441ee9e1'], ['backup-v2.json', backupV2, '294a0a67']])('%s is unchanged', (_name, text, pinned) => {
     expect(fingerprint(text)).toBe(pinned)
   })
 })
