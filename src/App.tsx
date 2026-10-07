@@ -560,6 +560,12 @@ export default function App() {
     })
   }
 
+  /** Jump to the Goals form with the calorie box focused, for the "set a goal" prompt on the diary. */
+  const openCalorieGoal = () => {
+    setView('settings')
+    window.requestAnimationFrame(() => { document.getElementById('goal-calories')?.focus() })
+  }
+
   const markEaten = async (entry: DiaryEntry) => {
     const next: DiaryEntry = { ...entry, updatedAt: nowISO() }
     delete next.planned
@@ -904,6 +910,7 @@ export default function App() {
         {view === 'diary' && (
           <MarkEatenContext.Provider value={markEaten}><DiaryView
             onCopyDay={copyPreviousDay}
+            onSetGoal={openCalorieGoal}
             canCopyDay={entries.some((entry) => entry.date === shiftDate(selectedDate, -1) && !entry.planned)}
             date={selectedDate}
             entries={dateEntries}
@@ -1000,6 +1007,7 @@ interface DiaryViewProps {
   onQuickLog: (food: Food) => void
   macroDisplay: 'grams' | 'percent'
   onCopyDay: () => Promise<void>
+  onSetGoal: () => void
   canCopyDay: boolean
   waterMl: number
   weightUnit: 'lb' | 'kg'
@@ -1014,7 +1022,7 @@ const diaryMeals: Array<{ key: MealCategory; label: string }> = [
   { key: 'other', label: 'Other' },
 ]
 
-function DiaryView({ date, entries, allEntries, foods, goals, totals, onDateChange, onAdd, onAddMeal, onEdit, onDelete, onMove, onDropMove, onRepeatMeal, repeatSavingMeal, onQuickLog, macroDisplay, onCopyDay, canCopyDay, waterMl, weightUnit, onAdjustWater }: DiaryViewProps) {
+function DiaryView({ date, entries, allEntries, foods, goals, totals, onDateChange, onAdd, onAddMeal, onEdit, onDelete, onMove, onDropMove, onRepeatMeal, repeatSavingMeal, onQuickLog, macroDisplay, onCopyDay, onSetGoal, canCopyDay, waterMl, weightUnit, onAdjustWater }: DiaryViewProps) {
   const shares = macroShares(totals)
   const goalShares = goals?.protein && goals.carbs && goals.fat ? macroShares({ protein: goals.protein, carbs: goals.carbs, fat: goals.fat }) : null
   const nutrientTotals = sumNutrients(entries)
@@ -1074,10 +1082,11 @@ function DiaryView({ date, entries, allEntries, foods, goals, totals, onDateChan
           <div className="day-summary-figure">
             <p className="metric-value">{formatNumber(!hasCalorieGoal ? totals.calories : Math.abs(remaining ?? 0))} <small>{!hasCalorieGoal ? 'kcal eaten' : isOverGoal ? 'kcal over' : 'kcal left'}</small></p>
             <p className="metric-subtext">{!hasCalorieGoal ? 'Set an energy goal in Settings to see your balance.' : `${formatNumber(totals.calories)} of ${formatNumber(calorieGoal ?? 0)} kcal`}</p>
+            {!hasCalorieGoal && <button className="text-button set-goal-button" type="button" onClick={onSetGoal}>Set an energy goal <Icon name="arrow-right" size={15} /></button>}
           </div>
           <ProgressRing percent={hasCalorieGoal ? (totals.calories / (calorieGoal ?? 1)) * 100 : 0} hasGoal={hasCalorieGoal} />
         </div>
-        <div className="day-progress" aria-hidden="true"><b className={isOverGoal ? 'over' : ''} style={{ width: `${hasCalorieGoal ? clampPercent((totals.calories / (calorieGoal ?? 1)) * 100) : 0}%` }} /></div>
+        {hasCalorieGoal && <div className="day-progress" aria-hidden="true"><b className={isOverGoal ? 'over' : ''} style={{ width: `${clampPercent((totals.calories / (calorieGoal ?? 1)) * 100)}%` }} /></div>}
         <div className="macro-list compact"><MacroProgress label="Protein" value={totals.protein} goal={goals?.protein} color="protein" display={macroDisplay} share={shares?.protein} goalShare={goalShares?.protein} /><MacroProgress label="Carbs" value={totals.carbs} goal={goals?.carbs} color="carbs" display={macroDisplay} share={shares?.carbs} goalShare={goalShares?.carbs} /><MacroProgress label="Fat" value={totals.fat} goal={goals?.fat} color="fat" display={macroDisplay} share={shares?.fat} goalShare={goalShares?.fat} /></div>
         {nutrientItems.length > 0 && <p className="nutrient-line" title="Counts only foods that have each nutrient recorded">{nutrientItems.join(' · ')}</p>}
         <WaterRow ml={waterMl} unit={weightUnit} onAdjust={onAdjustWater} />
