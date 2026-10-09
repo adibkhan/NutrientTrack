@@ -317,11 +317,11 @@ describe('weight log preview', () => {
 })
 
 describe('trend weight', () => {
-  // Each check-in moves the trend a tenth of the way toward the scale reading (TREND_SMOOTHING = 0.1).
+  // Each day since the previous reading moves the trend a tenth of the way (gap-aware): after 7 days, 1 - 0.9^7 = 52% of the way.
   it('shows the smoothed trend beside the latest check-in and a weekly rate', async () => {
     await openTrends([weightAt(7, 180), weightAt(0, 170)])
     const tile = document.querySelector('.chart-trend') as HTMLElement
-    expect(tile.textContent).toBe('179 lbTrend · −1 lb/wk') // 180 + 0.1 × (170 − 180) = 179, over 7 days
+    expect(tile.textContent).toBe('174.8 lbTrend · −5.2 lb/wk') // 180 + 0.5217 × (170 − 180) = 174.78, over 7 days
   })
 
   it('lists each check-in with its trend value in the entry unit, newest first', async () => {

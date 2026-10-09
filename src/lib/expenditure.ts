@@ -49,7 +49,8 @@ const MIN_SPAN_DAYS = 14
 /**
  * Infer daily energy expenditure from what was eaten and how the trend weight moved:
  * expenditure = average intake - (weight change in kcal) / days, with the change read from a line fitted to the scale weights. Uses only days with food logged and only eaten
- * (not planned) entries, so a missed day never reads as a zero-calorie day. Returns "insufficient" with a plain
+ * (not planned) entries, so a missed day never reads as a zero-calorie day. `endDate` must be the last day that is
+ * finished: callers pass yesterday, because a half-logged today would read as a very light day and drag the estimate down. Returns "insufficient" with a plain
  * reason instead of a number when the data cannot support one.
  */
 export const estimateExpenditure = (entries: DiaryEntry[], weights: WeightEntry[], endDate: string, windowDays = EXPENDITURE_WINDOW_DAYS): ExpenditureEstimate => {

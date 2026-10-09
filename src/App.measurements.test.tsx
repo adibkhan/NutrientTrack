@@ -207,9 +207,8 @@ describe('editing and deleting a check-in', () => {
     expect(saved()).toMatchObject({ id: '2026-03-05', date: '2026-03-05', waist: 34 })
   })
 
-  // KNOWN DEFECT (invariant 2): saveMeasurementEntry only starts from `existing` when the id is unchanged, so moving a
-  // check-in to an empty date drops the record's unknown fields and createdAt. it.fails turns green when that is fixed;
-  // then change it to a plain `it`.
+  // Regression (invariant 2): moving a check-in to an empty date once dropped the record's unknown fields and createdAt,
+  // because the save started from the target day's record instead of the one being edited.
   it('keeps unknown fields and createdAt when a check-in moves to a new date', async () => {
     await moveToNewDate()
     expect(saved()).toMatchObject({ id: '2026-03-05', futureField: 7, createdAt: stamp })

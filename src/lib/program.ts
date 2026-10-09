@@ -5,8 +5,22 @@ import { LB_PER_KG, trendSeries } from './trend'
 
 /** Never suggest a daily budget below this, whatever the rate asks for. */
 export const MIN_BUDGET_KCAL = 1200
-/** Fat share of the budget when the app splits macros itself. */
+/** Fat share of the budget when the app splits macros itself (the balanced style). */
 export const FAT_SHARE = 0.3
+
+/** Diet styles: what share of the budget goes to fat once protein is set. Carbohydrate is whatever remains. */
+export const DIET_STYLES = {
+  balanced: { label: 'Balanced', fatShare: FAT_SHARE },
+  lowfat: { label: 'Lower fat', fatShare: 0.2 },
+  lowcarb: { label: 'Lower carb', fatShare: 0.4 },
+  keto: { label: 'Keto', fatShare: 0.65 },
+} as const
+
+export type DietStyle = keyof typeof DIET_STYLES
+
+/** A trend this far from a maintain goal weight gets a small push back toward it. */
+export const MAINTENANCE_BAND_LB = 1.5
+export const MAINTENANCE_NUDGE_KCAL = 250
 
 const isPositive = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0
 
@@ -18,6 +32,7 @@ export const readProgram = (value: unknown): Program => {
   if (isPositive(raw.goalWeight)) program.goalWeight = raw.goalWeight
   if (isPositive(raw.weeklyRate)) program.weeklyRate = raw.weeklyRate
   if (isPositive(raw.proteinPerWeight)) program.proteinPerWeight = raw.proteinPerWeight
+  if (typeof raw.dietStyle === 'string' && Object.prototype.hasOwnProperty.call(DIET_STYLES, raw.dietStyle)) program.dietStyle = raw.dietStyle as DietStyle
   if (typeof raw.checkInDay === 'number' && Number.isInteger(raw.checkInDay) && raw.checkInDay >= 0 && raw.checkInDay <= 6) program.checkInDay = raw.checkInDay
   if (typeof raw.lastCheckIn === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.lastCheckIn)) program.lastCheckIn = raw.lastCheckIn
   return program
@@ -37,17 +52,31 @@ export interface Budget {
   fat?: number
   /** True when the rate asked for less than the safety floor and the budget was held at the floor. */
   floored: boolean
+  /** A maintain program's push toward its goal weight, kcal a day: positive adds food, negative takes some away. */
+  nudge?: number
+}
+
+/**
+ * Maintaining is not "stay exactly here": when the trend has drifted more than a pound and a half from the goal weight,
+ * add or take away a modest amount so it eases back instead of settling at the new weight.
+ */
+export const maintenanceNudge = (program: Program, unit: 'lb' | 'kg', trendWeightInUnit?: number): number => {
+  if (program.direction !== 'maintain' || program.goalWeight === undefined || trendWeightInUnit === undefined || !(trendWeightInUnit > 0)) return 0
+  const diffLb = (program.goalWeight - trendWeightInUnit) * (unit === 'kg' ? LB_PER_KG : 1)
+  if (Math.abs(diffLb) <= MAINTENANCE_BAND_LB) return 0
+  return diffLb > 0 ? MAINTENANCE_NUDGE_KCAL : -MAINTENANCE_NUDGE_KCAL
 }
 
 /** The daily budget that moves the trend at the program's rate, given an estimated expenditure. */
 export const budgetFor = (program: Program, unit: 'lb' | 'kg', expenditure: number, trendWeightInUnit?: number): Budget => {
   const changeLb = unit === 'kg' ? signedWeeklyChange(program) * LB_PER_KG : signedWeeklyChange(program)
-  const raw = expenditure + (changeLb * KCAL_PER_LB) / 7
+  const nudge = maintenanceNudge(program, unit, trendWeightInUnit)
+  const raw = expenditure + (changeLb * KCAL_PER_LB) / 7 + nudge
   const calories = Math.round(Math.max(MIN_BUDGET_KCAL, raw))
   const protein = program.proteinPerWeight !== undefined && trendWeightInUnit !== undefined ? Math.round(program.proteinPerWeight * trendWeightInUnit) : undefined
-  const fat = Math.round((calories * FAT_SHARE) / 9)
+  const fat = Math.round((calories * DIET_STYLES[program.dietStyle ?? 'balanced'].fatShare) / 9)
   const carbs = protein === undefined ? undefined : Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4))
-  return { calories, ...(protein !== undefined ? { protein, carbs, fat } : {}), floored: raw < MIN_BUDGET_KCAL }
+  return { calories, ...(protein !== undefined ? { protein, carbs, fat } : {}), floored: raw < MIN_BUDGET_KCAL, ...(nudge !== 0 ? { nudge } : {}) }
 }
 
 /**
@@ -107,7 +136,12 @@ export const isCheckInDue = (program: Program, today: string): boolean => {
   return program.lastCheckIn === undefined || program.lastCheckIn < lastCheckInDate(today, program.checkInDay)
 }
 
+/** Fewest logged days in the week that a check-in will adjust the budget from. */
+export const MIN_CHECKIN_DAYS = 4
+
 export interface CheckIn {
+  /** The check-in day itself: what lastCheckIn records, so the card stops being due once it is answered. */
+  dueDate: string
   weekEnding: string
   daysLogged: number
   avgIntake?: number
@@ -126,7 +160,9 @@ export const buildCheckIn = (entries: DiaryEntry[], weights: WeightEntry[], sett
   const program = readProgram(settings?.program)
   const goals: Goals = settings?.goals ?? { weightUnit: 'lb' }
   if (program.direction === undefined || program.checkInDay === undefined) return undefined
-  const weekEnding = lastCheckInDate(today, program.checkInDay)
+  const dueDate = lastCheckInDate(today, program.checkInDay)
+  // On the check-in day itself the week is the seven finished days before it; today is still being logged.
+  const weekEnding = dueDate === today ? shiftDate(today, -1) : dueDate
   const weekStart = shiftDate(weekEnding, -6)
   const unit = goals.weightUnit
   const week = new Map<string, number>()
@@ -145,10 +181,10 @@ export const buildCheckIn = (entries: DiaryEntry[], weights: WeightEntry[], sett
   const expenditure = estimateExpenditure(entries, weights, weekEnding)
   const newBudget = expenditure.kind === 'ok' ? budgetFor(program, unit, expenditure.kcalPerDay, after?.trend) : undefined
   let headline: string
-  if (daysLogged < 4) headline = 'Not enough logged days to adjust. Log food on at least four days next week.'
+  if (daysLogged < MIN_CHECKIN_DAYS) headline = 'Not enough logged days to adjust. Log food on at least four days next week.'
   else if (expenditure.kind !== 'ok') headline = 'The budget stays as it is until there is enough data to estimate your expenditure.'
   else if (newBudget && goals.calories !== undefined && newBudget.calories === goals.calories) headline = 'On track. The budget stays the same.'
   else if (newBudget && goals.calories !== undefined) headline = `The budget ${newBudget.calories > goals.calories ? 'rises' : 'falls'} by ${Math.abs(newBudget.calories - goals.calories)} kcal.`
   else headline = 'A budget is ready to set from your program.'
-  return { weekEnding, daysLogged, avgIntake, trendChange, unit, expenditure, currentBudget: goals.calories, newBudget, headline }
+  return { dueDate, weekEnding, daysLogged, avgIntake, trendChange, unit, expenditure, currentBudget: goals.calories, newBudget, headline }
 }

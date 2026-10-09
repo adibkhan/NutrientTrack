@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { Program } from '../types'
 import type { ExpenditureEstimate } from '../lib/expenditure'
-import { budgetFor, describeGoalProgress, goalProgress, readProgram, type Budget } from '../lib/program'
+import { budgetFor, DIET_STYLES, describeGoalProgress, goalProgress, readProgram, type Budget, type DietStyle } from '../lib/program'
 import { formatNumber, todayISO } from '../lib/utils'
 import { Icon } from './Icon'
 
@@ -23,6 +23,7 @@ interface Draft {
   goalWeight: string
   weeklyRate: string
   proteinPerWeight: string
+  dietStyle: DietStyle | ''
   checkInDay: string
 }
 
@@ -31,6 +32,7 @@ const toDraft = (program: Program): Draft => ({
   goalWeight: program.goalWeight === undefined ? '' : String(program.goalWeight),
   weeklyRate: program.weeklyRate === undefined ? '' : String(program.weeklyRate),
   proteinPerWeight: program.proteinPerWeight === undefined ? '' : String(program.proteinPerWeight),
+  dietStyle: program.dietStyle ?? '',
   checkInDay: program.checkInDay === undefined ? '' : String(program.checkInDay),
 })
 
@@ -56,9 +58,14 @@ export function ProgramPanel({ program, unit, expenditure, trendWeight, onSave, 
     goalWeight: positiveOrUndefined(draft.goalWeight),
     weeklyRate: draft.direction === 'maintain' ? undefined : rate,
     proteinPerWeight: positiveOrUndefined(draft.proteinPerWeight),
+    dietStyle: draft.dietStyle || undefined,
     checkInDay: draft.checkInDay === '' ? undefined : Number(draft.checkInDay),
   }
-  const budget = candidate.direction && expenditure.kind === 'ok' ? budgetFor(candidate, unit, expenditure.kcalPerDay, trendWeight) : undefined
+  // Losing or gaining needs a pace; without one the "budget" would just be maintenance, which is not what was asked for.
+  const needsRate = (candidate.direction === 'lose' || candidate.direction === 'gain') && candidate.weeklyRate === undefined
+  const budget = candidate.direction && !needsRate && expenditure.kind === 'ok' ? budgetFor(candidate, unit, expenditure.kcalPerDay, trendWeight) : undefined
+  // The protein target only needs a body weight, so it shows before there is enough data for a budget.
+  const proteinTarget = candidate.proteinPerWeight !== undefined && trendWeight !== undefined ? Math.round(candidate.proteinPerWeight * trendWeight) : budget?.protein
   const progress = trendWeight !== undefined ? goalProgress(candidate, trendWeight, todayISO()) : undefined
   // One percent of body weight a week is the usual ceiling for a steady loss.
   const fast = trendWeight !== undefined && rate !== undefined && candidate.direction === 'lose' && rate > trendWeight * 0.01
@@ -104,6 +111,14 @@ export function ProgramPanel({ program, unit, expenditure, trendWeight, onSave, 
           <input id="program-protein" inputMode="decimal" min="0" placeholder={unit === 'lb' ? 'e.g. 0.8' : 'e.g. 1.8'} step="any" type="number" value={draft.proteinPerWeight} onChange={(event) => setDraft({ ...draft, proteinPerWeight: event.target.value })} />
         </div>
         <div className="form-field full">
+          <label htmlFor="program-diet-style">Diet style</label>
+          <select id="program-diet-style" value={draft.dietStyle} onChange={(event) => setDraft({ ...draft, dietStyle: event.target.value as DietStyle | '' })}>
+            <option value="">Balanced (30% fat)</option>
+            {(Object.keys(DIET_STYLES) as DietStyle[]).filter((key) => key !== 'balanced').map((key) => <option key={key} value={key}>{DIET_STYLES[key].label} ({Math.round(DIET_STYLES[key].fatShare * 100)}% fat)</option>)}
+          </select>
+          <p className="field-hint">Sets how the budget splits between fat and carbs once a protein target is set.</p>
+        </div>
+        <div className="form-field full">
           <label htmlFor="program-checkin-day">Check-in day</label>
           <select id="program-checkin-day" value={draft.checkInDay} onChange={(event) => setDraft({ ...draft, checkInDay: event.target.value })}>
             <option value="">No weekly check-in</option>
@@ -116,8 +131,10 @@ export function ProgramPanel({ program, unit, expenditure, trendWeight, onSave, 
       <div className="stat-list">
         <div className="stat-row"><span>Resulting budget</span><strong>{budget ? `${formatNumber(budget.calories)} kcal / day` : '—'}</strong></div>
         <div className="stat-row"><span>To goal</span><strong>{progress ? describeGoalProgress(progress, unit) : '—'}</strong></div>
-        <div className="stat-row"><span>Protein target</span><strong>{budget?.protein !== undefined ? `${formatNumber(budget.protein)} g` : '—'}</strong></div>
+        <div className="stat-row"><span>Protein target</span><strong>{proteinTarget !== undefined ? `${formatNumber(proteinTarget)} g` : '—'}</strong></div>
       </div>
+      {needsRate && <p className="field-hint">Choose a weekly rate to see your budget.</p>}
+      {budget?.nudge !== undefined && <p className="field-hint">Includes a {Math.abs(budget.nudge)} kcal nudge {budget.nudge > 0 ? 'up' : 'down'} to bring your trend back toward your goal weight.</p>}
       {budget?.floored && <p className="field-hint warn">That rate would go below {formatNumber(1200)} kcal a day, so the budget is held at {formatNumber(1200)}. Choose a slower rate.</p>}
       {expenditure.kind !== 'ok' && candidate.direction && <p className="form-note"><Icon name="info" size={15} />A budget appears once there is enough logged food and weight data to estimate your expenditure. {expenditure.reason}</p>}
       {budget && (

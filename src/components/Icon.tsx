@@ -9,6 +9,7 @@ export type IconName =
   | 'check'
   | 'chevron-down'
   | 'clock'
+  | 'copy'
   | 'download'
   | 'edit'
   | 'flame'
@@ -42,6 +43,7 @@ const paths: Record<IconName, JSX.Element> = {
   check: <path d="m5 12 4 4L19 6" />,
   'chevron-down': <path d="m6 9 6 6 6-6" />,
   clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3 2" /></>,
+  copy: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></>,
   download: <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" />,
   edit: <path d="m4 16.5-.6 3.1 3.1-.6L18.4 7.1a2.12 2.12 0 0 0-3-3L4 16.5ZM14 6l4 4" />,
   flame: <path d="M12 21a6 6 0 0 0 6-6c0-3.9-3.2-5.8-4.8-8.5-.6 2.1-2 3.4-3.2 4.2.1-2.7-1-4.9-2-6.7C7.6 7.6 6 10 6 13.8A6.3 6.3 0 0 0 12 21Z" />,

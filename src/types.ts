@@ -108,6 +108,8 @@ export interface Program {
   weeklyRate?: number
   /** Grams of protein per pound of body weight (or per kilogram when the weight unit is kg). */
   proteinPerWeight?: number
+  /** How the budget is split once protein is set: how much of it goes to fat. Missing means balanced. */
+  dietStyle?: 'balanced' | 'lowfat' | 'lowcarb' | 'keto'
   /** 0 = Sunday ... 6 = Saturday. */
   checkInDay?: number
   /** Date of the last accepted weekly check-in. */

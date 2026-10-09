@@ -41,8 +41,15 @@ export const startScanning = async (video: HTMLVideoElement, onCode: (code: stri
   const Native = nativeDetector()
   if (Native) {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-    video.srcObject = stream
-    await video.play()
+    try {
+      video.srcObject = stream
+      await video.play()
+    } catch (error) {
+      // The camera is already on; do not leave it running behind a failed start.
+      stream.getTracks().forEach((track) => track.stop())
+      video.srcObject = null
+      throw error
+    }
     const detector = new Native({ formats: [...FORMATS] })
     const stop = () => {
       stopped = true

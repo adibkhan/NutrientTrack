@@ -23,8 +23,11 @@ export function BarcodeLookup({ enabled, onEnable, onUse, onBack }: BarcodeLooku
   const [camera, setCamera] = useState<CameraState>(() => (cameraAvailable() ? 'idle' : 'unavailable'))
   const videoRef = useRef<HTMLVideoElement>(null)
   const sessionRef = useRef<ScanSession | null>(null)
+  // Counts camera starts, so a start that finishes after the screen was closed or stopped can release itself.
+  const startId = useRef(0)
 
   const stopCamera = () => {
+    startId.current += 1
     sessionRef.current?.stop()
     sessionRef.current = null
     setCamera((state) => (state === 'scanning' || state === 'starting' ? 'idle' : state))
@@ -51,6 +54,7 @@ export function BarcodeLookup({ enabled, onEnable, onUse, onBack }: BarcodeLooku
     setProblem('')
     setResult(undefined)
     setCamera('starting')
+    const id = (startId.current += 1)
     try {
       const session = await startScanning(video, (code) => {
         sessionRef.current = null
@@ -58,9 +62,15 @@ export function BarcodeLookup({ enabled, onEnable, onUse, onBack }: BarcodeLooku
         setText(code)
         void search(code)
       })
+      if (id !== startId.current) {
+        // Closed or stopped while the camera was opening: release it now.
+        session.stop()
+        return
+      }
       sessionRef.current = session
       setCamera('scanning')
     } catch (error) {
+      if (id !== startId.current) return
       sessionRef.current = null
       const name = error instanceof Error ? error.name : ''
       setCamera(name === 'NotAllowedError' || name === 'SecurityError' ? 'blocked' : 'idle')
@@ -75,7 +85,7 @@ export function BarcodeLookup({ enabled, onEnable, onUse, onBack }: BarcodeLooku
   // The camera opens as soon as the scanner is allowed to, and always closes when this screen goes away.
   useEffect(() => {
     if (enabled && camera === 'idle' && !sessionRef.current && result === undefined && !problem) void startCamera()
-    return () => { sessionRef.current?.stop(); sessionRef.current = null }
+    return () => { startId.current += 1; sessionRef.current?.stop(); sessionRef.current = null }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled])
 

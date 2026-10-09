@@ -6,7 +6,31 @@ import { todayISO } from './utils'
  * Show the reminders the person asked for. This only works while the app is open: a browser cannot wake a closed
  * page without a push server, and this app has none. Nothing is sent anywhere.
  */
+/**
+ * Show one reminder. Android Chrome only allows notifications through a service worker registration, so that is tried
+ * first; the plain constructor covers desktop browsers. Resolves true only when a notification was actually shown.
+ */
+const showReminder = async (reminder: { kind: string; title: string; body: string }): Promise<boolean> => {
+  const options = { body: reminder.body, tag: `nutrienttrack-${reminder.kind}` }
+  try {
+    const registration = typeof navigator !== 'undefined' && navigator.serviceWorker ? await navigator.serviceWorker.getRegistration() : undefined
+    if (registration?.showNotification) {
+      await registration.showNotification(reminder.title, options)
+      return true
+    }
+  } catch {
+    // Fall through to the constructor.
+  }
+  try {
+    new Notification(reminder.title, options)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export const useReminders = (rawTimes: unknown, context: ReminderContext, enabled: boolean): void => {
+  const inFlight = useRef(new Set<string>())
   const contextRef = useRef(context)
   contextRef.current = context
   const times = readReminders(rawTimes)
@@ -17,14 +41,13 @@ export const useReminders = (rawTimes: unknown, context: ReminderContext, enable
     const check = () => {
       const today = todayISO()
       for (const kind of dueReminders(times, new Date(), (item) => wasFired(item, today), contextRef.current)) {
-        markFired(kind, today)
         const reminder = REMINDERS.find((item) => item.kind === kind)
-        if (!reminder) continue
-        try {
-          new Notification(reminder.title, { body: reminder.body, tag: `nutrienttrack-${kind}` })
-        } catch {
-          // Some mobile browsers only allow notifications through a service worker; the reminder is skipped, not retried.
-        }
+        if (!reminder || inFlight.current.has(kind)) continue
+        inFlight.current.add(kind)
+        // Marked as fired only once it was shown, so a browser that refuses is tried again at the next check instead of losing the day's reminder.
+        void showReminder(reminder).then((shown) => {
+          if (shown) markFired(kind, today)
+        }).finally(() => { inFlight.current.delete(kind) })
       }
     }
     check()

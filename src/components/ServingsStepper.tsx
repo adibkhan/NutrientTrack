@@ -13,11 +13,11 @@ export function ServingsStepper({ value, hint, onChange }: ServingsStepperProps)
       <div className="grams-field">
         <label htmlFor="entry-servings">Servings</label>
         <div className="grams-stepper">
-          <button className="icon-button" type="button" aria-label="Half a serving less" disabled={!valid || amount <= 0.5} onClick={() => onChange(String(Math.max(0.5, amount - 0.5)))}>−</button>
+          <button className="icon-button" type="button" aria-label="Half a serving less" disabled={!valid || amount <= 0.5} onClick={() => onChange(String(Math.max(0.5, Math.round((amount - 0.5) * 100) / 100)))}>−</button>
           <div className="input-with-suffix">
             <input id="entry-servings" inputMode="decimal" min="0" step="any" type="number" value={value} onChange={(event) => onChange(event.target.value)} />
           </div>
-          <button className="icon-button" type="button" aria-label="Half a serving more" onClick={() => onChange(String((valid ? amount : 0) + 0.5))}>+</button>
+          <button className="icon-button" type="button" aria-label="Half a serving more" onClick={() => onChange(String(Math.round(((valid ? amount : 0) + 0.5) * 100) / 100))}>+</button>
         </div>
       </div>
       {hint && <p className="field-hint">{hint}</p>}

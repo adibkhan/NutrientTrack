@@ -66,7 +66,8 @@ describe('trendSeries', () => {
     const out = trendSeries([w('2026-03-01', 180), w('2026-03-02', 0), w('2026-03-03', 190)], 'lb')
     expect(out).toHaveLength(2)
     expect(out[0].trend).toBe(180)
-    expect(out[1].trend).toBeCloseTo(181, 10)
+    // The bad row is skipped, so the readings are two days apart: the trend moves 1 - 0.9^2 = 19% of the way, not 10%.
+    expect(out[1].trend).toBeCloseTo(181.9, 10)
   })
 
   it('does not mutate its input', () => {

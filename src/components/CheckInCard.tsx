@@ -1,4 +1,4 @@
-import type { CheckIn } from '../lib/program'
+import { MIN_CHECKIN_DAYS, type CheckIn } from '../lib/program'
 import { formatNumber, formatShortDate } from '../lib/utils'
 import { Icon } from './Icon'
 
@@ -33,7 +33,7 @@ export function CheckInCard({ checkIn, onAccept, onKeep }: CheckInCardProps) {
       {newBudget?.floored && <p className="field-hint warn">This week's rate would go below the 1,200 kcal safety floor, so the new budget is held there.</p>}
       <div className="checkin-actions">
         <button className="button secondary" type="button" onClick={() => { void onKeep() }}>Keep current budget</button>
-        <button className="button primary" type="button" disabled={!newBudget || !changes} onClick={() => { void onAccept() }}><Icon name="check" size={16} />Accept new budget</button>
+        <button className="button primary" type="button" disabled={!newBudget || !changes || checkIn.daysLogged < MIN_CHECKIN_DAYS} onClick={() => { void onAccept() }}><Icon name="check" size={16} />Accept new budget</button>
       </div>
     </section>
   )

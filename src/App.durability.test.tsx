@@ -77,7 +77,7 @@ describe('editing an entry keeps fields this build does not know about', () => {
     expect(savedEntry()).toMatchObject({ id: 'e1', calories: 350, sodium: 120, createdAt: stamp })
   })
 
-  it('drops catalogId, catalogSource and grams when a catalog entry is switched to manual', async () => {
+  it('keeps catalogId, catalogSource and grams when a catalog entry is edited without touching its numbers', async () => {
     m.getEntries.mockResolvedValue([withUnknown({ ...baseEntry, name: 'Oats', catalogId: 'usda-1', catalogSource: 'USDA SR Legacy' as const, grams: 50 }, { sodium: 5 })])
     const user = await renderApp()
     const dialog = await editEntry(user, 'Oats')
@@ -85,6 +85,22 @@ describe('editing an entry keeps fields this build does not know about', () => {
 
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
     const saved = savedEntry()
+    expect(saved).toMatchObject({ catalogId: 'usda-1', catalogSource: 'USDA SR Legacy', grams: 50 })
+    expect(saved.sodium).toBe(5)
+  })
+
+  it('drops catalogId, catalogSource and grams once the calories are changed by hand, since they no longer describe the food', async () => {
+    m.getEntries.mockResolvedValue([withUnknown({ ...baseEntry, name: 'Oats', catalogId: 'usda-1', catalogSource: 'USDA SR Legacy' as const, grams: 50 }, { sodium: 5 })])
+    const user = await renderApp()
+    const dialog = await editEntry(user, 'Oats')
+    const calories = within(dialog).getByLabelText(/^Calories/) as HTMLInputElement
+    await user.clear(calories)
+    await user.type(calories, '999')
+    await user.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
+    const saved = savedEntry()
+    expect(saved.calories).toBe(999)
     expect(saved).not.toHaveProperty('catalogId')
     expect(saved).not.toHaveProperty('catalogSource')
     expect(saved).not.toHaveProperty('grams')

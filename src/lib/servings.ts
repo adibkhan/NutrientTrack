@@ -8,9 +8,11 @@ export interface ServingBase {
   carbs: number
   fat: number
   nutrients: NutrientValues
+  /** Grams in one serving, when the entry recorded a weight (a barcode product); scaled with the servings. */
+  grams?: number
 }
 
-type Macros = { calories: number; protein: number; carbs: number; fat: number } & NutrientValues
+type Macros = { calories: number; protein: number; carbs: number; fat: number; grams?: number } & NutrientValues
 
 const finite = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0)
 const tidy = (value: number): number => Math.round(value * 100) / 100
@@ -24,7 +26,8 @@ export const baseFromRecord = (record: Macros, servings = 1): ServingBase => {
     // A nutrient the record never had stays absent: "not recorded" must not become zero by scaling.
     if (typeof value === 'number' && Number.isFinite(value) && value >= 0) nutrients[key] = value / divisor
   }
-  return { calories: finite(record.calories) / divisor, protein: finite(record.protein) / divisor, carbs: finite(record.carbs) / divisor, fat: finite(record.fat) / divisor, nutrients }
+  const grams = typeof record.grams === 'number' && Number.isFinite(record.grams) && record.grams > 0 ? { grams: record.grams / divisor } : {}
+  return { calories: finite(record.calories) / divisor, protein: finite(record.protein) / divisor, carbs: finite(record.carbs) / divisor, fat: finite(record.fat) / divisor, nutrients, ...grams }
 }
 
 /** The nutrition of `servings` servings, every figure scaled and rounded to two decimals. */
@@ -35,7 +38,8 @@ export const scaleBase = (base: ServingBase, servings: number): ServingBase => {
     const value = base.nutrients[key]
     if (typeof value === 'number') nutrients[key] = tidy(value * factor)
   }
-  return { calories: tidy(base.calories * factor), protein: tidy(base.protein * factor), carbs: tidy(base.carbs * factor), fat: tidy(base.fat * factor), nutrients }
+  const grams = base.grams !== undefined ? { grams: Math.round(base.grams * factor * 10) / 10 } : {}
+  return { calories: tidy(base.calories * factor), protein: tidy(base.protein * factor), carbs: tidy(base.carbs * factor), fat: tidy(base.fat * factor), nutrients, ...grams }
 }
 
 /** Nutrients per 100 g from an amount weighing `grams`; undefined when there is nothing to scale from. */

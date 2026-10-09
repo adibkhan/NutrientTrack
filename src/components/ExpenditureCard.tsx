@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import type { DiaryEntry, WeightEntry } from '../types'
 import { estimateExpenditure } from '../lib/expenditure'
 import { LB_PER_KG } from '../lib/trend'
-import { formatNumber, todayISO } from '../lib/utils'
+import { formatNumber, shiftDate, todayISO } from '../lib/utils'
 
 interface ExpenditureCardProps {
   entries: DiaryEntry[]
@@ -14,7 +14,8 @@ const confidenceLabel = { low: 'Low confidence', medium: 'Medium confidence', hi
 
 export function ExpenditureCard({ entries, weights, unit }: ExpenditureCardProps) {
   const today = todayISO()
-  const estimate = useMemo(() => estimateExpenditure(entries, weights, today), [entries, weights, today])
+  // Through yesterday: today is not finished, so it must not count as a light day.
+  const estimate = useMemo(() => estimateExpenditure(entries, weights, shiftDate(today, -1)), [entries, weights, today])
   const change = estimate.kind === 'ok' ? (unit === 'kg' ? estimate.trendChangeLb / LB_PER_KG : estimate.trendChangeLb) : 0
   const signed = (value: number, digits: number) => `${value > 0 ? '+' : value < 0 ? '−' : ''}${formatNumber(Math.abs(value), digits)}`
   return (
