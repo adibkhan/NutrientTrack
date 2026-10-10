@@ -17,6 +17,7 @@ export type IconName =
   | 'grip'
   | 'info'
   | 'lock'
+  | 'mic'
   | 'more'
   | 'move'
   | 'plus'
@@ -51,6 +52,7 @@ const paths: Record<IconName, JSX.Element> = {
   grip: <><circle cx="8" cy="7" r="1" fill="currentColor" stroke="none" /><circle cx="16" cy="7" r="1" fill="currentColor" stroke="none" /><circle cx="8" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="16" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="8" cy="17" r="1" fill="currentColor" stroke="none" /><circle cx="16" cy="17" r="1" fill="currentColor" stroke="none" /></>,
   info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
   lock: <path d="M6 10h12v10H6zM8 10V7a4 4 0 0 1 8 0v3" />,
+  mic: <><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6" /></>,
   more: <><circle cx="5.5" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="18.5" cy="12" r="1.3" fill="currentColor" stroke="none" /></>,
   move: <><path d="M8 5 5 8l3 3" /><path d="M5 8h8a4 4 0 0 1 4 4v1" /><path d="m16 19 3-3-3-3" /><path d="M19 16h-8a4 4 0 0 1-4-4v-1" /></>,
   plus: <path d="M12 5v14M5 12h14" />,

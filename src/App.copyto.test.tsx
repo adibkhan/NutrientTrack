@@ -6,7 +6,7 @@ import type { CatalogFood } from './catalog/types'
 import type { DiaryEntry, Food } from './types'
 
 vi.mock('./lib/db', () => ({
-  getWaterLogs: vi.fn(() => Promise.resolve([])), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
+  getWaterLogs: vi.fn(() => Promise.resolve([])), getSymptoms: vi.fn(() => Promise.resolve([])), saveSymptom: vi.fn(), deleteSymptom: vi.fn(), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
   deleteEntry: vi.fn(), deleteFood: vi.fn(), deleteWeight: vi.fn(), exportBackup: vi.fn(), clearAllData: vi.fn(),
   getEntries: vi.fn(), getFoods: vi.fn(), getSettings: vi.fn(), getWeights: vi.fn(), importBackup: vi.fn(),
   requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), onLocalChange: vi.fn(() => () => undefined),
@@ -210,10 +210,10 @@ describe('copy a day', () => {
     expect(m.saveEntries).not.toHaveBeenCalled()
   })
 
-  it('disables_Copy_day_to_when_the_day_has_only_planned_foods', async () => {
+  it('hides_Copy_day_to_when_the_day_has_only_planned_foods', async () => {
     store = [entry({ planned: true })]
     await renderApp()
-    expect((first(/Copy day to/) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: /Copy day to/ })).toBeNull()
   })
 
   it('asks_before_adding_to_a_day_that_already_has_eaten_food_and_stops_on_no', async () => {

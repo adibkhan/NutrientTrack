@@ -30,6 +30,8 @@ export interface DiaryEntry {
   sugar?: number
   satFat?: number
   cholesterol?: number
+  /** Set on entries brought in from another tracker's export, e.g. "cronometer". Missing means logged here. */
+  importedFrom?: string
   createdAt: string
   updatedAt: string
 }
@@ -77,6 +79,8 @@ export interface WeightEntry {
   note?: string
   /** Body fat percentage from a scale or caliper. Missing means not recorded. */
   bodyFat?: number
+  /** Set on weigh-ins brought in from another tracker's export. Missing means logged here. */
+  importedFrom?: string
   createdAt: string
   /** Added for sync conflict resolution; absent on weights saved before cloud sync existed. */
   updatedAt?: string
@@ -98,6 +102,12 @@ export interface Preferences {
   reminders?: Partial<Record<'logFood' | 'weighIn', string>>
   /** Opt-in: look barcodes up on Open Food Facts, which sends the number to a third party. Missing means off. */
   barcodeLookup?: boolean
+  /** Pip, the logging buddy on the diary. Missing means shown; false hides it. */
+  mascot?: boolean
+  /** Set once the first-run setup was finished or skipped. Missing means it has not been seen. */
+  welcomed?: boolean
+  /** Pip points out common reflux (heartburn) triggers in today's food. Missing means off. */
+  refluxWatch?: boolean
 }
 
 /** The goal behind the daily budget. Every field is optional: missing means "not set". */
@@ -148,9 +158,23 @@ export interface BodyMeasurement {
   updatedAt: string
 }
 
+/** One heartburn (reflux) flare. Device and backup only, never synced, and the symptom journal is opt-in. */
+export interface Symptom {
+  id: string
+  date: string
+  /** Local wall-clock time as "HH:MM"; missing when the person did not say. */
+  time?: string
+  kind: 'heartburn'
+  /** 1 mild, 2 moderate, 3 severe. */
+  severity: 1 | 2 | 3
+  note?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface BackupPayload {
   format: 'nutrienttrack-backup'
-  version: 2
+  version: 3
   exportedAt: string
   entries: DiaryEntry[]
   foods: Food[]
@@ -158,6 +182,7 @@ export interface BackupPayload {
   settings: Settings[]
   water: WaterLog[]
   measurements: BodyMeasurement[]
+  symptoms: Symptom[]
 }
 
 export interface MacroTotals {

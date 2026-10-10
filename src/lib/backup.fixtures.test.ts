@@ -3,8 +3,21 @@ import { describe, expect, it } from 'vitest'
 import { BACKUP_VERSION, isValidSyncRecord, readBackup } from './backup'
 import fixtureV1 from './__fixtures__/backup-v1.json'
 import fixtureV2 from './__fixtures__/backup-v2.json'
+import fixtureV3 from './__fixtures__/backup-v3.json'
 
 const fixture = () => structuredClone(fixtureV1) as unknown as Record<string, unknown>
+
+describe('readBackup with the frozen v3 fixture', () => {
+  it('accepts the v3 fixture with its symptom journal and unknown symptom fields', () => {
+    const result = readBackup(structuredClone(fixtureV3) as unknown as Record<string, unknown>)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.backup.version).toBe(BACKUP_VERSION)
+    expect(result.backup.symptoms).toHaveLength(1)
+    expect(result.backup.symptoms[0]).toMatchObject({ kind: 'heartburn', severity: 2, time: '21:40' })
+    expect((result.backup.symptoms[0] as unknown as Record<string, unknown>).futureField).toBe('kept')
+  })
+})
 
 describe('readBackup with the frozen v2 fixture', () => {
   const fixture2 = () => structuredClone(fixtureV2) as unknown as Record<string, unknown>
@@ -18,6 +31,7 @@ describe('readBackup with the frozen v2 fixture', () => {
     expect(result.backup.foods).toHaveLength(1)
     expect(result.backup.water).toHaveLength(1)
     expect(result.backup.measurements).toHaveLength(1)
+    expect(result.backup.symptoms).toEqual([])
   })
 
   it('keeps the optional and unknown fields the v2 fixture carries', () => {

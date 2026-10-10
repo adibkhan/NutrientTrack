@@ -1,8 +1,8 @@
 import type { CatalogFood } from './types'
 
-const CATALOG_PATH = './data/usda-common-v1.json'
+const CATALOG_PATH = './data/usda-common-v2.json'
 
-let catalogPromise: Promise<CatalogFood[]> | undefined
+const catalogPromises = new Map<string, Promise<CatalogFood[]>>()
 
 const normalize = (value: string) => value
   .normalize('NFKD')
@@ -13,23 +13,25 @@ const normalize = (value: string) => value
 
 const tokensFor = (value: string) => value ? value.split(' ') : []
 
-const fetchCatalog = async (): Promise<CatalogFood[]> => {
-  const response = await fetch(CATALOG_PATH, { cache: 'force-cache' })
+const fetchCatalog = async (path: string): Promise<CatalogFood[]> => {
+  const response = await fetch(path, { cache: 'force-cache' })
   if (!response.ok) throw new Error(`Food catalog could not be loaded (${response.status}).`)
   const catalog: unknown = await response.json()
   if (!Array.isArray(catalog)) throw new Error('Food catalog has an invalid format.')
   return catalog as CatalogFood[]
 }
 
-/** Load the bundled USDA catalog once and reuse the same request thereafter. */
-export const loadCatalog = (): Promise<CatalogFood[]> => {
-  if (!catalogPromise) {
-    catalogPromise = fetchCatalog().catch((error) => {
-      catalogPromise = undefined
+/** Load the bundled USDA catalog once and reuse the same request thereafter. Pages outside the app root pass their own relative path. */
+export const loadCatalog = (path: string = CATALOG_PATH): Promise<CatalogFood[]> => {
+  let promise = catalogPromises.get(path)
+  if (!promise) {
+    promise = fetchCatalog(path).catch((error) => {
+      catalogPromises.delete(path)
       throw error
     })
+    catalogPromises.set(path, promise)
   }
-  return catalogPromise
+  return promise
 }
 
 /** Find the original catalog record for a previously logged snapshot. */

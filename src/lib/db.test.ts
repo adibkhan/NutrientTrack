@@ -89,8 +89,8 @@ describe('opening the database', () => {
     await closeDatabase()
     expect(await inspect()).toEqual({
       version: DB_VERSION,
-      stores: ['entries', 'foods', 'measurements', 'meta', 'outbox', 'settings', 'water', 'weights'],
-      indexes: { entries: ['date'], foods: ['name'], measurements: [], meta: [], outbox: [], settings: [], water: [], weights: ['date'] },
+      stores: ['entries', 'foods', 'measurements', 'meta', 'outbox', 'settings', 'symptoms', 'water', 'weights'],
+      indexes: { entries: ['date'], foods: ['name'], measurements: [], meta: [], outbox: [], settings: [], symptoms: [], water: [], weights: ['date'] },
     })
   })
 
@@ -112,8 +112,8 @@ describe('opening the database', () => {
     await closeDatabase()
     expect(await inspect()).toEqual({
       version: DB_VERSION,
-      stores: ['entries', 'foods', 'measurements', 'meta', 'outbox', 'settings', 'water', 'weights'],
-      indexes: { entries: ['date'], foods: ['name'], measurements: [], meta: [], outbox: [], settings: [], water: [], weights: ['date'] },
+      stores: ['entries', 'foods', 'measurements', 'meta', 'outbox', 'settings', 'symptoms', 'water', 'weights'],
+      indexes: { entries: ['date'], foods: ['name'], measurements: [], meta: [], outbox: [], settings: [], symptoms: [], water: [], weights: ['date'] },
     })
   })
 

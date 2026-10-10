@@ -1,4 +1,4 @@
-import type { BackupPayload, BodyMeasurement, DiaryEntry, Food, Settings, WaterLog, WeightEntry } from '../types'
+import type { BackupPayload, BodyMeasurement, DiaryEntry, Food, Settings, WaterLog, WeightEntry, Symptom } from '../types'
 import { BACKUP_VERSION, isValidSyncRecord } from './backup'
 
 const DB_NAME = 'nutrienttrack-local'
@@ -6,7 +6,7 @@ const DB_NAME = 'nutrienttrack-local'
 type StoreName = 'entries' | 'foods' | 'weights' | 'settings'
 
 /** Stores that live only on this device and in backups. They are not synced to the cloud yet, so they never touch the outbox. */
-type LocalStoreName = 'water' | 'measurements'
+type LocalStoreName = 'water' | 'measurements' | 'symptoms'
 
 /** A local change waiting to be pushed to cloud sync. One per record: a later change replaces an earlier one. */
 export interface PendingChange {
@@ -53,6 +53,10 @@ const MIGRATIONS: Migration[] = [
   (database) => {
     database.createObjectStore('water', { keyPath: 'id' })
     database.createObjectStore('measurements', { keyPath: 'id' })
+  },
+  // 4: the symptom journal (heartburn flares). New store only; device and backup only, never synced.
+  (database) => {
+    database.createObjectStore('symptoms', { keyPath: 'id' })
   },
 ]
 
@@ -222,9 +226,12 @@ export const deleteWaterLog = (id: string): Promise<void> => runTransaction(['wa
 export const getMeasurements = (): Promise<BodyMeasurement[]> => getAll<BodyMeasurement>('measurements')
 export const saveMeasurement = (measurement: BodyMeasurement): Promise<void> => runTransaction(['measurements'], 'readwrite', (transaction) => { transaction.objectStore('measurements').put(measurement) })
 export const deleteMeasurement = (id: string): Promise<void> => runTransaction(['measurements'], 'readwrite', (transaction) => { transaction.objectStore('measurements').delete(id) })
+export const getSymptoms = (): Promise<Symptom[]> => getAll<Symptom>('symptoms')
+export const saveSymptom = (symptom: Symptom): Promise<void> => runTransaction(['symptoms'], 'readwrite', (transaction) => { transaction.objectStore('symptoms').put(symptom) })
+export const deleteSymptom = (id: string): Promise<void> => runTransaction(['symptoms'], 'readwrite', (transaction) => { transaction.objectStore('symptoms').delete(id) })
 
 export const exportBackup = async (): Promise<BackupPayload> => {
-  const [entries, foods, weights, settings, water, measurements] = await Promise.all([getEntries(), getFoods(), getWeights(), getSettings(), getWaterLogs(), getMeasurements()])
+  const [entries, foods, weights, settings, water, measurements, symptoms] = await Promise.all([getEntries(), getFoods(), getWeights(), getSettings(), getWaterLogs(), getMeasurements(), getSymptoms()])
   return {
     format: 'nutrienttrack-backup',
     version: BACKUP_VERSION,
@@ -235,6 +242,7 @@ export const exportBackup = async (): Promise<BackupPayload> => {
     settings: settings ? [settings] : [],
     water,
     measurements,
+    symptoms,
   }
 }
 
@@ -243,12 +251,14 @@ export const exportBackup = async (): Promise<BackupPayload> => {
  * backup lacks are NOT deleted from the cloud: the pull cursor is reset so the next sync brings them back.
  */
 export const importBackup = async (backup: BackupPayload): Promise<void> => {
-  await runTransaction(['entries', 'foods', 'weights', 'settings', 'water', 'measurements', 'outbox', 'meta'], 'readwrite', (transaction) => {
+  await runTransaction(['entries', 'foods', 'weights', 'settings', 'water', 'measurements', 'symptoms', 'outbox', 'meta'], 'readwrite', (transaction) => {
     transaction.objectStore('meta').delete('pullCursor')
     transaction.objectStore('water').clear()
     transaction.objectStore('measurements').clear()
+    transaction.objectStore('symptoms').clear()
     for (const log of backup.water ?? []) transaction.objectStore('water').put(log)
     for (const measurement of backup.measurements ?? []) transaction.objectStore('measurements').put(measurement)
+    for (const symptom of backup.symptoms ?? []) transaction.objectStore('symptoms').put(symptom)
     transaction.objectStore('entries').clear()
     transaction.objectStore('foods').clear()
     transaction.objectStore('weights').clear()
@@ -270,8 +280,8 @@ export const importBackup = async (backup: BackupPayload): Promise<void> => {
 
 /** Clear this browser only, including sync bookkeeping. Never deletes anything from the cloud. */
 export const clearAllData = (): Promise<void> =>
-  runTransaction(['entries', 'foods', 'weights', 'settings', 'water', 'measurements', 'outbox', 'meta'], 'readwrite', (transaction) => {
-    for (const name of ['entries', 'foods', 'weights', 'settings', 'water', 'measurements', 'outbox', 'meta']) transaction.objectStore(name).clear()
+  runTransaction(['entries', 'foods', 'weights', 'settings', 'water', 'measurements', 'symptoms', 'outbox', 'meta'], 'readwrite', (transaction) => {
+    for (const name of ['entries', 'foods', 'weights', 'settings', 'water', 'measurements', 'symptoms', 'outbox', 'meta']) transaction.objectStore(name).clear()
   })
 
 export const getPendingChanges = (): Promise<PendingChange[]> => getAll<PendingChange>('outbox')

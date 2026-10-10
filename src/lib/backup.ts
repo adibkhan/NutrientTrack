@@ -2,7 +2,7 @@ import type { BackupPayload, DiaryEntry, Goals, MealCategory, Settings, WaterLog
 import { isoFromDate } from './utils'
 
 /** Current backup format. Bump it only together with a new BACKUP_MIGRATIONS step and a fixture test. */
-export const BACKUP_VERSION = 2
+export const BACKUP_VERSION = 3
 
 type BackupRecord = Record<string, unknown>
 
@@ -13,6 +13,8 @@ type BackupRecord = Record<string, unknown>
 const BACKUP_MIGRATIONS: Array<(backup: BackupRecord) => BackupRecord> = [
   // 1 -> 2: water and body measurement logs did not exist yet, so an older backup restores with none.
   (backup) => ({ ...backup, water: [], measurements: [] }),
+  // 2 -> 3: the symptom journal did not exist yet, so an older backup restores with no symptoms.
+  (backup) => ({ ...backup, symptoms: [] }),
 ]
 
 export type BackupReadResult =
@@ -49,6 +51,7 @@ export const isValidSyncRecord = (store: 'entries' | 'foods' | 'weights' | 'sett
     settings: store === 'settings' ? [data] : [],
     water: [],
     measurements: [],
+    symptoms: [],
   })
 }
 
@@ -56,7 +59,7 @@ export const validateBackup = (value: unknown): value is BackupPayload => {
   if (!value || typeof value !== 'object') return false
   const candidate = value as Partial<BackupPayload>
   if (candidate.format !== 'nutrienttrack-backup' || candidate.version !== BACKUP_VERSION) return false
-  if (!Array.isArray(candidate.entries) || !Array.isArray(candidate.foods) || !Array.isArray(candidate.weights) || !Array.isArray(candidate.settings) || !Array.isArray(candidate.water) || !Array.isArray(candidate.measurements)) return false
+  if (!Array.isArray(candidate.entries) || !Array.isArray(candidate.foods) || !Array.isArray(candidate.weights) || !Array.isArray(candidate.settings) || !Array.isArray(candidate.water) || !Array.isArray(candidate.measurements) || !Array.isArray(candidate.symptoms)) return false
   const isISODate = (value: unknown) => {
     if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
     const parsed = new Date(`${value}T12:00:00`)
@@ -117,7 +120,8 @@ export const validateBackup = (value: unknown): value is BackupPayload => {
     const ids = items.map((item) => (item && typeof item === 'object' ? (item as Record<string, unknown>).id : undefined))
     return ids.every((id): id is string => typeof id === 'string' && id.trim().length > 0) && new Set(ids).size === ids.length
   }
-  return hasUniqueIds(candidate.entries) && hasUniqueIds(candidate.foods) && hasUniqueIds(candidate.weights) && hasUniqueIds(candidate.settings) && hasUniqueIds(candidate.water) && hasUniqueIds(candidate.measurements) &&
+  return hasUniqueIds(candidate.entries) && hasUniqueIds(candidate.foods) && hasUniqueIds(candidate.weights) && hasUniqueIds(candidate.settings) && hasUniqueIds(candidate.water) && hasUniqueIds(candidate.measurements) && hasUniqueIds(candidate.symptoms) &&
+    candidate.symptoms.every((item) => hasStrings(item, ['id', 'date', 'createdAt', 'updatedAt']) && isISODate((item as { date: string }).date) && (item as { kind: unknown }).kind === 'heartburn' && [1, 2, 3].includes((item as { severity: unknown }).severity as number) && isOptionalTime(item) && isOptionalString(item, 'note')) &&
     candidate.water.every((item) => hasStrings(item, ['id', 'date', 'createdAt', 'updatedAt']) && isISODate((item as WaterLog).date) && hasNumbers(item, ['ml'])) &&
     candidate.measurements.every((item) => hasStrings(item, ['id', 'date', 'unit', 'createdAt', 'updatedAt']) && isISODate((item as { date: string }).date) && ['in', 'cm'].includes((item as { unit: string }).unit) && ['waist', 'hips', 'chest', 'arm', 'thigh'].every((key) => isOptionalPositiveNumber(item, key))) &&
     candidate.entries.every((item) => hasStrings(item, ['id', 'date', 'name', 'createdAt', 'updatedAt']) && isISODate((item as DiaryEntry).date) && validMeal((item as DiaryEntry).meal) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat']) && isOptionalTime(item) && isOptionalNonNegativeNumber(item, 'grams') && NUTRIENT_KEYS.every((key) => isOptionalNonNegativeNumber(item, key)) && isOptionalBoolean(item, 'planned') && isOptionalPositiveNumber(item, 'servings') && isOptionalIdentifier(item, 'foodId') && isOptionalIdentifier(item, 'catalogId') && isOptionalCatalogSource(item)) &&

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import swSource from '../public/sw.js?raw'
 
 const SCOPE = 'https://app.test/'
-const CACHE_NAME = 'nutrienttrack-shell-v7'
+const CACHE_NAME = 'nutrienttrack-shell-v9'
 const JS = `${SCOPE}assets/index-abc123.js`
 const CSS = `${SCOPE}assets/index-abc123.css`
 const MANIFEST = `${SCOPE}manifest.webmanifest`
@@ -198,5 +198,19 @@ describe('service worker non-navigation requests', () => {
     w.route(asset, () => Promise.reject(new TypeError('offline')))
     const response = await w.dispatch(asset, 'cors').responded
     expect(response.status).toBe(503)
+  })
+})
+
+describe('static food pages', () => {
+  it('leaves_food_pages_and_the_sitemap_to_the_network_and_never_caches_them_as_the_app', async () => {
+    const w = loadWorker()
+    seedOldPage(w)
+    for (const url of [`${SCOPE}foods/fruits/bananas-raw/`, `${SCOPE}foods/foods.css`, `${SCOPE}recipe-calories/`, `${SCOPE}sitemap.xml`, `${SCOPE}robots.txt`]) {
+      const { responded, waits } = w.dispatch(url, url.endsWith('/') ? 'navigate' : 'no-cors')
+      expect(responded).toBeUndefined()
+      expect(waits).toHaveLength(0)
+    }
+    await flush()
+    expect(await text(INDEX, w)).toContain('old')
   })
 })

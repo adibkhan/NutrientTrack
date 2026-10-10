@@ -13,7 +13,7 @@ const food = (over: Record<string, unknown> = {}) => ({
 const weight = (over: Record<string, unknown> = {}) => ({ id: 'w1', date: '2026-02-01', weight: 180, unit: 'lb', createdAt: stamp, ...over })
 const settings = (over: Record<string, unknown> = {}) => ({ id: 'profile', goals: { calories: 2000, weightUnit: 'kg' }, updatedAt: stamp, ...over })
 const backup = (over: Record<string, unknown> = {}) => ({
-  format: 'nutrienttrack-backup', version: BACKUP_VERSION, exportedAt: stamp, entries: [], foods: [], weights: [], settings: [], water: [], measurements: [], ...over,
+  format: 'nutrienttrack-backup', version: BACKUP_VERSION, exportedAt: stamp, entries: [], foods: [], weights: [], settings: [], water: [], measurements: [], symptoms: [], ...over,
 })
 
 describe('validateBackup accepts', () => {

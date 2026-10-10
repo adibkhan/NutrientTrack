@@ -50,8 +50,18 @@ The browser holds the primary copy, and most users have no server copy at all be
   - Restoring a backup resets the pull cursor; deletes are queued only once a device has synced (`everSynced`).
   - "Clear local data" decides from the stored session (`hasStoredSession`), and sign-out works offline.
 - **Database scripts:** `npm run db:migrate` and `db:test` verify the server certificate against `supabase/prod-ca-2021.crt` (Supabase's public root CA, valid to 2031). Never turn verification off; point `DATABASE_CA` at another CA file if the host changes.
-- **Local-only stores:** `water` and `measurements` (DB version 3, backup version 2) are saved on the device and in backups but are not synced, because `public.sync_records.store` is restricted to `entries`, `foods`, `weights` and `settings`. To sync them, add a new file under `supabase/migrations/` that widens that check, apply it, then add the stores to `SYNCED_STORES` in `src/lib/db.ts` and to `isValidSyncRecord`. Do both together or not at all.
+- **Local-only stores:** `water` and `measurements` (DB version 3, backup version 2) and `symptoms` (heartburn flares for reflux watch; DB version 4, backup version 3) are saved on the device and in backups but are not synced, because `public.sync_records.store` is restricted to `entries`, `foods`, `weights` and `settings`. To sync them, add a new file under `supabase/migrations/` that widens that check, apply it, then add the stores to `SYNCED_STORES` in `src/lib/db.ts` and to `isValidSyncRecord`. Do both together or not at all.
 - **Loading:** the Supabase library is loaded only when someone asks for a sign-in link or already has a session (`src/lib/cloud.ts`, gated by `mightBeSignedIn`). People who never sign in never download it, and the offline app must not depend on it. The same rule covers the ZXing barcode decoder (`src/lib/scanner.ts`): it is imported only when someone opens the scanner, the browser's own BarcodeDetector is used first where it exists, and the lookup itself (`src/lib/barcode.ts`) runs only after `preferences.barcodeLookup` is switched on.
+
+## Static food pages
+
+`npm run build` ends with `scripts/build-food-pages.mjs`, which writes one plain HTML page per catalog food under `dist/foods/<category>/<food>/`, a page per category, `/foods/` and `/sitemap.xml`. They share `/foods/foods.css`, load no app JavaScript and make no third-party requests. Each links into the app with `/?log=<catalog id>`, which opens the logger on that food. The service worker leaves `/foods/`, `/recipe-calories/`, `/sitemap.xml` and `/robots.txt` to the network so a food page is never cached as the app shell (`src/sw.test.ts`). Tested in `src/foodPages.test.ts`.
+
+The catalog is built with `node scripts/build-usda-catalog.mjs --zip <SR Legacy CSV zip>` (source: `FoodData_Central_sr_legacy_food_csv_2018-04.zip`, sha256 `b80817294b8850530aaedf2e515c02593b1824f763a0ff356e5c2081643e6fd0`). Version 2 adds USDA household measures as `portions`; with them removed it is byte-for-byte the version 1 data.
+
+## Recipe calorie calculator
+
+`/recipe-calories/` is a second Vite page (`recipe-calories/index.html`, `src/recipe/`) that shares the catalog, the describe-to-log matcher (`src/lib/describe.ts`) and the stylesheet. It stores nothing: the recipe lives in the page address (`#i=<lines>&s=<servings>`), and the copyable label (`src/lib/recipe.ts`) is inline-styled HTML with one credit link. The service worker leaves it to the network like the food pages, nginx serves it with `no-cache`, and it is listed in the sitemap.
 
 ## Conventions
 

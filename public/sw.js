@@ -1,11 +1,11 @@
-const CACHE_NAME = 'nutrienttrack-shell-v7'
+const CACHE_NAME = 'nutrienttrack-shell-v9'
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icons/nutrienttrack-192.png',
   './icons/nutrienttrack-512.png',
-  './data/usda-common-v1.json',
+  './data/usda-common-v2.json',
   './fonts/ibm-plex-sans-latin.woff2',
   './fonts/ibm-plex-sans-latin-ext.woff2',
 ]
@@ -61,6 +61,11 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return
+
+  // The static food pages, the recipe calculator and the sitemap are their own documents: never cache them as the app shell.
+  const path = new URL(event.request.url).pathname
+  const scopePath = scopeUrl().pathname
+  if (path.startsWith(`${scopePath}foods/`) || path.startsWith(`${scopePath}recipe-calories/`) || path === `${scopePath}sitemap.xml` || path === `${scopePath}robots.txt`) return
 
   if (event.request.mode === 'navigate') {
     event.respondWith(

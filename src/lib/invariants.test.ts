@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest'
 import catalogSource from '../catalog/index.ts?raw'
 import swSource from '../../public/sw.js?raw'
 import catalogV1 from '../../public/data/usda-common-v1.json?raw'
+import catalogV2 from '../../public/data/usda-common-v2.json?raw'
 import backupV1 from './__fixtures__/backup-v1.json?raw'
 import backupV2 from './__fixtures__/backup-v2.json?raw'
+import backupV3 from './__fixtures__/backup-v3.json?raw'
 
 /** FNV-1a over the text with line endings normalised, so a Windows checkout hashes the same as CI. */
 const fingerprint = (text: string): string => {
@@ -18,7 +20,7 @@ const fingerprint = (text: string): string => {
 
 describe('frozen backup fixtures (invariant 5)', () => {
   // A fixture records a format real users hold. Never edit one: add backup-vN.json and pin it here.
-  it.each([['backup-v1.json', backupV1, '441ee9e1'], ['backup-v2.json', backupV2, '294a0a67']])('%s is unchanged', (_name, text, pinned) => {
+  it.each([['backup-v1.json', backupV1, '441ee9e1'], ['backup-v2.json', backupV2, '294a0a67'], ['backup-v3.json', backupV3, 'a1c11ee1']])('%s is unchanged', (_name, text, pinned) => {
     expect(fingerprint(text)).toBe(pinned)
   })
 })
@@ -32,7 +34,7 @@ describe('catalog is versioned by file name (invariant 7)', () => {
   })
 
   // Browsers and the service worker cache the catalog by URL, so new content needs a new file name.
-  it.each([['usda-common-v1.json', catalogV1, '0202e227']])('%s content matches its name', (name, text, pinned) => {
+  it.each([['usda-common-v1.json', catalogV1, '0202e227'], ['usda-common-v2.json', catalogV2, '50586e04']])('%s content matches its name', (name, text, pinned) => {
     expect(catalogPath?.endsWith(name) ? fingerprint(text) : pinned).toBe(pinned)
   })
 })

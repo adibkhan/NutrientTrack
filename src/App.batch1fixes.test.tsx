@@ -7,7 +7,7 @@ import type { BodyMeasurement, DiaryEntry, Settings, WeightEntry } from './types
 import { formatShortDate, shiftDate, todayISO } from './lib/utils'
 
 vi.mock('./lib/db', () => ({
-  getWaterLogs: vi.fn(() => Promise.resolve([])), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
+  getWaterLogs: vi.fn(() => Promise.resolve([])), getSymptoms: vi.fn(() => Promise.resolve([])), saveSymptom: vi.fn(), deleteSymptom: vi.fn(), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
   deleteEntry: vi.fn(), deleteFood: vi.fn(), deleteWeight: vi.fn(), exportBackup: vi.fn(), clearAllData: vi.fn(),
   getEntries: vi.fn(), getFoods: vi.fn(), getSettings: vi.fn(), getWeights: vi.fn(), importBackup: vi.fn(),
   requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), onLocalChange: vi.fn(() => () => undefined),
@@ -151,11 +151,10 @@ describe('3. Repeat previous meal skips planned entries', () => {
     await waitFor(() => expect(toast()?.textContent).toContain(`Repeated dinner from ${formatShortDate(ago(3))}.`))
   })
 
-  it('disables Repeat when every earlier dinner is planned, so nothing can be copied', async () => {
+  it('hides Repeat when every earlier dinner is planned, so nothing can be copied', async () => {
     m.getEntries.mockResolvedValue([dinner(ago(1), 'Planned pasta', { planned: true })])
-    const user = await renderApp()
-    expect(repeat()).toHaveProperty('disabled', true)
-    await user.click(repeat())
+    await renderApp()
+    expect(screen.queryByRole('button', { name: 'Repeat previous dinner' })).toBeNull()
     expect(m.saveEntries).not.toHaveBeenCalled()
   })
 

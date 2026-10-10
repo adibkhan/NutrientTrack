@@ -7,7 +7,7 @@ import type { DiaryEntry, Settings } from './types'
 import { todayISO } from './lib/utils'
 
 vi.mock('./lib/db', () => ({
-  getWaterLogs: vi.fn(() => Promise.resolve([])), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
+  getWaterLogs: vi.fn(() => Promise.resolve([])), getSymptoms: vi.fn(() => Promise.resolve([])), saveSymptom: vi.fn(), deleteSymptom: vi.fn(), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
   deleteEntry: vi.fn(), deleteFood: vi.fn(), deleteWeight: vi.fn(), exportBackup: vi.fn(), clearAllData: vi.fn(),
   getEntries: vi.fn(), getFoods: vi.fn(), getSettings: vi.fn(), getWeights: vi.fn(), importBackup: vi.fn(),
   requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), onLocalChange: vi.fn(() => () => undefined),
@@ -140,7 +140,7 @@ describe('daily summary energy', () => {
     ['missing', {}],
     ['zero', { calories: 0 }],
     ['negative', { calories: -500 }],
-  ])('falls back to kcal eaten with a dash ring when the calorie goal is %s', async (_n, goals) => {
+  ])('falls back to kcal eaten and a meals ring when the calorie goal is %s', async (_n, goals) => {
     m.getSettings.mockResolvedValue(settingsWith({ protein: 100, ...goals }))
     entries = [entry({ id: 'a', name: 'Lunch', calories: 640 })]
     const s = await renderApp()
@@ -148,7 +148,8 @@ describe('daily summary energy', () => {
     expect(e.big).toBe('640')
     expect(e.label).toBe('kcal eaten')
     expect(e.sub).toBe('Set an energy goal in Settings to see your balance.')
-    expect(e.ringText).toBe('—')
+    expect(e.ringText).toBe('1/4')
+    expect(e.ring.getAttribute('aria-label')).toBe('1 of 4 meals logged')
     expect(e.ring.classList.contains('over')).toBe(false)
     expect(s.textContent).not.toMatch(/NaN|Infinity|undefined/)
   })
@@ -158,7 +159,7 @@ describe('daily summary energy', () => {
     const e = energy(s)
     expect(e.big).toBe('0')
     expect(e.label).toBe('kcal eaten')
-    expect(e.ringText).toBe('—')
+    expect(e.ringText).toBe('0/4')
     expect(s.textContent).not.toMatch(/NaN|Infinity|undefined/)
   })
 

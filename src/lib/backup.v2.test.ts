@@ -4,7 +4,7 @@ import { BACKUP_VERSION, readBackup, validateBackup } from './backup'
 
 const stamp = '2026-01-01T00:00:00.000Z'
 const base = (): Record<string, unknown> => ({
-  format: 'nutrienttrack-backup', version: 2, exportedAt: stamp, entries: [], foods: [], weights: [], settings: [], water: [], measurements: [],
+  format: 'nutrienttrack-backup', version: 3, exportedAt: stamp, entries: [], foods: [], weights: [], settings: [], water: [], measurements: [], symptoms: [],
 })
 const withWater = (item: unknown) => ({ ...base(), water: [item] })
 const withMeasurement = (item: unknown) => ({ ...base(), measurements: [item] })
@@ -16,6 +16,7 @@ describe('readBackup', () => {
     const v1: Record<string, unknown> = { ...base(), version: 1 }
     delete v1.water
     delete v1.measurements
+    delete v1.symptoms
     const result = readBackup(v1)
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -30,11 +31,11 @@ describe('readBackup', () => {
     expect(v1.version).toBe(1)
   })
 
-  it('refuses version 3 as newer', () => {
-    expect(readBackup({ ...base(), version: 3 })).toEqual({ ok: false, reason: 'newer' })
+  it('refuses a newer version', () => {
+    expect(readBackup({ ...base(), version: BACKUP_VERSION + 1 })).toEqual({ ok: false, reason: 'newer' })
   })
 
-  it('treats a version 2 object with no water array as invalid', () => {
+  it('treats a current object with no water array as invalid', () => {
     const v2 = base()
     delete v2.water
     expect(readBackup(v2)).toEqual({ ok: false, reason: 'invalid' })

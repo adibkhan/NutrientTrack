@@ -6,7 +6,7 @@ import type { DiaryEntry, Food, WeightEntry } from './types'
 import { shiftDate, todayISO } from './lib/utils'
 
 vi.mock('./lib/db', () => ({
-  getWaterLogs: vi.fn(() => Promise.resolve([])), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
+  getWaterLogs: vi.fn(() => Promise.resolve([])), getSymptoms: vi.fn(() => Promise.resolve([])), saveSymptom: vi.fn(), deleteSymptom: vi.fn(), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
   deleteEntry: vi.fn(), deleteFood: vi.fn(), deleteWeight: vi.fn(), exportBackup: vi.fn(), clearAllData: vi.fn(),
   getEntries: vi.fn(), getFoods: vi.fn(), getSettings: vi.fn(), getWeights: vi.fn(), importBackup: vi.fn(),
   requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), onLocalChange: vi.fn(() => () => undefined),
@@ -61,6 +61,7 @@ const copies = () => m.saveEntries.mock.calls[0][0] as Array<DiaryEntry & Record
 
 describe('Copy yesterday', () => {
   it('is labelled Copy yesterday on today and Copy previous day on another date', async () => {
+    entries = [entry({ id: 'y', name: 'Yesterday lunch' }), entry({ id: 'b', name: 'Day before lunch', date: shiftDate(today, -2) })]
     const user = await renderApp()
     expect(copyButton('Copy yesterday')).toBeTruthy()
     await user.click(first('Previous day'))
@@ -68,16 +69,15 @@ describe('Copy yesterday', () => {
     expect(screen.queryByRole('button', { name: 'Copy yesterday' })).toBeNull()
   })
 
-  it('is disabled when the previous day has no entries', async () => {
+  it('is hidden when the previous day has no entries', async () => {
     await renderApp()
-    expect(copyButton('Copy yesterday').disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Copy yesterday' })).toBeNull()
   })
 
-  it('is disabled when the previous day only has planned entries', async () => {
+  it('is hidden when the previous day only has planned entries', async () => {
     entries = [entry({ id: 'p', name: 'Later', planned: true })]
     await renderApp()
-    await screen.findByRole('button', { name: 'Copy yesterday' })
-    expect(copyButton('Copy yesterday').disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Copy yesterday' })).toBeNull()
   })
 
   it('copies eaten entries to today with new ids, fresh timestamps and unknown fields, and skips planned ones', async () => {

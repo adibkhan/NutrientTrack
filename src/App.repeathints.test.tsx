@@ -1,11 +1,11 @@
-// Disabled Repeat and Copy yesterday buttons say why, and planned entries never count as "something earlier".
+// Repeat and Copy yesterday appear only when there is something to copy; planned entries never count as "something earlier".
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DiaryEntry } from './types'
 import { shiftDate, todayISO } from './lib/utils'
 
 vi.mock('./lib/db', () => ({
-  getWaterLogs: vi.fn(() => Promise.resolve([])), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
+  getWaterLogs: vi.fn(() => Promise.resolve([])), getSymptoms: vi.fn(() => Promise.resolve([])), saveSymptom: vi.fn(), deleteSymptom: vi.fn(), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
   deleteEntry: vi.fn(), deleteFood: vi.fn(), deleteWeight: vi.fn(), exportBackup: vi.fn(), clearAllData: vi.fn(),
   getEntries: vi.fn(), getFoods: vi.fn(), getSettings: vi.fn(), getWeights: vi.fn(), importBackup: vi.fn(),
   requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), onLocalChange: vi.fn(() => () => undefined),
@@ -50,50 +50,43 @@ const lunchRepeat = () => {
   return section.querySelector('button.repeat-meal') as HTMLButtonElement
 }
 const copyDay = () => screen.getByRole('button', { name: 'Copy yesterday' }) as HTMLButtonElement
-const hint = () => screen.queryByText('Nothing was logged the day before.')
 
 describe('per-meal Repeat button', () => {
-  it('says_nothing_earlier_when_the_diary_is_empty', async () => {
+  it('is_hidden_when_the_diary_is_empty', async () => {
     await renderWith([])
-    expect(lunchRepeat().disabled).toBe(true)
-    expect(lunchRepeat().textContent).toBe('Nothing earlier')
+    expect(lunchRepeat()).toBeNull()
   })
 
-  it('says_nothing_earlier_when_only_planned_entries_exist_earlier', async () => {
+  it('is_hidden_when_only_planned_entries_exist_earlier', async () => {
     await renderWith([entry(yesterday, 'lunch', true)])
-    expect(lunchRepeat().disabled).toBe(true)
-    expect(lunchRepeat().textContent).toBe('Nothing earlier')
+    expect(lunchRepeat()).toBeNull()
   })
 
-  it('says_nothing_earlier_when_the_earlier_entry_is_a_different_meal', async () => {
+  it('is_hidden_when_the_earlier_entry_is_a_different_meal', async () => {
     await renderWith([entry(yesterday, 'dinner')])
-    expect(lunchRepeat().textContent).toBe('Nothing earlier')
+    expect(lunchRepeat()).toBeNull()
   })
 
   it('shows_the_normal_enabled_label_when_an_earlier_eaten_meal_exists', async () => {
     await renderWith([entry(yesterday, 'lunch')])
     expect(lunchRepeat().disabled).toBe(false)
     expect(lunchRepeat().textContent).toContain('Repeat previous Lunch')
-    expect(lunchRepeat().textContent).not.toContain('Nothing earlier')
   })
 })
 
-describe('Copy yesterday hint', () => {
-  it('shows_the_hint_and_disables_the_button_for_an_empty_diary', async () => {
+describe('Copy yesterday', () => {
+  it('is_hidden_for_an_empty_diary', async () => {
     await renderWith([])
-    expect(copyDay().disabled).toBe(true)
-    expect(hint()).not.toBeNull()
+    expect(screen.queryByRole('button', { name: 'Copy yesterday' })).toBeNull()
   })
 
-  it('shows_the_hint_when_yesterday_has_only_planned_entries', async () => {
+  it('is_hidden_when_yesterday_has_only_planned_entries', async () => {
     await renderWith([entry(yesterday, 'lunch', true)])
-    expect(copyDay().disabled).toBe(true)
-    expect(hint()).not.toBeNull()
+    expect(screen.queryByRole('button', { name: 'Copy yesterday' })).toBeNull()
   })
 
-  it('shows_no_hint_when_yesterday_has_eaten_entries', async () => {
+  it('is_enabled_when_yesterday_has_eaten_entries', async () => {
     await renderWith([entry(yesterday, 'lunch')])
     expect(copyDay().disabled).toBe(false)
-    expect(hint()).toBeNull()
   })
 })

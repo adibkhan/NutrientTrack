@@ -16,7 +16,7 @@ const measure = (date: string, extra: Record<string, unknown> = {}): BodyMeasure
 const entry = (id: string): DiaryEntry => ({ id, date: '2026-01-02', meal: 'lunch', name: 'Soup', calories: 100, protein: 5, carbs: 10, fat: 2, createdAt: stamp, updatedAt: stamp })
 
 const payload = (over: Partial<BackupPayload> = {}): BackupPayload => ({
-  format: 'nutrienttrack-backup', version: 2, exportedAt: stamp, entries: [], foods: [], weights: [], settings: [], water: [], measurements: [], ...over,
+  format: 'nutrienttrack-backup', version: 3, exportedAt: stamp, entries: [], foods: [], weights: [], settings: [], water: [], measurements: [], symptoms: [], ...over,
 })
 
 const wait = (request: IDBRequest | IDBOpenDBRequest) =>
@@ -109,7 +109,7 @@ describe('backup with water and measurements', () => {
     await saveWaterLog(water('2026-03-01'))
     await saveMeasurement(measure('2026-03-01'))
     const backup = await exportBackup()
-    expect(backup.version).toBe(2)
+    expect(backup.version).toBe(3)
     expect(backup.water).toEqual([water('2026-03-01')])
     expect(backup.measurements).toEqual([measure('2026-03-01')])
   })

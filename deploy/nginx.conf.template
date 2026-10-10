@@ -5,7 +5,7 @@ server {
     index index.html;
 
     gzip on;
-    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_types text/css application/javascript application/json image/svg+xml application/xml text/xml;
 
     location = /health {
         default_type text/plain;
@@ -39,6 +39,22 @@ server {
     location /icons/ {
         add_header Cache-Control "public, max-age=86400" always;
         try_files $uri =404;
+    }
+
+    # Static nutrition pages for search; a missing food is a real 404, not the app.
+    location /foods/ {
+        add_header Cache-Control "public, max-age=86400" always;
+        try_files $uri $uri/ =404;
+    }
+
+    # The recipe calorie calculator is its own page with hashed assets under /assets/.
+    location /recipe-calories/ {
+        add_header Cache-Control "no-cache, must-revalidate" always;
+        try_files $uri $uri/ =404;
+    }
+
+    location = /sitemap.xml {
+        add_header Cache-Control "public, max-age=86400" always;
     }
 
     location / {

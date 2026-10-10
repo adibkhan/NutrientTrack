@@ -1,5 +1,6 @@
 import type { Preferences } from '../types'
 import { readPreferences } from '../lib/preferences'
+import { isMascotOn } from '../lib/mascot'
 
 interface PreferencesPanelProps {
   preferences: Preferences | undefined
@@ -35,6 +36,24 @@ export function PreferencesPanel({ preferences, onChange }: PreferencesPanelProp
             onChange(next)
           }} />
           <span><strong>Look up barcodes online</strong><small>Sends each barcode number you scan to Open Food Facts. Off by default.</small></span>
+        </label>
+        <label className="check-row" htmlFor="pref-mascot">
+          <input checked={isMascotOn(preferences)} id="pref-mascot" type="checkbox" onChange={(event) => {
+            const next: Preferences = { ...preferences }
+            if (event.target.checked) delete next.mascot
+            else next.mascot = false
+            onChange(next)
+          }} />
+          <span><strong>Show Pip on the diary</strong><small>A small buddy that cheers on your logging habit. Its messages are written on this device.</small></span>
+        </label>
+        <label className="check-row" htmlFor="pref-reflux">
+          <input checked={preferences?.refluxWatch === true} id="pref-reflux" type="checkbox" onChange={(event) => {
+            const next: Preferences = { ...preferences }
+            if (event.target.checked) next.refluxWatch = true
+            else delete next.refluxWatch
+            onChange(next)
+          }} />
+          <span><strong>Reflux watch</strong><small>Pip points out foods that are common heartburn triggers, like coffee, tomato or late heavy meals. Triggers differ between people; this is not medical advice.</small></span>
         </label>
       </div>
       <p className="form-note">These choices are saved with your goals. Share of energy shows each macro as a percent of the calories you have eaten.</p>

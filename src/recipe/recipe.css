@@ -1,0 +1,41 @@
+/* Recipe calorie calculator page: the app's tokens, one column on phones, two on wider screens. */
+.recipe-page { max-width: 980px; margin: 0 auto; padding: 20px 16px 40px; }
+.recipe-hero { margin-bottom: 18px; }
+.recipe-brand { display: inline-flex; width: auto; padding: 0 0 18px; text-decoration: none; }
+.recipe-hero h1 { margin: 0 0 8px; font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
+.recipe-hero p { max-width: 60ch; margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.5; }
+.recipe-grid { display: grid; gap: 14px; }
+.recipe-input, .recipe-label-panel { display: grid; gap: 12px; align-content: start; }
+.recipe-textarea, .recipe-embed { width: 100%; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-control); outline: 0; color: var(--ink); background: var(--surface); font-size: 15px; line-height: 1.5; resize: vertical; }
+.recipe-textarea::placeholder { color: var(--muted-light); }
+.recipe-textarea:focus, .recipe-embed:focus { border-color: var(--accent); box-shadow: var(--focus); }
+.recipe-embed { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.45; color: var(--ink-2); }
+.recipe-input-row { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px; }
+.recipe-ingredients { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.recipe-ingredients li { display: flex; align-items: center; gap: 10px; min-height: var(--row); padding: 6px 4px 6px 8px; border: 1px solid var(--line-soft); border-radius: var(--radius-control); background: var(--surface-soft); }
+.recipe-ingredients .describe-copy { display: grid; min-width: 0; flex: 1; }
+.recipe-ingredients strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recipe-ingredients small { color: var(--muted); font-size: 12px; }
+.recipe-empty { display: grid; justify-items: center; gap: 10px; padding: 36px 12px; color: var(--muted); text-align: center; }
+.recipe-empty p { margin: 0; font-size: 14px; }
+.recipe-label { padding: 14px 16px; border: 2px solid var(--ink); border-radius: var(--radius-card); background: var(--surface); }
+.recipe-label-title { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.recipe-label-sub { margin: 2px 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+.recipe-calories { font-size: 34px; }
+.recipe-macros { display: grid; gap: 0; margin: 10px 0 0; }
+.recipe-macros div { display: flex; justify-content: space-between; padding: 7px 0; border-top: 1px solid var(--line-soft); font-size: 14px; }
+.recipe-macros dt { color: var(--ink-2); }
+.recipe-macros dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.recipe-whole { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.5; }
+.recipe-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.recipe-actions .button { flex: 1 1 auto; }
+.recipe-actions .text-button { width: 100%; justify-content: flex-start; }
+.recipe-footer { margin-top: 18px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.recipe-footer p { margin: 0; }
+.recipe-footer a, .recipe-label-panel .field-hint a { color: var(--accent); }
+.recipe-error { margin: 0 auto; padding: 10px 16px; max-width: 980px; color: var(--danger); font-size: 14px; }
+@media (min-width: 760px) {
+  .recipe-page { padding-top: 32px; }
+  .recipe-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+  .recipe-label-panel { position: sticky; top: 16px; }
+}

@@ -11,4 +11,6 @@ export interface CatalogFood {
     carbs: number
     fat: number
   }
+  /** USDA household measures as [label, grams], e.g. ["1 medium (7\" to 7-7/8\" long)", 118]. Catalog v2 and later. */
+  portions?: Array<[string, number]>
 }

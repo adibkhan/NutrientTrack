@@ -5,7 +5,7 @@ import type { DiaryEntry } from './types'
 import { todayISO } from './lib/utils'
 
 vi.mock('./lib/db', () => ({
-  getWaterLogs: vi.fn(() => Promise.resolve([])), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
+  getWaterLogs: vi.fn(() => Promise.resolve([])), getSymptoms: vi.fn(() => Promise.resolve([])), saveSymptom: vi.fn(), deleteSymptom: vi.fn(), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
   deleteEntry: vi.fn(), deleteFood: vi.fn(), deleteWeight: vi.fn(), exportBackup: vi.fn(), clearAllData: vi.fn(),
   getEntries: vi.fn(), getFoods: vi.fn(), getSettings: vi.fn(), getWeights: vi.fn(), importBackup: vi.fn(),
   requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), onLocalChange: vi.fn(() => () => undefined),
@@ -66,9 +66,9 @@ describe('meal subtotal with planned entries', () => {
     expect(subtotal('Lunch')).toContain('300')
   })
 
-  it('shows_a_dash_for_an_empty_meal', async () => {
+  it('shows_no_subtotal_for_an_empty_meal', async () => {
     await renderWith([entry('lunch', true)])
-    expect(subtotal('Dinner')).toBe('—')
+    expect(subtotal('Dinner')).toBeUndefined()
   })
 })
 

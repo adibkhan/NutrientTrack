@@ -8,7 +8,7 @@ import fixtureV1 from './lib/__fixtures__/backup-v1.json'
 import { BACKUP_VERSION } from './lib/backup'
 
 vi.mock('./lib/db', () => ({
-  getWaterLogs: vi.fn(() => Promise.resolve([])), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
+  getWaterLogs: vi.fn(() => Promise.resolve([])), getSymptoms: vi.fn(() => Promise.resolve([])), saveSymptom: vi.fn(), deleteSymptom: vi.fn(), getMeasurements: vi.fn(() => Promise.resolve([])), saveWaterLog: vi.fn(), deleteWaterLog: vi.fn(), saveMeasurement: vi.fn(), deleteMeasurement: vi.fn(),
   deleteEntry: vi.fn(), deleteFood: vi.fn(), deleteWeight: vi.fn(), exportBackup: vi.fn(), clearAllData: vi.fn(),
   getEntries: vi.fn(), getFoods: vi.fn(), getSettings: vi.fn(), getWeights: vi.fn(), importBackup: vi.fn(),
   requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), onLocalChange: vi.fn(() => () => undefined), saveEntries: vi.fn(), saveEntry: vi.fn(), saveFood: vi.fn(),
@@ -266,6 +266,6 @@ describe('importing a backup file', () => {
 
     await waitFor(() => expect(m.importBackup).toHaveBeenCalledTimes(1))
     // The v1 file is upgraded to the current format on the way in; its records are untouched.
-    expect(m.importBackup.mock.calls[0][0]).toMatchObject({ version: BACKUP_VERSION, entries: fixtureV1.entries, settings: fixtureV1.settings, water: [], measurements: [] })
+    expect(m.importBackup.mock.calls[0][0]).toMatchObject({ version: BACKUP_VERSION, entries: fixtureV1.entries, settings: fixtureV1.settings, water: [], measurements: [], symptoms: [] })
   })
 })

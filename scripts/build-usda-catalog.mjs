@@ -10,7 +10,9 @@
  * Usage:
  *   node scripts/build-usda-catalog.mjs
  *   node scripts/build-usda-catalog.mjs --zip C:\\Temp\\sr-legacy.zip
- *   node scripts/build-usda-catalog.mjs --zip source.zip --output public/data/usda-common-v1.json
+ *   node scripts/build-usda-catalog.mjs --zip source.zip --output public/data/usda-common-v2.json
+ *
+ * Version 2 adds `portions`: USDA household measures as [label, grams] pairs, in USDA order.
  *
  * The default download is written to the operating system temporary directory.
  * No source archive is written into the repository.
@@ -25,7 +27,7 @@ import { pipeline } from 'node:stream/promises'
 import { inflateRawSync } from 'node:zlib'
 
 const SOURCE_URL = 'https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_sr_legacy_food_csv_2018-04.zip'
-const DEFAULT_OUTPUT = resolve('public/data/usda-common-v1.json')
+const DEFAULT_OUTPUT = resolve('public/data/usda-common-v2.json')
 const SOURCE_LABEL = 'USDA SR Legacy'
 const REQUIRED_NUTRIENTS = {
   calories: ['1008', '2047', '2048'],
@@ -205,6 +207,17 @@ const buildCatalog = async (zipPath) => {
   const categoryRows = rowsAsObjects(textFromEntry(entries, 'food_category.csv'))
   const nutrientRows = rowsAsObjects(textFromEntry(entries, 'food_nutrient.csv'))
   const categories = new Map(categoryRows.map((row) => [row.id, row.description.trim()]))
+  const portions = new Map()
+  for (const row of rowsAsObjects(textFromEntry(entries, 'food_portion.csv')).sort((left, right) => Number(left.seq_num) - Number(right.seq_num))) {
+    const amount = Number(row.amount)
+    const grams = Number(row.gram_weight)
+    const unit = [row.portion_description, row.modifier].map((part) => part.trim()).filter(Boolean).join(' ')
+    if (!(amount > 0) || !(grams > 0) || !unit) continue
+    const label = `${Number.isInteger(amount) ? amount : Number(amount.toFixed(2))} ${unit}`
+    if (!portions.has(row.fdc_id)) portions.set(row.fdc_id, [])
+    const list = portions.get(row.fdc_id)
+    if (!list.some(([existing]) => existing === label)) list.push([label, Math.round(grams * 100) / 100])
+  }
   const nutrientValues = new Map()
 
   for (const row of nutrientRows) {
@@ -240,6 +253,7 @@ const buildCatalog = async (zipPath) => {
       category,
       source: SOURCE_LABEL,
       per100g: { calories, protein, carbs, fat },
+      ...(portions.has(row.fdc_id) ? { portions: portions.get(row.fdc_id) } : {}),
     })
   }
 

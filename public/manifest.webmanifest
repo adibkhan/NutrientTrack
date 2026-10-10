@@ -1,7 +1,7 @@
 {
   "name": "NutrientTrack nutrition diary",
   "short_name": "NutrientTrack",
-  "description": "A local-first nutrition diary that keeps your data in your browser.",
+  "description": "A free, private calorie and macro tracker. No ads, no account, your diary stays on your device.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -13,13 +13,80 @@
       "src": "./icons/nutrienttrack-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "./icons/nutrienttrack-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/nutrienttrack-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/nutrienttrack-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Log breakfast",
+      "short_name": "Breakfast",
+      "url": "./?meal=breakfast",
+      "icons": [
+        {
+          "src": "./icons/nutrienttrack-192-maskable.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Log lunch",
+      "short_name": "Lunch",
+      "url": "./?meal=lunch",
+      "icons": [
+        {
+          "src": "./icons/nutrienttrack-192-maskable.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Log dinner",
+      "short_name": "Dinner",
+      "url": "./?meal=dinner",
+      "icons": [
+        {
+          "src": "./icons/nutrienttrack-192-maskable.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Log weight",
+      "short_name": "Weight",
+      "url": "./?weigh=1",
+      "icons": [
+        {
+          "src": "./icons/nutrienttrack-192-maskable.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }

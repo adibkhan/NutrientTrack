@@ -12,7 +12,7 @@ const food = (over: Record<string, unknown> = {}) => ({
 })
 const weight = (over: Record<string, unknown> = {}) => ({ id: 'w1', date: '2026-02-01', weight: 180, unit: 'lb', createdAt: stamp, ...over })
 const backup = (over: Record<string, unknown> = {}) => ({
-  format: 'nutrienttrack-backup', version: BACKUP_VERSION, exportedAt: stamp, entries: [], foods: [], weights: [], settings: [], water: [], measurements: [], ...over,
+  format: 'nutrienttrack-backup', version: BACKUP_VERSION, exportedAt: stamp, entries: [], foods: [], weights: [], settings: [], water: [], measurements: [], symptoms: [], ...over,
 })
 const NUTRIENT_KEYS = ['fiber', 'sodium', 'sugar', 'satFat', 'cholesterol']
 const goodIngredient = { name: 'Oats', calories: 300, protein: 10, carbs: 50, fat: 6 }
