@@ -6,4 +6,6 @@ dist
 .env
 .env.*
 *.md
-scripts
+# Build scripts stay out of the image, except the one `npm run build` runs.
+scripts/*
+!scripts/build-food-pages.mjs
