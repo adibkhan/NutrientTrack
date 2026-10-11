@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import type { MascotLine, MascotMood } from '../lib/mascot'
+import { feedLine, petLine, pokeLine, type MascotLine, type MascotMood, type MascotReaction } from '../lib/mascot'
+import { FoodGlyph } from './FoodGlyph'
 import type { PipGrowth, PipStage } from '../lib/pipGrowth'
 import { Icon } from './Icon'
 
@@ -33,11 +34,41 @@ function PipCrown({ stage, leafFill }: { stage: PipStage; leafFill: { fill: stri
 }
 
 /** Pip: a small sprouting pea that grows as days are logged. Drawn inline so it works offline and takes its colours from the theme tokens. */
-export function PipFigure({ mood, size = 56, stage = 0 }: { mood: MascotMood; size?: number; stage?: PipStage }) {
+const PET_PRESS_MS = 450
+
+interface PipFigureProps {
+  mood: MascotMood
+  size?: number
+  stage?: PipStage
+  /** A moment that overrides the mood's face: chewing, dizzy, giggling, being patted. */
+  reaction?: MascotReaction | null
+  /** A tap on Pip. The strip counts quick taps in a row, since the figure remounts on each poke. */
+  onPoke?: () => void
+  /** A long press on Pip. */
+  onPet?: () => void
+}
+
+export function PipFigure({ mood, size = 56, stage = 0, reaction = null, onPoke, onPet }: PipFigureProps) {
   const id = useId().replace(/:/g, '')
   const [poked, setPoked] = useState(0)
+  const pressTimer = useRef<number | null>(null)
+  const pressed = useRef(false)
   const svgRef = useRef<SVGSVGElement>(null)
-  const canLook = mood !== 'happy' && mood !== 'proud' && mood !== 'sleepy'
+  useEffect(() => () => { if (pressTimer.current) window.clearTimeout(pressTimer.current) }, [])
+  const startPress = () => {
+    pressed.current = true
+    if (pressTimer.current) window.clearTimeout(pressTimer.current)
+    pressTimer.current = window.setTimeout(() => { pressTimer.current = null; if (pressed.current) { pressed.current = false; onPet?.() } }, PET_PRESS_MS)
+  }
+  const endPress = () => {
+    if (!pressed.current) return
+    pressed.current = false
+    if (pressTimer.current) { window.clearTimeout(pressTimer.current); pressTimer.current = null }
+    setPoked((count) => count + 1)
+    onPoke?.()
+  }
+  const cancelPress = () => { pressed.current = false; if (pressTimer.current) { window.clearTimeout(pressTimer.current); pressTimer.current = null } }
+  const canLook = mood !== 'happy' && mood !== 'proud' && mood !== 'sleepy' && !reaction
   // On devices with a pointer, Pip's eyes follow it. Phones have no hover, so they keep the idle glances.
   useEffect(() => {
     if (!canLook || typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
@@ -61,15 +92,18 @@ export function PipFigure({ mood, size = 56, stage = 0 }: { mood: MascotMood; si
     window.addEventListener('pointermove', onMove, { passive: true })
     return () => { window.removeEventListener('pointermove', onMove); if (frame) window.cancelAnimationFrame(frame) }
   }, [canLook])
-  const armsUp = mood === 'cheer'
-  const waving = mood === 'wave'
-  const happyEyes = mood === 'happy' || mood === 'proud'
+  const armsUp = mood === 'cheer' && !reaction
+  const waving = mood === 'wave' && !reaction
+  const happyEyes = reaction === 'loved' || reaction === 'giggle' || (!reaction && (mood === 'happy' || mood === 'proud'))
+  const dizzy = reaction === 'dizzy'
+  const eating = reaction === 'eating'
+  const sleepyFace = mood === 'sleepy' && !reaction
   const bodyFill = { fill: `url(#${id}-body)` }
   const bellyFill = { fill: `url(#${id}-belly)` }
   const leafFill = { fill: `url(#${id}-leaf)` }
   // The view box leaves headroom above the body for the bud and flower of later stages.
   return (
-    <svg className={`pip pip-${mood} pip-stage-${stage} ${poked ? 'pip-poked' : ''}`} key={poked} ref={svgRef} viewBox="0 -16 80 96" width={size} height={(size * 96) / 80} aria-hidden="true" focusable="false" onPointerDown={() => setPoked((count) => count + 1)}>
+    <svg className={`pip pip-${mood} pip-stage-${stage} ${poked ? 'pip-poked' : ''} ${reaction ? `pip-react pip-react-${reaction}` : ''}`} key={poked} ref={svgRef} viewBox="0 -16 80 96" width={size} height={(size * 96) / 80} aria-hidden="true" focusable="false" onPointerDown={startPress} onPointerUp={endPress} onPointerLeave={cancelPress} onPointerCancel={cancelPress} onContextMenu={(event) => event.preventDefault()}>
       <defs>
         <radialGradient id={`${id}-body`} cx="36%" cy="28%" r="78%">
           <stop offset="0" style={{ stopColor: 'var(--pip-belly)' }} />
@@ -120,7 +154,10 @@ export function PipFigure({ mood, size = 56, stage = 0 }: { mood: MascotMood; si
         <ellipse className="pip-shine" cx="29" cy="27" rx="5.5" ry="3" transform="rotate(-32 29 27)" />
         <circle className="pip-shine" cx="36.5" cy="22.5" r="1.4" />
         {/* Face */}
-        {mood === 'sleepy' ? <>
+        {dizzy ? <g className="pip-dizzy-eyes">
+          <path className="pip-line" d="M28.5 38 L34.5 44 M34.5 38 L28.5 44" />
+          <path className="pip-line" d="M45.5 38 L51.5 44 M51.5 38 L45.5 44" />
+        </g> : sleepyFace ? <>
           <path className="pip-line" d="M27 41 Q31.5 45 36 41" />
           <path className="pip-line" d="M44 41 Q48.5 45 53 41" />
           <path className="pip-line pip-lash" d="M28 43.5 L26.5 45.5" />
@@ -140,7 +177,15 @@ export function PipFigure({ mood, size = 56, stage = 0 }: { mood: MascotMood; si
         </g>}
         <ellipse className="pip-cheek" cx="24" cy="48.5" rx="4.6" ry="2.7" />
         <ellipse className="pip-cheek" cx="56" cy="48.5" rx="4.6" ry="2.7" />
-        {mood === 'cheer'
+        {eating
+          ? <g className="pip-chew"><ellipse className="pip-mouth-open" cx="40" cy="51" rx="5.5" ry="4.5" /></g>
+          : dizzy
+            ? <path className="pip-line pip-mouth" d="M34 51 Q37 48.5 40 51 Q43 53.5 46 51" />
+            : reaction === 'giggle'
+              ? <path className="pip-mouth-open" d="M32 47 Q40 46.5 48 47 Q47 55 40 55.5 Q33 55 32 47 Z" />
+              : reaction === 'loved'
+                ? <path className="pip-line pip-mouth" d="M33.5 48 Q40 55 46.5 48" />
+                : mood === 'cheer'
           ? <>
             <path className="pip-mouth-open" d="M33 47.5 Q40 47.5 47 47.5 Q46 56.5 40 56.5 Q34 56.5 33 47.5 Z" />
             <ellipse className="pip-tongue" cx="40" cy="54.5" rx="3.6" ry="2.2" />
@@ -152,7 +197,11 @@ export function PipFigure({ mood, size = 56, stage = 0 }: { mood: MascotMood; si
               : mood === 'calm'
                 ? <path className="pip-line pip-mouth" d="M36 48.5 Q40 51.5 44 48.5" />
                 : <path className="pip-line pip-mouth" d="M33.5 47.5 Q40 54.5 46.5 47.5" />}
-        {mood === 'uneasy' && <>
+        {eating && <>
+          <ellipse className="pip-cheek-full pip-cheek-full-left" cx="25" cy="49" rx="6" ry="4.5" />
+          <ellipse className="pip-cheek-full pip-cheek-full-right" cx="55" cy="49" rx="6" ry="4.5" />
+        </>}
+        {mood === 'uneasy' && !reaction && <>
           {/* Worried brows, a warm tummy and a sweat drop. */}
           <path className="pip-line pip-brow" d="M28 35 L35 32.5" />
           <path className="pip-line pip-brow" d="M52 35 L45 32.5" />
@@ -160,11 +209,17 @@ export function PipFigure({ mood, size = 56, stage = 0 }: { mood: MascotMood; si
           <path className="pip-sweat" d="M60 24 C58 28 58 30 60 31 C62 30 62 28 60 24 Z" />
         </>}
       </g>
-      {mood === 'proud' && <g className="pip-sparkles">
+      {dizzy && <g className="pip-stars">
+        {[0, 1, 2].map((index) => <path key={index} className="pip-star" style={{ animationDelay: `${index * 0.3}s` }} d="M40 3 L41.4 7 L45.5 7.6 L42.5 10.4 L43.3 14.5 L40 12.4 L36.7 14.5 L37.5 10.4 L34.5 7.6 L38.6 7 Z" />)}
+      </g>}
+      {reaction === 'loved' && <g className="pip-hearts">
+        {[[18, 18, 0], [62, 12, 0.35], [40, 0, 0.7]].map(([x, y, delay]) => <path key={`${x}-${y}`} className="pip-heart" style={{ animationDelay: `${delay}s`, transformOrigin: `${x}px ${y}px` }} d={`M${x} ${Number(y) + 4} C${Number(x) - 5} ${Number(y) - 1} ${Number(x) - 2} ${Number(y) - 5} ${x} ${Number(y) - 2} C${Number(x) + 2} ${Number(y) - 5} ${Number(x) + 5} ${Number(y) - 1} ${x} ${Number(y) + 4} Z`} />)}
+      </g>}
+      {mood === 'proud' && !reaction && <g className="pip-sparkles">
         <path d="M66 14 L67.5 18.5 L72 20 L67.5 21.5 L66 26 L64.5 21.5 L60 20 L64.5 18.5 Z" />
         <path d="M13 18 L14 21 L17 22 L14 23 L13 26 L12 23 L9 22 L12 21 Z" />
       </g>}
-      {mood === 'sleepy' && <text className="pip-zzz" x="60" y="20">z</text>}
+      {sleepyFace && <text className="pip-zzz" x="60" y="20">z</text>}
     </svg>
   )
 }
@@ -174,22 +229,53 @@ interface MascotProps {
   growth?: PipGrowth
   onAction?: (line: MascotLine) => void
   actionLabel?: string
+  /** The entry just logged, so Pip can eat it. A new id starts a new bite. */
+  fed?: { id: string; name: string }
 }
 
+const EAT_MS = 1700
+const REACT_MS = 2400
+const POKE_WINDOW_MS = 2200
+
 /** The diary strip: Pip with one short line. Dismissing hides that line; the next new situation brings Pip back. */
-export function Mascot({ line, growth, onAction, actionLabel }: MascotProps) {
+export function Mascot({ line, growth, onAction, actionLabel, fed }: MascotProps) {
   const [dismissed, setDismissed] = useState<string | null>(null)
+  const [moment, setMoment] = useState<{ reaction: MascotReaction; text: string | null; key: number } | null>(null)
+  const momentTimer = useRef<number | null>(null)
+  const lastFed = useRef<string | null>(null)
+  const pokes = useRef<number[]>([])
+  const react = (reaction: MascotReaction, text: string | null, ms: number) => {
+    if (momentTimer.current) window.clearTimeout(momentTimer.current)
+    setMoment({ reaction, text, key: Date.now() })
+    momentTimer.current = window.setTimeout(() => { momentTimer.current = null; setMoment(null) }, ms)
+  }
+  useEffect(() => () => { if (momentTimer.current) window.clearTimeout(momentTimer.current) }, [])
   // A new line means something changed; let Pip speak again.
   useEffect(() => { if (dismissed && dismissed !== line.id) setDismissed(null) }, [line.id, dismissed])
+  // Pip eats each fresh entry once.
+  useEffect(() => {
+    if (!fed || lastFed.current === fed.id) return
+    lastFed.current = fed.id
+    react('eating', feedLine(fed.name, fed.id), EAT_MS)
+  }, [fed])
   if (dismissed === line.id) return null
+  const onPoke = () => {
+    const now = Date.now()
+    pokes.current = [...pokes.current.filter((time) => now - time < POKE_WINDOW_MS), now]
+    const poke = pokeLine(pokes.current.length)
+    if (poke.reaction) react(poke.reaction, poke.text, REACT_MS)
+  }
+  const onPet = () => react('loved', petLine(`${line.id}:${Math.floor(Date.now() / 60000)}`), REACT_MS)
+  const text = moment?.text ?? line.text
   return (
-    <section className={`mascot mascot-${line.mood}`} aria-label="Pip, your logging buddy">
+    <section className={`mascot mascot-${line.mood} ${moment ? `mascot-${moment.reaction}` : ''}`} aria-label="Pip, your logging buddy">
       <div className="mascot-figure" key={`figure-${line.id}`}>
-        <PipFigure mood={line.mood} stage={growth?.stage ?? 0} />
+        <PipFigure mood={line.mood} stage={growth?.stage ?? 0} reaction={moment?.reaction ?? null} onPoke={onPoke} onPet={onPet} />
+        {moment?.reaction === 'eating' && fed && <span className="pip-bite" key={moment.key} aria-hidden="true"><FoodGlyph name={fed.name} /></span>}
         {growth && <small className="pip-stage-label" title={growth.next ? `${growth.next.remaining} more logged ${growth.next.remaining === 1 ? 'day' : 'days'} to ${growth.next.name.toLowerCase()}` : `${growth.days} days logged`}>{growth.name}</small>}
       </div>
-      <div className="mascot-bubble" key={`bubble-${line.id}`}>
-        <p role="status">{line.text}</p>
+      <div className="mascot-bubble" key={`bubble-${line.id}-${moment?.key ?? ''}`}>
+        <p role="status">{text}</p>
         {onAction && actionLabel && <button className="text-button mascot-action" type="button" onClick={() => onAction(line)}>{actionLabel}<Icon name="arrow-right" size={15} /></button>}
       </div>
       <button className="icon-button quiet mascot-dismiss" type="button" aria-label="Hide Pip’s message" onClick={() => setDismissed(line.id)}><Icon name="x" size={14} /></button>

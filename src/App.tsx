@@ -1271,9 +1271,12 @@ const isFreshEntry = (entry: DiaryEntry): boolean => {
   return Number.isFinite(created) && Date.now() - created >= 0 && Date.now() - created < FRESH_ENTRY_MS
 }
 
-function useLogHaptics(entries: DiaryEntry[]) {
+/** The entry saved in the last few seconds, if any: it slides in, the phone taps, and Pip eats it. */
+const newestFreshEntry = (entries: DiaryEntry[]): DiaryEntry | undefined =>
+  entries.reduce<DiaryEntry | undefined>((latest, entry) => (!entry.planned && isFreshEntry(entry) && (!latest || entry.createdAt > latest.createdAt) ? entry : latest), undefined)
+
+function useLogHaptics(newest: DiaryEntry | undefined) {
   const lastTapped = useRef<string | null>(null)
-  const newest = entries.reduce<DiaryEntry | undefined>((latest, entry) => (!entry.planned && isFreshEntry(entry) && (!latest || entry.createdAt > latest.createdAt) ? entry : latest), undefined)
   useEffect(() => {
     if (!newest || lastTapped.current === newest.id) return
     lastTapped.current = newest.id
@@ -1288,7 +1291,8 @@ function useLogHaptics(entries: DiaryEntry[]) {
 function DiaryView({ date, entries, allEntries, foods, goals, totals, onDateChange, onAdd, onAddMeal, onEdit, onDelete, onMove, onDropMove, onRepeatMeal, repeatSavingMeal, onQuickLog, macroDisplay, onCopyDay, onCopyDayTo, onSetGoal, canCopyDay, waterMl, weightUnit, onAdjustWater, weights, showMascot, refluxWatch, symptoms, onLogSymptom, onDeleteSymptom, welcome }: DiaryViewProps) {
   const mascotLine = showMascot && !welcome ? pickMascotLine({ date, today: todayISO(), hour: new Date().getHours(), entries: allEntries, weights, goals, reflux: refluxWatch }) : null
   const mascotMealLabel = mascotLine?.meal ? (diaryMeals.find((meal) => meal.key === mascotLine.meal)?.label ?? 'food').toLowerCase() : 'food'
-  useLogHaptics(entries)
+  const freshEntry = newestFreshEntry(entries)
+  useLogHaptics(freshEntry)
   const shares = macroShares(totals)
   const goalShares = goals?.protein && goals.carbs && goals.fat ? macroShares({ protein: goals.protein, carbs: goals.carbs, fat: goals.fat }) : null
   const nutrientTotals = sumNutrients(entries)
@@ -1359,7 +1363,7 @@ function DiaryView({ date, entries, allEntries, foods, goals, totals, onDateChan
         <WaterRow ml={waterMl} unit={weightUnit} onAdjust={onAdjustWater} />
         {refluxWatch && <RefluxLog symptoms={symptoms} onLog={onLogSymptom} onDelete={onDeleteSymptom} />}
       </section>
-      {mascotLine && <Mascot line={mascotLine} growth={pipGrowth(allEntries, todayISO())} actionLabel={mascotLine.action === 'copy-yesterday' ? 'Copy it over' : mascotLine.action === 'log' ? `Log ${mascotMealLabel}` : undefined} onAction={(line) => { if (line.action === 'copy-yesterday') void onCopyDay(); else if (line.action === 'log') onAddMeal(line.meal ?? 'breakfast') }} />}
+      {mascotLine && <Mascot line={mascotLine} growth={pipGrowth(allEntries, todayISO())} fed={freshEntry ? { id: freshEntry.id, name: freshEntry.name } : undefined} actionLabel={mascotLine.action === 'copy-yesterday' ? 'Copy it over' : mascotLine.action === 'log' ? `Log ${mascotMealLabel}` : undefined} onAction={(line) => { if (line.action === 'copy-yesterday') void onCopyDay(); else if (line.action === 'log') onAddMeal(line.meal ?? 'breakfast') }} />}
 
       <DndContext sensors={sensors} collisionDetection={pointerWithinOrCenter} onDragStart={handleDragStart} onDragCancel={handleDragCancel} onDragEnd={handleDragEnd}>
         <div className="content-grid diary-grid">

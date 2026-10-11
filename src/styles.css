@@ -63,6 +63,7 @@
   --pip-ink: #1d2939;
   --pip-glint: #ffffff;
   --pip-cheek: #f6a5a0;
+  --pip-heart: #ef5a8a;
   --pip-spark: #f0a53a;
   --pip-soft: #effaf2;
   --pip-line: #cdeed7;
@@ -127,6 +128,7 @@
   --pip-ink: #0c111d;
   --pip-glint: #f2f4f7;
   --pip-cheek: #e98585;
+  --pip-heart: #ff7aa8;
   --pip-spark: #fdb022;
   --pip-soft: #13261b;
   --pip-line: #24452f;
@@ -193,6 +195,7 @@
   --pip-ink: #0c111d;
   --pip-glint: #f2f4f7;
   --pip-cheek: #e98585;
+  --pip-heart: #ff7aa8;
   --pip-spark: #fdb022;
   --pip-soft: #13261b;
   --pip-line: #24452f;
@@ -1053,6 +1056,32 @@ strong { font-weight: 600; }
 .recap-growth-bar { grid-column: 1 / -1; height: 6px; overflow: hidden; border-radius: 99px; background: var(--pip-line); }
 .recap-growth-bar b { display: block; height: 100%; border-radius: inherit; background: var(--pip-body); }
 
+/* Pip's moments: eating a fresh entry, getting dizzy or ticklish from pokes, being patted. */
+.mascot-figure { position: relative; }
+.pip-bite { position: absolute; left: 50%; top: 0; pointer-events: none; animation: pip-bite .75s cubic-bezier(.3, .6, .3, 1) both; }
+.pip-bite .food-avatar { width: 26px; height: 26px; box-shadow: 0 4px 10px rgb(16 24 40 / .18); }
+@keyframes pip-bite { 0% { transform: translate(14px, -22px) scale(1) rotate(-12deg); opacity: 0; } 18% { opacity: 1; } 70% { transform: translate(-15px, 28px) scale(.55) rotate(6deg); opacity: 1; } 100% { transform: translate(-15px, 34px) scale(.15) rotate(0deg); opacity: 0; } }
+.pip-react-eating .pip-body-group { animation: pip-breathe 3.4s ease-in-out infinite, pip-chew-body .42s ease-in-out .7s 2; }
+.pip-react-eating .pip-chew { transform-box: fill-box; transform-origin: center; animation: pip-chew-mouth .42s ease-in-out .7s 2; }
+.pip-cheek-full { fill: var(--pip-body); opacity: 0; animation: pip-cheek-full .42s ease-in-out .7s 2; transform-box: fill-box; transform-origin: center; }
+@keyframes pip-chew-body { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.05, .95); } }
+@keyframes pip-chew-mouth { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.2, .25); } }
+@keyframes pip-cheek-full { 0%, 100% { opacity: 0; transform: scale(.7); } 50% { opacity: .9; transform: scale(1); } }
+.pip-react-dizzy .pip-body-group { animation: pip-breathe 3.4s ease-in-out infinite, pip-dizzy-body 2.2s ease-in-out 1; }
+@keyframes pip-dizzy-body { 0%, 100% { transform: rotate(0deg); } 15% { transform: rotate(-9deg) translateX(-2px); } 35% { transform: rotate(8deg) translateX(2px); } 55% { transform: rotate(-6deg) translateX(-1px); } 75% { transform: rotate(4deg) translateX(1px); } }
+.pip-stars { transform-box: view-box; transform-origin: 40px 10px; animation: pip-stars-orbit 1.6s linear infinite; }
+.pip-star { fill: var(--pip-spark); stroke: var(--pip-shade); stroke-width: .6; transform-box: view-box; transform-origin: 40px 10px; animation: pip-star-pop 1.2s ease-in-out infinite; }
+.pip-star:nth-child(1) { transform: translate(0, -14px) scale(1.3); }
+.pip-star:nth-child(2) { transform: rotate(120deg) translate(0, -14px) scale(1.3); }
+.pip-star:nth-child(3) { transform: rotate(240deg) translate(0, -14px) scale(1.3); }
+@keyframes pip-stars-orbit { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes pip-star-pop { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+.pip-react-giggle .pip-body-group { animation: pip-breathe 3.4s ease-in-out infinite, pip-giggle .14s ease-in-out 12; }
+@keyframes pip-giggle { 0%, 100% { transform: translateX(0) rotate(0deg); } 50% { transform: translateX(1.4px) rotate(2deg) scale(1.02, .98); } }
+.pip-react-loved .pip-body-group { animation: pip-breathe 3.4s ease-in-out infinite, pip-puff 1.4s ease-in-out infinite; }
+.pip-heart { fill: var(--pip-heart); opacity: 0; animation: pip-heart-rise 1.8s ease-out both; }
+@keyframes pip-heart-rise { 0% { opacity: 0; transform: translateY(6px) scale(1); } 20% { opacity: .95; transform: translateY(0) scale(1.9); } 100% { opacity: 0; transform: translateY(-20px) scale(2.1); } }
+.mascot-loved { border-color: color-mix(in srgb, var(--pip-cheek) 40%, var(--pip-line)); }
 .pip-brow { stroke-width: 2; }
 .pip-heat { fill: var(--pip-heat); opacity: .85; animation: pip-flicker 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center bottom; }
 .pip-sweat { fill: var(--pip-sweat); }

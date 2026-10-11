@@ -138,3 +138,31 @@ export const pickMascotLine = ({ date, today, hour, entries, weights, goals, ref
   if (isNight(hour)) return line('night', 'sleepy', ['Nice logging today. See you tomorrow!'])
   return line(`count-${todays.length}`, 'happy', [`${todays.length} foods logged today. You’re keeping a clear record.`, `${todays.length} entries in. Keep it rolling.`])
 }
+
+/** What Pip does in the moment: eating a fresh entry, or reacting to pokes and pets. Shown for a second or two over the usual line. */
+export type MascotReaction = 'eating' | 'dizzy' | 'giggle' | 'loved'
+
+/** A food name short enough for a bubble: the first part of a USDA name ("Chicken, breast, ...") or the first four words. */
+export const shortFoodName = (name: string): string => {
+  const first = name.split(',')[0].trim()
+  const words = first.split(/\s+/).slice(0, 4).join(' ')
+  const short = words.length > 28 ? `${words.slice(0, 27).trimEnd()}…` : words
+  return short.charAt(0).toLowerCase() + short.slice(1)
+}
+
+/** Pip eats what you log. The id of the entry seeds the wording so the same entry always gets the same line. */
+export const feedLine = (name: string, seed: string): string => {
+  const food = shortFoodName(name)
+  return pick([`Nom! ${food}, logged.`, `Mmm, ${food}. Thank you!`, `Ooh, ${food}! In it goes.`, `${food.charAt(0).toUpperCase()}${food.slice(1)}? Nom nom.`, `Yum. ${food} is on the record.`], seed)
+}
+
+/** Pip is ticklish. The line depends on how many quick pokes in a row. */
+export const pokeLine = (count: number): { reaction: MascotReaction | null; text: string | null } => {
+  if (count >= 8) return { reaction: 'giggle', text: 'Okay, okay! I’m very ticklish.' }
+  if (count >= 5) return { reaction: 'giggle', text: 'Hehe, stop it! That tickles.' }
+  if (count >= 3) return { reaction: 'dizzy', text: 'Whoa. Dizzy.' }
+  return { reaction: null, text: null }
+}
+
+/** A long press is a pat on the head. */
+export const petLine = (seed: string): string => pick(['Pats! Best part of my day.', 'Aw. Thank you.', 'I could stay like this all day.'], seed)

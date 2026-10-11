@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DiaryEntry, Goals, WeightEntry } from '../types'
-import { isMascotOn, loggingStreak, mealForHour, pickMascotLine } from './mascot'
+import { feedLine, isMascotOn, loggingStreak, mealForHour, petLine, pickMascotLine, pokeLine, shortFoodName } from './mascot'
 import { shiftDate } from './utils'
 
 const today = '2026-10-09'
@@ -97,5 +97,27 @@ describe('pickMascotLine', () => {
 
   it('uses_the_same_wording_for_the_same_situation_on_the_same_day', () => {
     expect(pick([e(today, 'breakfast')])?.text).toBe(pick([e(today, 'breakfast')])?.text)
+  })
+})
+
+describe('Pip’s moments', () => {
+  it('shortens_usda_names_for_the_bubble', () => {
+    expect(shortFoodName('Chicken, broilers or fryers, breast, meat only, cooked, roasted')).toBe('chicken')
+    expect(shortFoodName('Greek yogurt with honey and walnuts and more')).toBe('greek yogurt with honey')
+    expect(shortFoodName('Oatmeal')).toBe('oatmeal')
+  })
+
+  it('eats_with_a_line_that_names_the_food_and_is_stable_per_entry', () => {
+    const line = feedLine('Bananas, raw', 'entry-1')
+    expect(line.toLowerCase()).toContain('bananas')
+    expect(feedLine('Bananas, raw', 'entry-1')).toBe(line)
+  })
+
+  it('gets_dizzy_at_three_quick_pokes_and_ticklish_at_five', () => {
+    expect(pokeLine(1)).toEqual({ reaction: null, text: null })
+    expect(pokeLine(3).reaction).toBe('dizzy')
+    expect(pokeLine(5)).toMatchObject({ reaction: 'giggle' })
+    expect(pokeLine(8).text).toContain('very ticklish')
+    expect(petLine('a').length).toBeGreaterThan(0)
   })
 })
