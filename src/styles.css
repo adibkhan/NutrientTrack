@@ -1052,7 +1052,24 @@ strong { font-weight: 600; }
 .pip-stage-label { margin-top: -2px; color: var(--pip-shade); font-size: 10px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
 .recap-growth { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: baseline; margin: 12px 0 0; padding: 10px 12px; border-radius: var(--radius-control); background: var(--pip-soft); color: var(--ink-2); font-size: 13px; }
 .recap-growth strong { color: var(--ink); }
-.recap-growth-next { color: var(--muted); font-size: 12px; }
+.recap-growth-next { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.recap-growth-next:hover { color: var(--ink); }
+.recap-growth-next svg { transition: transform .2s ease; }
+.recap-growth-next svg.is-open { transform: rotate(180deg); }
+/* Pip's growth path: every stage, so the next one is something to look forward to. */
+.growth-path { grid-column: 1 / -1; display: grid; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; }
+.growth-stage { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-control); }
+.growth-stage.is-current { background: var(--surface); box-shadow: inset 0 0 0 1px var(--pip-line); }
+.growth-stage.is-ahead { opacity: .55; }
+.growth-stage.is-ahead .pip { filter: grayscale(.6); }
+.growth-stage .pip .pip-body-group, .growth-stage .pip .pip-glance, .growth-stage .pip .pip-crown { animation: none; }
+.growth-stage-figure { display: grid; place-items: center; height: 52px; }
+.growth-stage-copy { display: grid; min-width: 0; }
+.growth-stage-copy strong { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); font-size: 13px; }
+.growth-stage-copy strong svg { color: var(--pip-body); }
+.growth-stage-copy small { color: var(--muted); font-size: 12px; }
+.growth-stage-days { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.growth-stage.is-current .growth-stage-days { color: var(--pip-shade); font-weight: 700; }
 .recap-growth-bar { grid-column: 1 / -1; height: 6px; overflow: hidden; border-radius: 99px; background: var(--pip-line); }
 .recap-growth-bar b { display: block; height: 100%; border-radius: inherit; background: var(--pip-body); }
 

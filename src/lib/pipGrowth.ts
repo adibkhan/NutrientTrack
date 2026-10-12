@@ -5,11 +5,11 @@ import type { DiaryEntry } from '../types'
  * a missed week or a broken streak leaves Pip exactly as it was, so there is nothing to lose by coming back late.
  */
 export const PIP_STAGES = [
-  { name: 'Sprout', days: 0 },
-  { name: 'Seedling', days: 3 },
-  { name: 'Budding', days: 7 },
-  { name: 'Blooming', days: 14 },
-  { name: 'Flourishing', days: 30 },
+  { name: 'Sprout', days: 0, gift: 'Two little leaves' },
+  { name: 'Seedling', days: 3, gift: 'A third leaf unfurls' },
+  { name: 'Budding', days: 7, gift: 'A bud on a taller stem' },
+  { name: 'Blooming', days: 14, gift: 'The bud opens into a flower' },
+  { name: 'Flourishing', days: 30, gift: 'A soft glow all around' },
 ] as const
 
 export type PipStage = 0 | 1 | 2 | 3 | 4

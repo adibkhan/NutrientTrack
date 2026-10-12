@@ -3,6 +3,7 @@ import type { SVGProps } from 'react'
 export type IconName =
   | 'arrow-left'
   | 'arrow-right'
+  | 'apple'
   | 'bookmark'
   | 'calendar'
   | 'chart'
@@ -10,6 +11,7 @@ export type IconName =
   | 'chevron-down'
   | 'clock'
   | 'copy'
+  | 'diary'
   | 'download'
   | 'edit'
   | 'flame'
@@ -25,8 +27,10 @@ export type IconName =
   | 'scale'
   | 'scan'
   | 'settings'
+  | 'sliders'
   | 'star'
   | 'trash'
+  | 'trend'
   | 'upload'
   | 'x'
 
@@ -38,6 +42,7 @@ interface IconProps extends SVGProps<SVGSVGElement> {
 const paths: Record<IconName, JSX.Element> = {
   'arrow-left': <path d="m14 18-6-6 6-6M8 12h12" />,
   'arrow-right': <path d="m10 18 6-6-6-6M16 12H4" />,
+  apple: <><path d="M12 7.2c-1.4-1-3.1-1.2-4.6-.4C4.6 8.3 4.2 12.4 6 16c1.3 2.6 2.7 4.2 4.3 4.2.6 0 1.1-.3 1.7-.3s1.1.3 1.7.3c1.6 0 3-1.6 4.3-4.2 1.8-3.6 1.4-7.7-1.4-9.2-1.5-.8-3.2-.6-4.6.4Z" /><path d="M12 7.2c0-2 1.2-3.6 3.2-4.2" /></>,
   bookmark: <path d="M6 4.8A1.8 1.8 0 0 1 7.8 3h8.4A1.8 1.8 0 0 1 18 4.8V21l-6-3.6L6 21V4.8Z" />,
   calendar: <path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" />,
   chart: <path d="M4 19V5M4 19h16M8 16v-4M12 16V8M16 16v-7" />,
@@ -45,6 +50,7 @@ const paths: Record<IconName, JSX.Element> = {
   'chevron-down': <path d="m6 9 6 6 6-6" />,
   clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3 2" /></>,
   copy: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></>,
+  diary: <><path d="M6 3.5h10.5A1.5 1.5 0 0 1 18 5v14a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 18.5V5A1.5 1.5 0 0 1 6 3.5Z" /><path d="M8 3.5v17M11.5 8h3.5M11.5 11.5h3.5" /></>,
   download: <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" />,
   edit: <path d="m4 16.5-.6 3.1 3.1-.6L18.4 7.1a2.12 2.12 0 0 0-3-3L4 16.5ZM14 6l4 4" />,
   flame: <path d="M12 21a6 6 0 0 0 6-6c0-3.9-3.2-5.8-4.8-8.5-.6 2.1-2 3.4-3.2 4.2.1-2.7-1-4.9-2-6.7C7.6 7.6 6 10 6 13.8A6.3 6.3 0 0 0 12 21Z" />,
@@ -58,10 +64,12 @@ const paths: Record<IconName, JSX.Element> = {
   plus: <path d="M12 5v14M5 12h14" />,
   search: <><circle cx="10.8" cy="10.8" r="6.2" /><path d="m16 16 4.3 4.3" /></>,
   scale: <path d="M4 19h16M6 19V8m12 11V8M4 8h16M8 8l4-4 4 4M9 13h6m-4-3v3" />,
+  sliders: <><path d="M4 7h8M17 7h3M4 17h3M12 17h8" /><circle cx="14.5" cy="7" r="2.5" /><circle cx="9.5" cy="17" r="2.5" /></>,
   star: <path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8-4.3-4.1 5.9-.9L12 3.5Z" />,
   scan: <><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" /><path d="M8 9v6M11 9v6M14 9v6M16.5 9v6" /></>,
   settings: <><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" /><path d="m19.4 15 .1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.8 1.8 0 0 0-3 .9v.2a2 2 0 0 1-4 0v-.2a1.8 1.8 0 0 0-3-.9l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.8 1.8 0 0 0-.9-3h-.2a2 2 0 0 1 0-4h.2a1.8 1.8 0 0 0 .9-3l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.8 1.8 0 0 0 3-.9V1.9a2 2 0 0 1 4 0v.2a1.8 1.8 0 0 0 3 .9l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.8 1.8 0 0 0 .9 3h.2a2 2 0 0 1 0 4h-.2a1.8 1.8 0 0 0-.9 3Z" /></>,
   trash: <path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3" />,
+  trend: <><path d="M3.5 18 9.5 12l4 4L20.5 8" /><path d="M15.5 8h5v5" /></>,
   upload: <path d="M12 15V3m0 0L8 7m4-4 4 4M4 19h16" />,
   x: <path d="m6 6 12 12M18 6 6 18" />,
 }

@@ -4,6 +4,7 @@ import { PIP_STAGES, type PipGrowth } from '../lib/pipGrowth'
 import { formatNumber, formatShortDate } from '../lib/utils'
 import { PipFigure } from './Mascot'
 import { Icon } from './Icon'
+import { GrowthPath } from './GrowthPath'
 
 interface WeeklyRecapCardProps {
   recap: WeeklyRecap
@@ -19,6 +20,7 @@ const signed = (value: number, unit: string) => `${value > 0 ? '+' : value < 0 ?
 /** The last seven days at a glance, with a shareable image made on the device. Weight stays out of the image unless asked. */
 export function WeeklyRecapCard({ recap, growth, unit, onNotify }: WeeklyRecapCardProps) {
   const pipRef = useRef<HTMLDivElement>(null)
+  const [showPath, setShowPath] = useState(false)
   const [includeWeight, setIncludeWeight] = useState(false)
   const [busy, setBusy] = useState(false)
   const range = `${formatShortDate(recap.start)} – ${formatShortDate(recap.end)}`
@@ -69,8 +71,9 @@ export function WeeklyRecapCard({ recap, growth, unit, onNotify }: WeeklyRecapCa
       </div>
       <div className="recap-growth">
         <span><strong>Pip is {growth.name.toLowerCase()}</strong> · {growth.days} {growth.days === 1 ? 'day' : 'days'} logged</span>
-        {growth.next ? <span className="recap-growth-next">{growth.next.remaining} more to {growth.next.name.toLowerCase()}</span> : <span className="recap-growth-next">Fully grown</span>}
+        <button className="recap-growth-next" type="button" aria-expanded={showPath} onClick={() => setShowPath((open) => !open)}>{growth.next ? `${growth.next.remaining} more to ${growth.next.name.toLowerCase()}` : 'Fully grown'}<Icon name="chevron-down" size={14} className={showPath ? 'is-open' : ''} /></button>
         <span className="recap-growth-bar" aria-hidden="true"><b style={{ width: `${growth.next ? Math.min(100, ((growth.days - stageStart(growth)) / (growth.next.remaining + growth.days - stageStart(growth))) * 100) : 100}%` }} /></span>
+        {showPath && <GrowthPath growth={growth} />}
       </div>
       {recap.trendChange !== undefined && <p className="recap-weight">Trend weight this week: <strong>{signed(recap.trendChange, unit)}</strong></p>}
       <div className="recap-actions">

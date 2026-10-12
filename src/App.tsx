@@ -172,10 +172,10 @@ type ModalState =
   | null
 
 const navItems: Array<{ id: View; label: string; icon: IconName }> = [
-  { id: 'diary', label: 'Diary', icon: 'calendar' },
-  { id: 'trends', label: 'Trends', icon: 'chart' },
-  { id: 'foods', label: 'Foods', icon: 'food' },
-  { id: 'settings', label: 'Settings', icon: 'settings' },
+  { id: 'diary', label: 'Diary', icon: 'diary' },
+  { id: 'trends', label: 'Trends', icon: 'trend' },
+  { id: 'foods', label: 'Foods', icon: 'apple' },
+  { id: 'settings', label: 'Settings', icon: 'sliders' },
 ]
 
 const emptyEntryDraft: EntryDraft = {
