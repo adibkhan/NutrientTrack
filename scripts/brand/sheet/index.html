@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pip contact sheet</title>
+    <style>
+      body { margin: 0; padding: 16px; background: var(--bg); font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+      .sheet { display: grid; gap: 14px; }
+      .row { display: flex; align-items: flex-end; gap: 14px; }
+      .row > div { display: grid; justify-items: center; gap: 2px; color: var(--muted); font-size: 11px; }
+      h2 { margin: 10px 0 2px; font-size: 13px; color: var(--ink-2); }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./sheet.tsx"></script>
+  </body>
+</html>

@@ -1099,7 +1099,6 @@ strong { font-weight: 600; }
 .pip-heart { fill: var(--pip-heart); opacity: 0; animation: pip-heart-rise 1.8s ease-out both; }
 @keyframes pip-heart-rise { 0% { opacity: 0; transform: translateY(6px) scale(1); } 20% { opacity: .95; transform: translateY(0) scale(1.9); } 100% { opacity: 0; transform: translateY(-20px) scale(2.1); } }
 .mascot-loved { border-color: color-mix(in srgb, var(--pip-cheek) 40%, var(--pip-line)); }
-.pip-brow { stroke-width: 2; }
 .pip-heat { fill: var(--pip-heat); opacity: .85; animation: pip-flicker 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center bottom; }
 .pip-sweat { fill: var(--pip-sweat); }
 .mascot-uneasy { border-color: color-mix(in srgb, var(--pip-heat) 35%, var(--pip-line)); background: color-mix(in srgb, var(--pip-heat) 7%, var(--pip-soft)); }
@@ -1161,7 +1160,7 @@ strong { font-weight: 600; }
 @keyframes pip-shadow-idle { 0%, 84%, 100% { transform: scale(1); opacity: 1; } 90% { transform: scale(.82); opacity: .6; } 94% { transform: scale(1.06); opacity: 1; } }
 @keyframes pip-leaf-wiggle { 0%, 100% { transform: rotate(0deg); } 6% { transform: rotate(-8deg); } 12% { transform: rotate(7deg); } 18% { transform: rotate(-3deg); } 22% { transform: rotate(0deg); } }
 @keyframes pip-leaf-flick { 0% { transform: rotate(0deg); } 30% { transform: rotate(-16deg); } 60% { transform: rotate(10deg); } 100% { transform: rotate(0deg); } }
-@keyframes pip-blush { 0%, 100% { opacity: .5; } 50% { opacity: .7; } }
+@keyframes pip-blush { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
 @keyframes pip-pump { from { transform: rotate(0deg); } to { transform: rotate(-26deg); } }
 @keyframes pip-tongue { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.55); } }
 @keyframes pip-sway-body { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
@@ -1311,8 +1310,20 @@ strong { font-weight: 600; }
 .mascot-dismiss:hover { color: var(--ink); background: var(--surface); }
 .pip-shadow { fill: var(--pip-shade); opacity: .16; }
 .pip-body { fill: var(--pip-body); }
-.pip-arm { fill: none; stroke: var(--pip-shade); stroke-width: 7; stroke-linecap: round; }
+.pip-arm { fill: none; stroke: var(--pip-shade); stroke-width: 6.4; stroke-linecap: round; }
+.pip-hand { fill: var(--pip-shade); }
 .pip-foot { fill: var(--pip-shade); }
+.pip-foot-shine { fill: var(--pip-body); opacity: .55; }
+.pip-contour { fill: none; stroke: var(--pip-shade); stroke-width: 1.4; opacity: .5; }
+.pip-rim { fill: var(--pip-glint); opacity: .28; }
+.pip-eye-socket { fill: var(--pip-shade); opacity: .16; }
+.pip-brow { stroke-width: 1.5; opacity: .38; }
+.pip-brow.is-expressive { stroke-width: 1.9; opacity: .85; }
+/* Detail tiers: tiny Pips drop the highlights, big Pips get a finer contour. */
+.pip-tier-small .pip-shine, .pip-tier-small .pip-rim, .pip-tier-small .pip-eye-socket, .pip-tier-small .pip-foot-shine, .pip-tier-small .pip-vein { display: none; }
+.pip-tier-small .pip-contour { stroke-width: 2; }
+.pip-tier-small .pip-brow { stroke-width: 2.4; }
+.pip-tier-large .pip-contour { stroke-width: 1; opacity: .42; }
 .pip-belly { fill: var(--pip-belly); }
 .pip-shine { fill: var(--pip-glint); opacity: .55; }
 .pip-vein { fill: none; stroke: var(--pip-shade); stroke-width: .9; stroke-linecap: round; opacity: .45; }
@@ -1325,7 +1336,7 @@ strong { font-weight: 600; }
 .pip-eye, .pip-mouth-open { fill: var(--pip-ink); }
 .pip-eye-glint { fill: var(--pip-glint); }
 .pip-line { fill: none; stroke: var(--pip-ink); stroke-width: 2.4; stroke-linecap: round; }
-.pip-cheek { fill: var(--pip-cheek); opacity: .6; }
+.pip-cheek { opacity: .9; }
 .pip-sparkles path { fill: var(--pip-spark); animation: pip-twinkle 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 .pip-sparkles path + path { animation-delay: .5s; }
 .pip-zzz { fill: var(--muted); font-size: 13px; font-weight: 700; animation: pip-float 2.4s ease-in-out infinite; }

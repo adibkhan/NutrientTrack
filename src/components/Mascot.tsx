@@ -92,18 +92,28 @@ export function PipFigure({ mood, size = 56, stage = 0, reaction = null, onPoke,
     window.addEventListener('pointermove', onMove, { passive: true })
     return () => { window.removeEventListener('pointermove', onMove); if (frame) window.cancelAnimationFrame(frame) }
   }, [canLook])
+  const tier = size < 44 ? 'small' : size > 120 ? 'large' : 'standard'
   const armsUp = mood === 'cheer' && !reaction
   const waving = mood === 'wave' && !reaction
   const happyEyes = reaction === 'loved' || reaction === 'giggle' || (!reaction && (mood === 'happy' || mood === 'proud'))
   const dizzy = reaction === 'dizzy'
   const eating = reaction === 'eating'
   const sleepyFace = mood === 'sleepy' && !reaction
+  // Brows live in every face so a mood moves them instead of swapping the eyes out.
+  const brows = dizzy ? ['M27.5 33.5 Q31.5 35.5 35.5 33.5', 'M44.5 33.5 Q48.5 35.5 52.5 33.5']
+    : eating ? ['M27.5 32.5 Q31.5 30.5 35.5 32', 'M44.5 32 Q48.5 30.5 52.5 32.5']
+    : sleepyFace ? ['M28 36.5 Q31.5 36 35 36.5', 'M45 36.5 Q48.5 36 52 36.5']
+    : happyEyes || mood === 'cheer' ? ['M27 31.5 Q31.5 28.8 36 31', 'M44 31 Q48.5 28.8 53 31.5']
+    : mood === 'uneasy' ? ['M28 35 L35 32.5', 'M52 35 L45 32.5']
+    : mood === 'calm' ? ['M28 33 Q31.5 32 35 32.6', 'M45 32.6 Q48.5 32 52 33']
+    : ['M28 32.6 Q31.5 31 35 31.8', 'M45 31.8 Q48.5 31 52 32.6']
+  const cheekFill = { fill: `url(#${id}-cheek)` }
   const bodyFill = { fill: `url(#${id}-body)` }
   const bellyFill = { fill: `url(#${id}-belly)` }
   const leafFill = { fill: `url(#${id}-leaf)` }
   // The view box leaves headroom above the body for the bud and flower of later stages.
   return (
-    <svg className={`pip pip-${mood} pip-stage-${stage} ${poked ? 'pip-poked' : ''} ${reaction ? `pip-react pip-react-${reaction}` : ''}`} key={poked} ref={svgRef} viewBox="0 -16 80 96" width={size} height={(size * 96) / 80} aria-hidden="true" focusable="false" onPointerDown={startPress} onPointerUp={endPress} onPointerLeave={cancelPress} onPointerCancel={cancelPress} onContextMenu={(event) => event.preventDefault()}>
+    <svg className={`pip pip-${mood} pip-stage-${stage} pip-tier-${tier} ${poked ? 'pip-poked' : ''} ${reaction ? `pip-react pip-react-${reaction}` : ''}`} key={poked} ref={svgRef} viewBox="0 -16 80 96" width={size} height={(size * 96) / 80} aria-hidden="true" focusable="false" onPointerDown={startPress} onPointerUp={endPress} onPointerLeave={cancelPress} onPointerCancel={cancelPress} onContextMenu={(event) => event.preventDefault()}>
       <defs>
         <radialGradient id={`${id}-body`} cx="36%" cy="28%" r="78%">
           <stop offset="0" style={{ stopColor: 'var(--pip-belly)' }} />
@@ -119,13 +129,18 @@ export function PipFigure({ mood, size = 56, stage = 0, reaction = null, onPoke,
           <stop offset="0.6" style={{ stopColor: 'var(--pip-halo)', stopOpacity: 0.14 }} />
           <stop offset="1" style={{ stopColor: 'var(--pip-halo)', stopOpacity: 0 }} />
         </radialGradient>
+        <radialGradient id={`${id}-cheek`} cx="50%" cy="50%" r="50%">
+          <stop offset="0" style={{ stopColor: 'var(--pip-cheek)', stopOpacity: 0.8 }} />
+          <stop offset="1" style={{ stopColor: 'var(--pip-cheek)', stopOpacity: 0 }} />
+        </radialGradient>
+        <filter id={`${id}-blur`} x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="1.1" /></filter>
         <linearGradient id={`${id}-leaf`} x1="0" y1="1" x2="1" y2="0">
           <stop offset="0" style={{ stopColor: 'var(--pip-leaf)' }} />
           <stop offset="1" style={{ stopColor: 'var(--pip-leaf-light)' }} />
         </linearGradient>
       </defs>
       {stage === 4 && <circle className="pip-halo" style={{ fill: `url(#${id}-halo)` }} cx="40" cy="36" r="44" />}
-      <ellipse className="pip-shadow" cx="40" cy="74.5" rx="19" ry="3.2" />
+      <ellipse className="pip-shadow" cx="40" cy="74.5" rx="20" ry="3.4" filter={`url(#${id}-blur)`} />
       {mood === 'cheer' && <path className="pip-dust pip-dust-left" d="M22 70 q-5 -1 -8 2" />}
       {mood === 'cheer' && <path className="pip-dust pip-dust-right" d="M58 70 q5 -1 8 2" />}
       {mood === 'cheer' && <g className="pip-confetti" aria-hidden="true">
@@ -137,22 +152,26 @@ export function PipFigure({ mood, size = 56, stage = 0, reaction = null, onPoke,
         <g className="pip-crown"><PipCrown stage={stage} leafFill={leafFill} /></g>
         {/* Arms: stubby capsules behind the body, with a slightly darker underside. */}
         {armsUp ? <>
-          <g className="pip-cheer-arm pip-cheer-left"><path className="pip-arm pip-arm-still" d="M21 36 L13 25" /></g>
-          <g className="pip-cheer-arm pip-cheer-right"><path className="pip-arm pip-arm-still" d="M59 36 L67 25" /></g>
+          <g className="pip-cheer-arm pip-cheer-left"><path className="pip-arm pip-arm-still" d="M21 36 L13.5 25.5" /><circle className="pip-hand" cx="13" cy="24.8" r="4" /></g>
+          <g className="pip-cheer-arm pip-cheer-right"><path className="pip-arm pip-arm-still" d="M59 36 L66.5 25.5" /><circle className="pip-hand" cx="67" cy="24.8" r="4" /></g>
         </> : <>
-          <path className="pip-arm pip-arm-left" d="M20 47 L13 55" />
+          <g className="pip-arm-left"><path className="pip-arm" d="M20 47 L13.5 54.5" /><circle className="pip-hand" cx="13" cy="55" r="4" /></g>
           {waving
-            ? <g className="pip-wave-arm"><path className="pip-arm pip-arm-still" d="M60 40 L69 29" /></g>
-            : <path className="pip-arm pip-arm-right" d="M60 47 L67 55" />}
+            ? <g className="pip-wave-arm"><path className="pip-arm pip-arm-still" d="M60 40 L68.5 29.5" /><circle className="pip-hand" cx="69" cy="29" r="4" /></g>
+            : <g className="pip-arm-right"><path className="pip-arm" d="M60 47 L66.5 54.5" /><circle className="pip-hand" cx="67" cy="55" r="4" /></g>}
         </>}
         {/* Feet */}
-        <ellipse className="pip-foot" cx="30.5" cy="69.5" rx="6.5" ry="3.8" />
-        <ellipse className="pip-foot" cx="49.5" cy="69.5" rx="6.5" ry="3.8" />
+        <path className="pip-foot" d="M23.5 69.8 C23.5 66.2 27 65 30.5 65.2 C34.5 65.4 37.5 67 37.5 69.6 C37.5 72.2 34.5 73.6 30.5 73.6 C27 73.6 23.5 72.8 23.5 69.8 Z" />
+        <path className="pip-foot" d="M42.5 69.6 C42.5 67 45.5 65.4 49.5 65.2 C53 65 56.5 66.2 56.5 69.8 C56.5 72.8 53 73.6 49.5 73.6 C45.5 73.6 42.5 72.2 42.5 69.6 Z" />
+        <ellipse className="pip-foot-shine" cx="29" cy="67.6" rx="2.6" ry="1" />
+        <ellipse className="pip-foot-shine" cx="51" cy="67.6" rx="2.6" ry="1" />
         {/* Body: a rounded pea, a touch wider at the bottom, lit from the top left. */}
         <path className="pip-body" style={bodyFill} d="M40 16 C55 16 65 28 65.5 43 C66 58 55 70 40 70 C25 70 14 58 14.5 43 C15 28 25 16 40 16 Z" />
         <ellipse className="pip-belly" style={bellyFill} cx="40" cy="52" rx="15.5" ry="13.5" />
-        <ellipse className="pip-shine" cx="29" cy="27" rx="5.5" ry="3" transform="rotate(-32 29 27)" />
-        <circle className="pip-shine" cx="36.5" cy="22.5" r="1.4" />
+        <path className="pip-contour" d="M40 16 C55 16 65 28 65.5 43 C66 58 55 70 40 70 C25 70 14 58 14.5 43 C15 28 25 16 40 16 Z" />
+        <path className="pip-rim" d="M21.5 30 C23.5 23 29 18 36 16.8 C30.5 19.4 25.5 24 23.2 31.5 Z" />
+        <ellipse className="pip-shine" cx="30" cy="25.5" rx="3.6" ry="2" transform="rotate(-34 30 25.5)" />
+        <circle className="pip-shine" cx="35.8" cy="21.8" r="1.1" />
         {/* Face */}
         {dizzy ? <g className="pip-dizzy-eyes">
           <path className="pip-line" d="M28.5 38 L34.5 44 M34.5 38 L28.5 44" />
@@ -166,19 +185,23 @@ export function PipFigure({ mood, size = 56, stage = 0, reaction = null, onPoke,
           <path className="pip-line pip-eye-arc" d="M27 42 Q31.5 35.5 36 42" />
           <path className="pip-line pip-eye-arc" d="M44 42 Q48.5 35.5 53 42" />
         </> : <g className="pip-eyes">
+          <ellipse className="pip-eye-socket" cx="31.5" cy="41.4" rx="5" ry="5.6" />
+          <ellipse className="pip-eye-socket" cx="48.5" cy="41.4" rx="5" ry="5.6" />
           <g className="pip-glance"><g className="pip-look">
-            <ellipse className="pip-eye" cx="31.5" cy="41" rx="3.7" ry="4.3" />
-            <ellipse className="pip-eye" cx="48.5" cy="41" rx="3.7" ry="4.3" />
-            <circle className="pip-eye-glint" cx="33" cy="39.2" r="1.5" />
-            <circle className="pip-eye-glint" cx="50" cy="39.2" r="1.5" />
-            <circle className="pip-eye-glint" cx="30" cy="43" r="0.7" />
-            <circle className="pip-eye-glint" cx="47" cy="43" r="0.7" />
+            <ellipse className="pip-eye" cx="31.5" cy="41.2" rx="4" ry="4.8" />
+            <ellipse className="pip-eye" cx="48.5" cy="41.2" rx="4" ry="4.8" />
+            <circle className="pip-eye-glint" cx="33.2" cy="39" r="1.7" />
+            <circle className="pip-eye-glint" cx="50.2" cy="39" r="1.7" />
+            <circle className="pip-eye-glint" cx="29.9" cy="43.4" r="0.8" />
+            <circle className="pip-eye-glint" cx="46.9" cy="43.4" r="0.8" />
           </g></g>
         </g>}
-        <ellipse className="pip-cheek" cx="24" cy="48.5" rx="4.6" ry="2.7" />
-        <ellipse className="pip-cheek" cx="56" cy="48.5" rx="4.6" ry="2.7" />
+        <ellipse className="pip-cheek" style={cheekFill} cx="24" cy="48.5" rx="6" ry="3.8" />
+        <ellipse className="pip-cheek" style={cheekFill} cx="56" cy="48.5" rx="6" ry="3.8" />
+        <path className={`pip-line pip-brow ${mood === 'uneasy' || dizzy || sleepyFace || happyEyes || mood === 'cheer' || eating ? 'is-expressive' : ''}`} d={brows[0]} />
+        <path className={`pip-line pip-brow ${mood === 'uneasy' || dizzy || sleepyFace || happyEyes || mood === 'cheer' || eating ? 'is-expressive' : ''}`} d={brows[1]} />
         {eating
-          ? <g className="pip-chew"><ellipse className="pip-mouth-open" cx="40" cy="51" rx="5.5" ry="4.5" /></g>
+          ? <g className="pip-chew"><ellipse className="pip-mouth-open" cx="40" cy="51" rx="5.5" ry="4.5" /><ellipse className="pip-tongue" cx="40" cy="53.4" rx="3" ry="1.6" /></g>
           : dizzy
             ? <path className="pip-line pip-mouth" d="M34 51 Q37 48.5 40 51 Q43 53.5 46 51" />
             : reaction === 'giggle'
@@ -202,9 +225,7 @@ export function PipFigure({ mood, size = 56, stage = 0, reaction = null, onPoke,
           <ellipse className="pip-cheek-full pip-cheek-full-right" cx="55" cy="49" rx="6" ry="4.5" />
         </>}
         {mood === 'uneasy' && !reaction && <>
-          {/* Worried brows, a warm tummy and a sweat drop. */}
-          <path className="pip-line pip-brow" d="M28 35 L35 32.5" />
-          <path className="pip-line pip-brow" d="M52 35 L45 32.5" />
+          {/* A warm tummy and a sweat drop. */}
           <path className="pip-heat" d="M40 53 C37 57 37 61 40 63 C43 61 43 57 40 53 Z" />
           <path className="pip-sweat" d="M60 24 C58 28 58 30 60 31 C62 30 62 28 60 24 Z" />
         </>}
