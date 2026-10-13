@@ -5,7 +5,7 @@ import type { PipGrowth, PipStage } from '../lib/pipGrowth'
 import { Icon } from './Icon'
 
 /** What grows out of Pip's head at each stage: a sprout, a seedling, a bud, a flower, then a flower with a glow. */
-function PipCrown({ stage, leafFill }: { stage: PipStage; leafFill: { fill: string } }) {
+function PipCrown({ stage, leafFill, petalFill }: { stage: PipStage; leafFill: { fill: string }; petalFill: { fill: string } }) {
   if (stage === 0) return <>
     <path className="pip-stem" d="M40 17 C40 13 40 11 41 8" />
     <path className="pip-leaf" style={leafFill} d="M41 9 C45 3 53 3 56 6 C52 11 46 12 41 9 Z" />
@@ -24,11 +24,12 @@ function PipCrown({ stage, leafFill }: { stage: PipStage; leafFill: { fill: stri
     {stage === 1 && <path className="pip-leaf" style={leafFill} d="M41 3 C42 -3 48 -6 52 -5 C51 0 46 4 41 3 Z" />}
     {stage === 2 && <>
       <path className="pip-leaf pip-leaf-small" style={leafFill} d="M41 1 C39 -2 39 -5 41 -6 C43 -5 43 -2 41 1 Z" />
-      <ellipse className="pip-bud" cx="41" cy="-7" rx="4" ry="5.5" />
+      <ellipse className="pip-bud" style={petalFill} cx="41" cy="-7" rx="4" ry="5.5" />
     </>}
     {stage >= 3 && <g className="pip-flower">
-      {[0, 72, 144, 216, 288].map((angle) => <circle key={angle} className="pip-petal" cx={41 + 5.2 * Math.sin((angle * Math.PI) / 180)} cy={-7 - 5.2 * Math.cos((angle * Math.PI) / 180)} r="4.2" />)}
+      {[0, 72, 144, 216, 288].map((angle) => <circle key={angle} className="pip-petal" style={petalFill} cx={41 + 5.2 * Math.sin((angle * Math.PI) / 180)} cy={-7 - 5.2 * Math.cos((angle * Math.PI) / 180)} r="4.2" />)}
       <circle className="pip-flower-center" cx="41" cy="-7" r="3" />
+      <circle className="pip-shine" cx="40.2" cy="-7.8" r="1" />
     </g>}
   </>
 }
@@ -108,6 +109,11 @@ export function PipFigure({ mood, size = 56, stage = 0, reaction = null, onPoke,
     : mood === 'calm' ? ['M28 33 Q31.5 32 35 32.6', 'M45 32.6 Q48.5 32 52 33']
     : ['M28 32.6 Q31.5 31 35 31.8', 'M45 31.8 Q48.5 31 52 32.6']
   const cheekFill = { fill: `url(#${id}-cheek)` }
+  const aoFill = { fill: `url(#${id}-ao)` }
+  const specFill = { fill: `url(#${id}-spec)` }
+  const rimFill = { fill: `url(#${id}-rim)` }
+  const limbFill = { fill: `url(#${id}-limb)` }
+  const petalFill = { fill: `url(#${id}-petal)` }
   const bodyFill = { fill: `url(#${id}-body)` }
   const bellyFill = { fill: `url(#${id}-belly)` }
   const leafFill = { fill: `url(#${id}-leaf)` }
@@ -115,15 +121,40 @@ export function PipFigure({ mood, size = 56, stage = 0, reaction = null, onPoke,
   return (
     <svg className={`pip pip-${mood} pip-stage-${stage} pip-tier-${tier} ${poked ? 'pip-poked' : ''} ${reaction ? `pip-react pip-react-${reaction}` : ''}`} key={poked} ref={svgRef} viewBox="0 -16 80 96" width={size} height={(size * 96) / 80} aria-hidden="true" focusable="false" onPointerDown={startPress} onPointerUp={endPress} onPointerLeave={cancelPress} onPointerCancel={cancelPress} onContextMenu={(event) => event.preventDefault()}>
       <defs>
+        {/* One light rig for every part: key light upper left, soft fill, rim on the right, occlusion at the ground. */}
         <radialGradient id={`${id}-body`} cx="36%" cy="28%" r="78%">
-          <stop offset="0" style={{ stopColor: 'var(--pip-belly)' }} />
-          <stop offset="0.38" style={{ stopColor: 'var(--pip-body)' }} />
+          <stop offset="0" style={{ stopColor: 'var(--pip-light)' }} />
+          <stop offset="0.22" style={{ stopColor: 'var(--pip-belly)' }} />
+          <stop offset="0.55" style={{ stopColor: 'var(--pip-body)' }} />
+          <stop offset="0.85" style={{ stopColor: 'var(--pip-shade)' }} />
+          <stop offset="1" style={{ stopColor: 'var(--pip-deep)' }} />
+        </radialGradient>
+        <radialGradient id={`${id}-ao`} cx="50%" cy="100%" r="60%">
+          <stop offset="0" style={{ stopColor: 'var(--pip-deep)', stopOpacity: 0.55 }} />
+          <stop offset="1" style={{ stopColor: 'var(--pip-deep)', stopOpacity: 0 }} />
+        </radialGradient>
+        <radialGradient id={`${id}-belly`} cx="50%" cy="60%" r="55%">
+          <stop offset="0" style={{ stopColor: 'var(--pip-belly)', stopOpacity: 0.7 }} />
+          <stop offset="1" style={{ stopColor: 'var(--pip-belly)', stopOpacity: 0 }} />
+        </radialGradient>
+        <radialGradient id={`${id}-spec`} cx="50%" cy="50%" r="50%">
+          <stop offset="0" style={{ stopColor: 'var(--pip-glint)', stopOpacity: 1 }} />
+          <stop offset="0.45" style={{ stopColor: 'var(--pip-glint)', stopOpacity: 0.55 }} />
+          <stop offset="1" style={{ stopColor: 'var(--pip-glint)', stopOpacity: 0 }} />
+        </radialGradient>
+        <linearGradient id={`${id}-rim`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" style={{ stopColor: 'var(--pip-light)', stopOpacity: 0 }} />
+          <stop offset="1" style={{ stopColor: 'var(--pip-light)', stopOpacity: 0.75 }} />
+        </linearGradient>
+        <radialGradient id={`${id}-limb`} cx="40%" cy="30%" r="80%">
+          <stop offset="0" style={{ stopColor: 'var(--pip-body)' }} />
           <stop offset="1" style={{ stopColor: 'var(--pip-shade)' }} />
         </radialGradient>
-        <linearGradient id={`${id}-belly`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" style={{ stopColor: 'var(--pip-belly)', stopOpacity: 0 }} />
-          <stop offset="1" style={{ stopColor: 'var(--pip-belly)', stopOpacity: 0.85 }} />
-        </linearGradient>
+        <radialGradient id={`${id}-petal`} cx="35%" cy="30%" r="80%">
+          <stop offset="0" style={{ stopColor: 'var(--pip-petal-light)' }} />
+          <stop offset="0.6" style={{ stopColor: 'var(--pip-petal)' }} />
+          <stop offset="1" style={{ stopColor: 'var(--pip-bud)' }} />
+        </radialGradient>
         <radialGradient id={`${id}-halo`} cx="50%" cy="50%" r="50%">
           <stop offset="0" style={{ stopColor: 'var(--pip-halo)', stopOpacity: 0.32 }} />
           <stop offset="0.6" style={{ stopColor: 'var(--pip-halo)', stopOpacity: 0.14 }} />
@@ -140,7 +171,8 @@ export function PipFigure({ mood, size = 56, stage = 0, reaction = null, onPoke,
         </linearGradient>
       </defs>
       {stage === 4 && <circle className="pip-halo" style={{ fill: `url(#${id}-halo)` }} cx="40" cy="36" r="44" />}
-      <ellipse className="pip-shadow" cx="40" cy="74.5" rx="20" ry="3.4" filter={`url(#${id}-blur)`} />
+      <ellipse className="pip-shadow" cx="40" cy="75" rx="21" ry="4" filter={`url(#${id}-blur)`} />
+      <ellipse className="pip-shadow pip-shadow-contact" cx="40" cy="74.6" rx="11" ry="2" />
       {mood === 'cheer' && <path className="pip-dust pip-dust-left" d="M22 70 q-5 -1 -8 2" />}
       {mood === 'cheer' && <path className="pip-dust pip-dust-right" d="M58 70 q5 -1 8 2" />}
       {mood === 'cheer' && <g className="pip-confetti" aria-hidden="true">
@@ -149,29 +181,30 @@ export function PipFigure({ mood, size = 56, stage = 0, reaction = null, onPoke,
         ))}
       </g>}
       <g className="pip-body-group">
-        <g className="pip-crown"><PipCrown stage={stage} leafFill={leafFill} /></g>
+        <g className="pip-crown"><PipCrown stage={stage} leafFill={leafFill} petalFill={petalFill} /></g>
         {/* Arms: stubby capsules behind the body, with a slightly darker underside. */}
         {armsUp ? <>
-          <g className="pip-cheer-arm pip-cheer-left"><path className="pip-arm pip-arm-still" d="M21 36 L13.5 25.5" /><circle className="pip-hand" cx="13" cy="24.8" r="4" /></g>
-          <g className="pip-cheer-arm pip-cheer-right"><path className="pip-arm pip-arm-still" d="M59 36 L66.5 25.5" /><circle className="pip-hand" cx="67" cy="24.8" r="4" /></g>
+          <g className="pip-cheer-arm pip-cheer-left"><path className="pip-arm pip-arm-still" d="M21 36 L13.5 25.5" /><circle className="pip-hand" style={limbFill} cx="13" cy="24.8" r="4" /></g>
+          <g className="pip-cheer-arm pip-cheer-right"><path className="pip-arm pip-arm-still" d="M59 36 L66.5 25.5" /><circle className="pip-hand" style={limbFill} cx="67" cy="24.8" r="4" /></g>
         </> : <>
-          <g className="pip-arm-left"><path className="pip-arm" d="M20 47 L13.5 54.5" /><circle className="pip-hand" cx="13" cy="55" r="4" /></g>
+          <g className="pip-arm-left"><path className="pip-arm" d="M20 47 L13.5 54.5" /><circle className="pip-hand" style={limbFill} cx="13" cy="55" r="4" /></g>
           {waving
-            ? <g className="pip-wave-arm"><path className="pip-arm pip-arm-still" d="M60 40 L68.5 29.5" /><circle className="pip-hand" cx="69" cy="29" r="4" /></g>
-            : <g className="pip-arm-right"><path className="pip-arm" d="M60 47 L66.5 54.5" /><circle className="pip-hand" cx="67" cy="55" r="4" /></g>}
+            ? <g className="pip-wave-arm"><path className="pip-arm pip-arm-still" d="M60 40 L68.5 29.5" /><circle className="pip-hand" style={limbFill} cx="69" cy="29" r="4" /></g>
+            : <g className="pip-arm-right"><path className="pip-arm" d="M60 47 L66.5 54.5" /><circle className="pip-hand" style={limbFill} cx="67" cy="55" r="4" /></g>}
         </>}
         {/* Feet */}
-        <path className="pip-foot" d="M23.5 69.8 C23.5 66.2 27 65 30.5 65.2 C34.5 65.4 37.5 67 37.5 69.6 C37.5 72.2 34.5 73.6 30.5 73.6 C27 73.6 23.5 72.8 23.5 69.8 Z" />
-        <path className="pip-foot" d="M42.5 69.6 C42.5 67 45.5 65.4 49.5 65.2 C53 65 56.5 66.2 56.5 69.8 C56.5 72.8 53 73.6 49.5 73.6 C45.5 73.6 42.5 72.2 42.5 69.6 Z" />
+        <path className="pip-foot" style={limbFill} d="M23.5 69.8 C23.5 66.2 27 65 30.5 65.2 C34.5 65.4 37.5 67 37.5 69.6 C37.5 72.2 34.5 73.6 30.5 73.6 C27 73.6 23.5 72.8 23.5 69.8 Z" />
+        <path className="pip-foot" style={limbFill} d="M42.5 69.6 C42.5 67 45.5 65.4 49.5 65.2 C53 65 56.5 66.2 56.5 69.8 C56.5 72.8 53 73.6 49.5 73.6 C45.5 73.6 42.5 72.2 42.5 69.6 Z" />
         <ellipse className="pip-foot-shine" cx="29" cy="67.6" rx="2.6" ry="1" />
         <ellipse className="pip-foot-shine" cx="51" cy="67.6" rx="2.6" ry="1" />
         {/* Body: a rounded pea, a touch wider at the bottom, lit from the top left. */}
         <path className="pip-body" style={bodyFill} d="M40 16 C55 16 65 28 65.5 43 C66 58 55 70 40 70 C25 70 14 58 14.5 43 C15 28 25 16 40 16 Z" />
-        <ellipse className="pip-belly" style={bellyFill} cx="40" cy="52" rx="15.5" ry="13.5" />
+        <path className="pip-ao" style={aoFill} d="M40 16 C55 16 65 28 65.5 43 C66 58 55 70 40 70 C25 70 14 58 14.5 43 C15 28 25 16 40 16 Z" />
+        <ellipse className="pip-belly" style={bellyFill} cx="40" cy="53" rx="16" ry="13" />
+        <path className="pip-rim" style={rimFill} d="M57 24 C63 30 66 40 65 50 C66.5 40 64 31 58.5 25.5 Z" />
+        <ellipse className="pip-shine pip-spec" style={specFill} cx="29" cy="25.5" rx="7.5" ry="4.4" transform="rotate(-32 29 25.5)" />
+        <circle className="pip-shine" cx="36.5" cy="21.5" r="1.4" />
         <path className="pip-contour" d="M40 16 C55 16 65 28 65.5 43 C66 58 55 70 40 70 C25 70 14 58 14.5 43 C15 28 25 16 40 16 Z" />
-        <path className="pip-rim" d="M21.5 30 C23.5 23 29 18 36 16.8 C30.5 19.4 25.5 24 23.2 31.5 Z" />
-        <ellipse className="pip-shine" cx="30" cy="25.5" rx="3.6" ry="2" transform="rotate(-34 30 25.5)" />
-        <circle className="pip-shine" cx="35.8" cy="21.8" r="1.1" />
         {/* Face */}
         {dizzy ? <g className="pip-dizzy-eyes">
           <path className="pip-line" d="M28.5 38 L34.5 44 M34.5 38 L28.5 44" />
@@ -190,6 +223,8 @@ export function PipFigure({ mood, size = 56, stage = 0, reaction = null, onPoke,
           <g className="pip-glance"><g className="pip-look">
             <ellipse className="pip-eye" cx="31.5" cy="41.2" rx="4" ry="4.8" />
             <ellipse className="pip-eye" cx="48.5" cy="41.2" rx="4" ry="4.8" />
+            <ellipse className="pip-iris" cx="31.5" cy="42.6" rx="2.6" ry="2.8" />
+            <ellipse className="pip-iris" cx="48.5" cy="42.6" rx="2.6" ry="2.8" />
             <circle className="pip-eye-glint" cx="33.2" cy="39" r="1.7" />
             <circle className="pip-eye-glint" cx="50.2" cy="39" r="1.7" />
             <circle className="pip-eye-glint" cx="29.9" cy="43.4" r="0.8" />

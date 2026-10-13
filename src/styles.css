@@ -54,13 +54,16 @@
   /* Names kept for the insights stylesheet. */
   --muted-dark: #475467;
   /* Pip, the diary mascot, and the meal accents. */
+  --pip-light: #d6f7e0;
   --pip-body: #5cbf7c;
   --pip-shade: #3f9a5e;
+  --pip-deep: #1f6a3d;
   --pip-belly: #a3e0b6;
   --pip-leaf: #2f8f4e;
   --pip-leaf-light: #7fd49a;
   --pip-tongue: #e9768f;
   --pip-ink: #1d2939;
+  --pip-iris: #3b4a63;
   --pip-glint: #ffffff;
   --pip-cheek: #f6a5a0;
   --pip-heart: #ef5a8a;
@@ -68,6 +71,7 @@
   --pip-soft: #effaf2;
   --pip-line: #cdeed7;
   --pip-petal: #f48fb1;
+  --pip-petal-light: #ffd1e3;
   --pip-bud: #e8799f;
   --pip-flower-center: #f5c542;
   --pip-halo: #f5c542;
@@ -119,13 +123,16 @@
   --danger-soft: #2a1618;
   --carbs-soft: #251f45;
   --muted-dark: #cfd4dc;
+  --pip-light: #bdeccb;
   --pip-body: #4fae6c;
   --pip-shade: #36844f;
+  --pip-deep: #1b4f30;
   --pip-belly: #79c893;
   --pip-leaf: #4fae6c;
   --pip-leaf-light: #8ee0a8;
   --pip-tongue: #e26d88;
   --pip-ink: #0c111d;
+  --pip-iris: #3b4a63;
   --pip-glint: #f2f4f7;
   --pip-cheek: #e98585;
   --pip-heart: #ff7aa8;
@@ -133,6 +140,7 @@
   --pip-soft: #13261b;
   --pip-line: #24452f;
   --pip-petal: #f06292;
+  --pip-petal-light: #ffb3cc;
   --pip-bud: #d9618a;
   --pip-flower-center: #fac515;
   --pip-halo: #8ee0a8;
@@ -186,13 +194,16 @@
     --danger-soft: #2a1618;
     --carbs-soft: #251f45;
     --muted-dark: #cfd4dc;
+  --pip-light: #bdeccb;
   --pip-body: #4fae6c;
   --pip-shade: #36844f;
+  --pip-deep: #1b4f30;
   --pip-belly: #79c893;
   --pip-leaf: #4fae6c;
   --pip-leaf-light: #8ee0a8;
   --pip-tongue: #e26d88;
   --pip-ink: #0c111d;
+  --pip-iris: #3b4a63;
   --pip-glint: #f2f4f7;
   --pip-cheek: #e98585;
   --pip-heart: #ff7aa8;
@@ -200,6 +211,7 @@
   --pip-soft: #13261b;
   --pip-line: #24452f;
   --pip-petal: #f06292;
+  --pip-petal-light: #ffb3cc;
   --pip-bud: #d9618a;
   --pip-flower-center: #fac515;
   --pip-halo: #8ee0a8;
@@ -1308,19 +1320,22 @@ strong { font-weight: 600; }
 .mascot-action { margin-top: 4px; padding: 0; font-size: 13px; }
 .mascot-dismiss { flex: 0 0 auto; align-self: flex-start; margin-left: auto; width: 28px; height: 28px; border: 0; color: var(--muted); background: transparent; }
 .mascot-dismiss:hover { color: var(--ink); background: var(--surface); }
-.pip-shadow { fill: var(--pip-shade); opacity: .16; }
+.pip-shadow { fill: var(--pip-deep); opacity: .22; }
+.pip-shadow-contact { opacity: .3; animation: none; }
+.pip-iris { fill: var(--pip-iris); opacity: .55; }
+.pip-spec { opacity: 1; }
 .pip-body { fill: var(--pip-body); }
 .pip-arm { fill: none; stroke: var(--pip-shade); stroke-width: 6.4; stroke-linecap: round; }
 .pip-hand { fill: var(--pip-shade); }
 .pip-foot { fill: var(--pip-shade); }
 .pip-foot-shine { fill: var(--pip-body); opacity: .55; }
-.pip-contour { fill: none; stroke: var(--pip-shade); stroke-width: 1.4; opacity: .5; }
-.pip-rim { fill: var(--pip-glint); opacity: .28; }
+.pip-contour { fill: none; stroke: var(--pip-deep); stroke-width: 1.1; opacity: .45; }
+.pip-rim { opacity: .9; }
 .pip-eye-socket { fill: var(--pip-shade); opacity: .16; }
-.pip-brow { stroke-width: 1.5; opacity: .38; }
+.pip-brow { stroke-width: 1.5; opacity: .3; }
 .pip-brow.is-expressive { stroke-width: 1.9; opacity: .85; }
 /* Detail tiers: tiny Pips drop the highlights, big Pips get a finer contour. */
-.pip-tier-small .pip-shine, .pip-tier-small .pip-rim, .pip-tier-small .pip-eye-socket, .pip-tier-small .pip-foot-shine, .pip-tier-small .pip-vein { display: none; }
+.pip-tier-small .pip-shine:not(.pip-spec), .pip-tier-small .pip-rim, .pip-tier-small .pip-eye-socket, .pip-tier-small .pip-foot-shine, .pip-tier-small .pip-vein, .pip-tier-small .pip-iris, .pip-tier-small .pip-shadow-contact { display: none; }
 .pip-tier-small .pip-contour { stroke-width: 2; }
 .pip-tier-small .pip-brow { stroke-width: 2.4; }
 .pip-tier-large .pip-contour { stroke-width: 1; opacity: .42; }

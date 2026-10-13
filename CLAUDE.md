@@ -59,6 +59,10 @@ The browser holds the primary copy, and most users have no server copy at all be
 
 The catalog is built with `node scripts/build-usda-catalog.mjs --zip <SR Legacy CSV zip>` (source: `FoodData_Central_sr_legacy_food_csv_2018-04.zip`, sha256 `b80817294b8850530aaedf2e515c02593b1824f763a0ff356e5c2081643e6fd0`). Version 2 adds USDA household measures as `portions`; with them removed it is byte-for-byte the version 1 data.
 
+## Pip
+
+Pip is drawn once, in `src/components/Mascot.tsx`, under one light rig (key light upper left, rim right, occlusion at the ground; colours only from the `--pip-*` tokens). `scripts/brand/pip.mjs` is generated from that drawing by `scripts/brand/export-pip.mjs` and feeds the app icons and share image (`scripts/brand/render.mjs`); never edit it by hand. `scripts/brand/contact-sheet.mjs` renders every mood, reaction and stage at three sizes in both themes; run it after any change to Pip and look at the result. Both scripts build `scripts/brand/sheet` with `vite build --config scripts/brand/vite.sheet.config.ts` first and need Playwright, which is not a project dependency.
+
 ## Recipe calorie calculator
 
 `/recipe-calories/` is a second Vite page (`recipe-calories/index.html`, `src/recipe/`) that shares the catalog, the describe-to-log matcher (`src/lib/describe.ts`) and the stylesheet. It stores nothing: the recipe lives in the page address (`#i=<lines>&s=<servings>`), and the copyable label (`src/lib/recipe.ts`) is inline-styled HTML with one credit link. The service worker leaves it to the network like the food pages, nginx serves it with `no-cache`, and it is listed in the sitemap.

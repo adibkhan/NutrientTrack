@@ -11,7 +11,18 @@ const params = new URLSearchParams(window.location.search)
 const theme = params.get('theme')
 if (theme) document.documentElement.setAttribute('data-theme', theme)
 
+/** ?export=1 renders only the variants export-pip.mjs reads, each tagged with data-variant. */
+function Export() {
+  return <div className="row">
+    <div data-variant="wave-flower"><PipFigure mood="wave" size={150} stage={3} /></div>
+    <div data-variant="wave-plain"><PipFigure mood="wave" size={150} stage={0} /></div>
+    <div data-variant="happy-flower"><PipFigure mood="happy" size={150} stage={3} /></div>
+    <div data-variant="cheer-flower"><PipFigure mood="cheer" size={150} stage={3} /></div>
+  </div>
+}
+
 function Sheet() {
+  if (params.get('export')) return <Export />
   return <div className="sheet">
     {[34, 56, 150].map((size) => <div key={size}>
       <h2>Moods at {size}px</h2>
