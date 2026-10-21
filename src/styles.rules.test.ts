@@ -38,3 +38,21 @@ describe('stylesheet layout rules', () => {
     expect(phone).toMatch(/\.weight-row \.converted\s*\{[^}]*display:\s*block/)
   })
 })
+
+describe('trends cards fit a phone', () => {
+  it('lets_the_contributors_card_shrink_and_wrap_long_names', () => {
+    expect(declarations('.contributors-panel')).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/)
+    expect(declarations('.contributors-panel > *')).toMatch(/min-width:\s*0/)
+    expect(declarations('.contributors-panel .form-field select')).toMatch(/width:\s*100%/)
+    expect(declarations('.contributor-top span')).toMatch(/overflow-wrap:\s*anywhere/)
+    expect(declarations('.contributor-top span')).not.toMatch(/nowrap/)
+  })
+})
+
+describe('long unbroken text', () => {
+  it('wraps_entry_names_pip_bubble_toast_and_contributor_rows_anywhere', () => {
+    for (const selector of ['.entry-copy strong', '.mascot-bubble p', '.toast', '.contributor-top span']) {
+      expect(flat).toMatch(new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^{}]*\\{[^}]*overflow-wrap:\\s*anywhere`))
+    }
+  })
+})

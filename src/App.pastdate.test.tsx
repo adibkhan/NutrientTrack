@@ -75,29 +75,29 @@ async function quickAdd(user: User) {
 }
 
 describe('manual Log food on a past day', () => {
-  it('starts with no time and the other meal', async () => {
+  it('starts with no time and the meal from the clock', async () => {
     const user = await renderApp()
     await goBackOneDay(user)
     await openManual(user)
     expect((screen.getByLabelText(/Local time/) as HTMLInputElement).value).toBe('')
-    expect(checkedMeal()).toBe('other')
+    expect(checkedMeal()).toBe('breakfast')
   })
 
-  it('saves no time key, meal other and the viewed date', async () => {
+  it('saves no time key, the meal from the clock and the viewed date', async () => {
     const user = await renderApp()
     await goBackOneDay(user)
     await openManual(user)
     await fillAndSave(user)
     const result = saved()
     expect(result).not.toHaveProperty('time')
-    expect(result.meal).toBe('other')
+    expect(result.meal).toBe('breakfast')
     expect(result.date).toBe('2026-06-09')
   })
 
   it('uses the meal of the section it was opened from', async () => {
     const user = await renderApp()
     await goBackOneDay(user)
-    await user.click(screen.getAllByRole('button', { name: 'Add' })[1])
+    await user.click(screen.getAllByRole('button', { name: /^Add to / })[1])
     await user.click(await screen.findByRole('button', { name: /Manual quick add/ }))
     expect(checkedMeal()).toBe('lunch')
     expect((screen.getByLabelText(/Local time/) as HTMLInputElement).value).toBe('')
@@ -119,7 +119,7 @@ describe('manual Log food today', () => {
 
   it('lets a meal section override the guessed meal', async () => {
     const user = await renderApp()
-    await user.click(screen.getAllByRole('button', { name: 'Add' })[2])
+    await user.click(screen.getAllByRole('button', { name: /^Add to / })[2])
     await user.click(await screen.findByRole('button', { name: /Manual quick add/ }))
     expect(checkedMeal()).toBe('dinner')
     expect((screen.getByLabelText(/Local time/) as HTMLInputElement).value).toBe('08:15')
@@ -127,19 +127,19 @@ describe('manual Log food today', () => {
 })
 
 describe('quick-add', () => {
-  it('on a past day saves no time key and meal other', async () => {
+  it('on a past day saves no time key and the meal from the clock', async () => {
     const user = await renderApp()
     await goBackOneDay(user)
     await quickAdd(user)
     const result = saved()
     expect(result).not.toHaveProperty('time')
-    expect(result).toMatchObject({ meal: 'other', date: '2026-06-09', name: 'Yogurt' })
+    expect(result).toMatchObject({ meal: 'breakfast', date: '2026-06-09', name: 'Yogurt' })
   })
 
   it('on a past day from a meal section uses that meal', async () => {
     const user = await renderApp()
     await goBackOneDay(user)
-    await user.click(screen.getAllByRole('button', { name: 'Add' })[3])
+    await user.click(screen.getAllByRole('button', { name: /^Add to / })[3])
     await user.click(await screen.findByRole('tab', { name: /My foods/ }))
     await user.click(await screen.findByRole('button', { name: 'Quick add Yogurt' }))
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))

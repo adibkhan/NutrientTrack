@@ -26,6 +26,7 @@ afterEach(async () => {
 
 describe('local change queue', () => {
   it('queues a save with the record updatedAt as the change time', async () => {
+    await setMeta('everSynced', true)
     await saveEntry(entry('a', '2026-09-30T10:00:00.000Z'))
     expect(await getPendingChanges()).toEqual([
       { key: 'entries:a', store: 'entries', id: 'a', deleted: false, clientUpdatedAt: '2026-09-30T10:00:00.000Z' },
@@ -44,17 +45,20 @@ describe('local change queue', () => {
   })
 
   it('queues a weight save; weights now carry updatedAt', async () => {
+    await setMeta('everSynced', true)
     const weight: WeightEntry = { id: 'w', date: '2026-09-30', weight: 80, unit: 'kg', createdAt: '2026-09-30T08:00:00.000Z', updatedAt: '2026-09-30T09:00:00.000Z' }
     await saveWeight(weight)
     expect((await getPendingChanges())[0]).toMatchObject({ key: 'weights:w', clientUpdatedAt: '2026-09-30T09:00:00.000Z' })
   })
 
   it('queues every entry of a batch save', async () => {
+    await setMeta('everSynced', true)
     await saveEntries([entry('a', '2026-09-30T10:00:00.000Z'), entry('b', '2026-09-30T10:00:00.000Z')])
     expect(byKey(await getPendingChanges()).map((change) => change.key)).toEqual(['entries:a', 'entries:b'])
   })
 
   it('records neither the data nor the change when the write fails', async () => {
+    await setMeta('everSynced', true)
     const realPut = IDBObjectStore.prototype.put
     vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['put']>) {
       if (this.name === 'outbox') throw new DOMException('Simulated failure', 'InvalidStateError')
@@ -75,6 +79,7 @@ describe('acknowledging pushed changes', () => {
   })
 
   it('keeps a change that was replaced while the push was in flight', async () => {
+    await setMeta('everSynced', true)
     await saveEntry(entry('a', '2026-09-30T10:00:00.000Z'))
     const pushed = await getPendingChanges()
     await saveEntry(entry('a', '2026-09-30T11:00:00.000Z'))
@@ -94,6 +99,7 @@ describe('acknowledging pushed changes', () => {
 
 describe('restore and clear', () => {
   it('queues every restored record but never a cloud delete', async () => {
+    await setMeta('everSynced', true)
     await saveEntry(entry('only-local', '2026-09-30T10:00:00.000Z'))
     await acknowledgeChanges(await getPendingChanges())
     const backup = fixture()
@@ -115,7 +121,9 @@ describe('deleting on a device that never synced', () => {
   const weight: WeightEntry = { id: 'w', date: '2026-09-30', weight: 80, unit: 'kg', createdAt: '2026-09-30T08:00:00.000Z', updatedAt: '2026-09-30T09:00:00.000Z' }
 
   it('leaves no outbox row when a record with a pending save is deleted, and removes that pending save', async () => {
+    await setMeta('everSynced', true)
     await saveEntry(entry('a', '2026-09-30T10:00:00.000Z'))
+    await setMeta('everSynced', undefined)
     expect(await getPendingChanges()).toHaveLength(1)
     await deleteEntry('a')
     expect(await getEntries()).toEqual([])
@@ -140,6 +148,10 @@ describe('deleting on a device that never synced', () => {
   it('only drops the deleted record pending change, not other records', async () => {
     await saveEntry(entry('a', '2026-09-30T10:00:00.000Z'))
     await saveEntry(entry('b', '2026-09-30T10:00:00.000Z'))
+    await setMeta('everSynced', true)
+    await saveEntry(entry('a', '2026-09-30T10:00:00.000Z'))
+    await saveEntry(entry('b', '2026-09-30T10:00:00.000Z'))
+    await setMeta('everSynced', undefined)
     await deleteEntry('a')
     expect((await getPendingChanges()).map((change) => change.key)).toEqual(['entries:b'])
   })

@@ -526,6 +526,10 @@ strong { font-weight: 600; }
 .chart-trend-line { stroke: var(--accent); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; }
 .chart-area { fill: url(#chart-gradient); opacity: .12; }
 .chart-point { fill: var(--surface); stroke: var(--muted-light); stroke-width: 2; }
+.chart-axis-label { fill: var(--muted); font-size: 11px; }
+.food-list-controls { display: flex; gap: 8px; margin-bottom: 12px; }
+.food-list-controls .search-input-wrap { flex: 1; min-width: 0; }
+.food-list-controls select { height: var(--row); padding: 0 8px; border: 1px solid var(--line-input); border-radius: var(--radius-control); color: var(--ink); background: var(--surface); font-size: 14px; }
 .chart-labels { display: flex; justify-content: space-between; gap: 8px; margin-top: -4px; color: var(--muted); font-size: 12px; }
 .chart-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 0; color: var(--muted); font-size: 12px; }
 .chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -1008,14 +1012,18 @@ strong { font-weight: 600; }
 .reflux-finding-icon { flex: none; margin-top: 2px; color: var(--warn); }
 
 /* Nutrient contributors */
-.contributors-panel { margin-bottom: 12px; display: grid; gap: 10px; }
+.contributors-panel { margin-bottom: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
+.contributors-panel > * { min-width: 0; }
+.contributors-panel .panel-header > * { min-width: 0; }
+.contributors-panel .range-toggle { max-width: 100%; }
+.contributors-panel .form-field select { width: 100%; min-width: 0; }
 .contributors-panel .panel-header { margin-bottom: 0; }
 .contributor-average { margin: 0; color: var(--ink); font-size: 22px; font-weight: 700; letter-spacing: -.01em; line-height: 1.15; }
 .contributor-average small { margin-left: 2px; color: var(--muted); font-size: 13px; font-weight: 400; letter-spacing: 0; }
 .contributor-list { display: grid; gap: 10px; }
-.contributor-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; font-size: 13px; }
-.contributor-top span { min-width: 0; overflow: hidden; color: var(--ink); text-overflow: ellipsis; white-space: nowrap; }
-.contributor-top strong { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.contributor-top { display: flex; min-width: 0; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; font-size: 13px; }
+.contributor-top span { min-width: 0; color: var(--ink); overflow-wrap: anywhere; }
+.contributor-top strong { flex: none; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 
 /* Log by target */
 .target-solver { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface-row); }
@@ -1279,7 +1287,7 @@ strong { font-weight: 600; }
 .recap-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .recap-stats > div { display: grid; gap: 2px; padding: 10px 12px; border-radius: var(--radius-control); background: var(--surface-row); }
 .recap-stats span { color: var(--muted); font-size: 12px; }
-.recap-stats strong { color: var(--ink); font-size: 16px; font-variant-numeric: tabular-nums; }
+.recap-stats strong { min-width: 0; color: var(--ink); font-size: 16px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .recap-weight { margin: 10px 0 0; color: var(--ink-2); font-size: 13px; }
 .recap-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 12px; margin-top: 12px; }
 .recap-include { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; color: var(--ink-2); font-size: 13px; }
@@ -1417,3 +1425,11 @@ strong { font-weight: 600; }
   .meal-section-header .meal-add, .repeat-meal { min-height: 40px; }
   .diary-view-toggle button, .range-toggle button { min-height: 40px; }
 }
+
+/* QA batch B: long unbroken text never overflows; inline field and confirm messages. */
+.entry-copy strong, .meal-heading h3, .library-copy strong, .result-copy strong, .mascot-bubble p, .toast, .contributor-top span, .move-summary strong { overflow-wrap: anywhere; }
+.contributor-top span { white-space: normal; }
+.field-error { margin: 4px 0 0; color: var(--danger); font-size: 12px; font-weight: 500; line-height: 1.35; }
+.est-suffix input { text-align: left; }
+.inline-confirm { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface-soft); }
+.inline-confirm p { margin: 0; color: var(--ink); font-size: 14px; overflow-wrap: anywhere; }

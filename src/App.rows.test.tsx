@@ -80,8 +80,8 @@ describe('diary row meta line', () => {
     const meta = row.querySelector('.entry-meta') as HTMLElement
     expect(row.querySelector('.entry-time')?.textContent).toBe(formatClockTime('07:40'))
     expect(within(meta).getByText('80 g')).toBeTruthy()
-    expect(row.querySelector('.entry-macros-full')?.textContent).toBe('10.5g protein · 54g carbs · 5.2g fat')
-    expect(row.querySelector('.entry-macros-compact')?.textContent).toBe('10.5P · 54C · 5.2F')
+    expect(row.querySelector('.entry-macros-full')?.textContent).toBe('11g protein · 54g carbs · 5.2g fat')
+    expect(row.querySelector('.entry-macros-compact')?.textContent).toBe('11P · 54C · 5.2F')
     expect(row.querySelector('.entry-macros')?.children).toHaveLength(2)
   })
 

@@ -66,7 +66,7 @@ const savedEntry = () => m.saveEntry.mock.calls[0][0] as DiaryEntry & Record<str
 
 describe('editing an entry keeps fields this build does not know about', () => {
   it('keeps an unknown field on the saved entry', async () => {
-    m.getEntries.mockResolvedValue([withUnknown(baseEntry, { sodium: 120 })])
+    m.getEntries.mockResolvedValue([withUnknown(baseEntry, { futureThing: 'keep' })])
     const user = await renderApp()
     const dialog = await editEntry(user, 'Porridge')
     await user.clear(within(dialog).getByLabelText(/^Calories/))
@@ -74,7 +74,7 @@ describe('editing an entry keeps fields this build does not know about', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
-    expect(savedEntry()).toMatchObject({ id: 'e1', calories: 350, sodium: 120, createdAt: stamp })
+    expect(savedEntry()).toMatchObject({ id: 'e1', calories: 350, futureThing: 'keep', createdAt: stamp })
   })
 
   it('keeps catalogId, catalogSource and grams when a catalog entry is edited without touching its numbers', async () => {
@@ -89,13 +89,29 @@ describe('editing an entry keeps fields this build does not know about', () => {
     expect(saved.sodium).toBe(5)
   })
 
-  it('drops catalogId, catalogSource and grams once the calories are changed by hand, since they no longer describe the food', async () => {
+  it('scales grams and keeps the catalog link when only the calories change, since the numbers still describe the same food', async () => {
+    m.getEntries.mockResolvedValue([withUnknown({ ...baseEntry, name: 'Oats', catalogId: 'usda-1', catalogSource: 'USDA SR Legacy' as const, grams: 50 }, { sodium: 5 })])
+    const user = await renderApp()
+    const dialog = await editEntry(user, 'Oats')
+    const calories = within(dialog).getByLabelText(/^Calories/) as HTMLInputElement
+    await user.clear(calories)
+    await user.type(calories, '600')
+    await user.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
+    expect(savedEntry()).toMatchObject({ calories: 600, protein: 20, grams: 100, sodium: 10, catalogId: 'usda-1', catalogSource: 'USDA SR Legacy' })
+  })
+
+  it('drops catalogId, catalogSource and grams once the calories and macros are changed by hand, since they no longer describe the food', async () => {
     m.getEntries.mockResolvedValue([withUnknown({ ...baseEntry, name: 'Oats', catalogId: 'usda-1', catalogSource: 'USDA SR Legacy' as const, grams: 50 }, { sodium: 5 })])
     const user = await renderApp()
     const dialog = await editEntry(user, 'Oats')
     const calories = within(dialog).getByLabelText(/^Calories/) as HTMLInputElement
     await user.clear(calories)
     await user.type(calories, '999')
+    const protein = within(dialog).getByLabelText(/^Protein/) as HTMLInputElement
+    await user.clear(protein)
+    await user.type(protein, '12')
     await user.click(within(dialog).getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))

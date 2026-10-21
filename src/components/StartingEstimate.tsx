@@ -11,6 +11,8 @@ interface StartingEstimateProps {
   /** Latest trend weight in `unit`, to pre-fill the weight box. */
   trendWeight?: number
   program: Program | undefined
+  /** Start expanded, e.g. when arriving from the welcome card's estimate link. */
+  defaultOpen?: boolean
   /** Put a number into the calorie goal box. The goals form still has to be saved. */
   onUse: (calories: number) => void
 }
@@ -19,7 +21,8 @@ interface StartingEstimateProps {
  * An optional calculator for a first calorie target. The numbers typed here exist only while this box is open: nothing
  * is stored, synced or sent anywhere, and the result only fills the calorie box when asked.
  */
-export function StartingEstimate({ unit, trendWeight, program, onUse }: StartingEstimateProps) {
+export function StartingEstimate({ unit, trendWeight, program, defaultOpen, onUse }: StartingEstimateProps) {
+  const [open, setOpen] = useState(defaultOpen === true)
   const [formula, setFormula] = useState<'male' | 'female'>('female')
   const [age, setAge] = useState('')
   const [height, setHeight] = useState('')
@@ -37,7 +40,7 @@ export function StartingEstimate({ unit, trendWeight, program, onUse }: Starting
 
   return (
     // Enter in these boxes must not submit the goals form this sits inside.
-    <details className="starting-estimate" onKeyDown={(event) => { if (event.key === 'Enter' && event.target instanceof HTMLInputElement) event.preventDefault() }}>
+    <details className="starting-estimate" open={open} onToggle={(event) => setOpen(event.currentTarget.open)} onKeyDown={(event) => { if (event.key === 'Enter' && event.target instanceof HTMLInputElement) event.preventDefault() }}>
       <summary>Estimate a starting target <span>optional</span></summary>
       <div className="starting-estimate-body">
         <p className="field-hint">Type a few numbers to get a first guess. They are not saved. Once you have logged food and weight for about two weeks, NutrientTrack measures your real expenditure instead.</p>
@@ -49,9 +52,9 @@ export function StartingEstimate({ unit, trendWeight, program, onUse }: Starting
           </select>
         </div>
         <div className="goal-fields">
-          <div className="form-field"><label htmlFor="est-age">Age</label><input id="est-age" inputMode="numeric" min="0" placeholder="35" type="number" value={age} onChange={(event) => setAge(event.target.value)} /></div>
-          <div className="form-field"><label htmlFor="est-height">Height <span>{unit === 'lb' ? 'in' : 'cm'}</span></label><input id="est-height" inputMode="decimal" min="0" placeholder={unit === 'lb' ? '67' : '170'} type="number" value={height} onChange={(event) => setHeight(event.target.value)} /></div>
-          <div className="form-field"><label htmlFor="est-weight">Weight <span>{unit}</span></label><input id="est-weight" inputMode="decimal" min="0" placeholder={trendWeight === undefined ? '' : formatNumber(trendWeight, 1)} type="number" value={weight} onChange={(event) => setWeight(event.target.value)} /></div>
+          <div className="form-field"><label htmlFor="est-age">Age</label><div className="input-with-suffix wide est-suffix"><input id="est-age" inputMode="numeric" min="0" placeholder="e.g. 35" type="number" value={age} onChange={(event) => setAge(event.target.value)} /><span aria-hidden="true">yr</span></div></div>
+          <div className="form-field"><label htmlFor="est-height">Height <span>{unit === 'lb' ? 'in' : 'cm'}</span></label><div className="input-with-suffix wide est-suffix"><input id="est-height" inputMode="decimal" min="0" placeholder={unit === 'lb' ? 'e.g. 67' : 'e.g. 170'} type="number" value={height} onChange={(event) => setHeight(event.target.value)} /><span aria-hidden="true">{unit === 'lb' ? 'in' : 'cm'}</span></div></div>
+          <div className="form-field"><label htmlFor="est-weight">Weight <span>{unit}</span></label><div className="input-with-suffix wide est-suffix"><input id="est-weight" inputMode="decimal" min="0" placeholder={trendWeight === undefined ? (unit === 'lb' ? 'e.g. 150' : 'e.g. 70') : formatNumber(trendWeight, 1)} type="number" value={weight} onChange={(event) => setWeight(event.target.value)} /><span aria-hidden="true">{unit}</span></div></div>
         </div>
         <div className="form-field full">
           <label htmlFor="est-activity">Activity</label>

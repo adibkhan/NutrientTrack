@@ -35,3 +35,14 @@ describe('weeklyRecap', () => {
     expect(recap.trendChange).toBeGreaterThan(-1)
   })
 })
+
+describe('compactCount', () => {
+  it('keeps_short_numbers_and_abbreviates_big_ones_so_tiles_do_not_overflow', async () => {
+    const { compactCount } = await import('./recap')
+    expect(compactCount(2100)).toBe(new Intl.NumberFormat().format(2100))
+    expect(compactCount(12345)).toBe('12.3k')
+    expect(compactCount(999999)).toBe('1M')
+    expect(compactCount(1234567)).toBe('1.2M')
+    expect(compactCount(Number.POSITIVE_INFINITY)).toBe('—')
+  })
+})

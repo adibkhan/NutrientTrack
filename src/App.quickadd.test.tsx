@@ -130,7 +130,7 @@ describe('quick add from the Log food sheet', () => {
   it('keeps the explicit meal when opened from a per-meal Add', async () => {
     const user = await renderApp()
     const dinner = await screen.findByRole('region', { name: 'Dinner' })
-    await user.click(within(dinner).getByRole('button', { name: 'Add' }))
+    await user.click(within(dinner).getByRole('button', { name: /^Add to / }))
     await user.click(await screen.findByRole('tab', { name: /My foods/ }))
     await user.click(await screen.findByRole('button', { name: 'Quick add Protein bar' }))
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))

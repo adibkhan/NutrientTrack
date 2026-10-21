@@ -71,16 +71,24 @@ describe('editing an entry with servings and grams', () => {
     expect(saved()).toMatchObject({ servings: 2, grams: 200, calories: 600 })
   })
 
-  it('keeps_grams_when_calories_are_typed_by_hand_on_an_entry_with_servings', async () => {
+  it('scales_servings_and_grams_with_calories_typed_by_hand_when_no_macro_was_touched', async () => {
+    const user = await openEdit()
+    fireEvent.change(field('entry-calories'), { target: { value: '900' } })
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    expect(saved()).toMatchObject({ servings: 3, grams: 300, calories: 900, protein: 45 })
+  })
+
+  it('keeps_grams_when_calories_and_a_macro_are_typed_by_hand_on_an_entry_with_servings', async () => {
     const user = await openEdit()
     fireEvent.change(field('entry-calories'), { target: { value: '650' } })
+    fireEvent.change(field('entry-protein'), { target: { value: '33' } })
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
-    expect(saved()).toMatchObject({ servings: 2, grams: 200, calories: 650 })
+    expect(saved()).toMatchObject({ servings: 2, grams: 200, calories: 650, protein: 33 })
   })
 })
 
 describe('editing an entry with grams but no servings', () => {
-  it('drops_grams_when_calories_are_typed_by_hand', async () => {
+  it('drops_grams_when_calories_and_a_macro_are_typed_by_hand', async () => {
     const { servings: _unused, ...noServings } = entry()
     void _unused
     m.getEntries.mockResolvedValue([noServings as DiaryEntry])
@@ -90,6 +98,7 @@ describe('editing an entry with grams but no servings', () => {
     await user.click(first('Edit Stew'))
     await screen.findByLabelText('Food or meal name')
     fireEvent.change(field('entry-calories'), { target: { value: '650' } })
+    fireEvent.change(field('entry-protein'), { target: { value: '33' } })
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     const result = saved()
     expect(result.calories).toBe(650)

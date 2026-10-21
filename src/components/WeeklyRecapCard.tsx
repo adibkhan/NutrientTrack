@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import type { WeeklyRecap } from '../lib/recap'
+import { compactCount, type WeeklyRecap } from '../lib/recap'
 import { PIP_STAGES, type PipGrowth } from '../lib/pipGrowth'
 import { formatNumber, formatShortDate } from '../lib/utils'
 import { PipFigure } from './Mascot'
@@ -26,9 +26,9 @@ export function WeeklyRecapCard({ recap, growth, unit, onNotify }: WeeklyRecapCa
   const range = `${formatShortDate(recap.start)} – ${formatShortDate(recap.end)}`
   const stats = [
     { label: 'Days logged', value: `${recap.daysLogged}/7` },
-    { label: 'Foods logged', value: formatNumber(recap.foodsLogged) },
-    { label: 'Avg energy', value: recap.avgCalories === undefined ? '—' : `${formatNumber(recap.avgCalories)} kcal` },
-    { label: 'Avg protein', value: recap.avgProtein === undefined ? '—' : `${formatNumber(recap.avgProtein)} g` },
+    { label: 'Foods logged', value: compactCount(recap.foodsLogged) },
+    { label: 'Avg energy', value: recap.avgCalories === undefined ? '—' : `${compactCount(recap.avgCalories)} kcal` },
+    { label: 'Avg protein', value: recap.avgProtein === undefined ? '—' : `${compactCount(recap.avgProtein)} g` },
   ]
 
   const share = async () => {
@@ -181,7 +181,13 @@ async function drawRecap({ recap, range, stats, growthLabel, weight, pip }: { re
     context.font = font(30, 500)
     context.fillText(stat.label, x + 36, y + 62)
     context.fillStyle = colors.ink
-    context.font = font(58, 700)
+    // Shrink to fit the tile (410 wide, 36 padding each side) so a long number never runs over the edge.
+    let size = 58
+    context.font = font(size, 700)
+    while (size > 24 && context.measureText(stat.value).width > 338) {
+      size -= 2
+      context.font = font(size, 700)
+    }
     context.fillText(stat.value, x + 36, y + 142)
   })
 

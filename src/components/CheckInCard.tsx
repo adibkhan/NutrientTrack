@@ -1,4 +1,4 @@
-import { MIN_CHECKIN_DAYS, type CheckIn } from '../lib/program'
+import { MAX_CHECKIN_CHANGE_KCAL, MIN_CHECKIN_DAYS, type CheckIn } from '../lib/program'
 import { formatNumber, formatShortDate } from '../lib/utils'
 import { Icon } from './Icon'
 
@@ -30,6 +30,7 @@ export function CheckInCard({ checkIn, onAccept, onKeep }: CheckInCardProps) {
           {newBudget.protein !== undefined && <div className="stat-row"><span>Protein / carbs / fat</span><strong>{newBudget.protein} / {newBudget.carbs} / {newBudget.fat} g</strong></div>}
         </div>
       )}
+      {checkIn.limited && <p className="field-hint">Moving gradually: capped at {MAX_CHECKIN_CHANGE_KCAL} kcal this week.</p>}
       {newBudget?.floored && <p className="field-hint warn">This week's rate would go below the 1,200 kcal safety floor, so the new budget is held there.</p>}
       <div className="checkin-actions">
         <button className="button secondary" type="button" onClick={() => { void onKeep() }}>Keep current budget</button>

@@ -1,14 +1,16 @@
-const CACHE_NAME = 'nutrienttrack-shell-v9'
+const CACHE_NAME = 'nutrienttrack-shell-v10'
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icons/nutrienttrack-192.png',
   './icons/nutrienttrack-512.png',
-  './data/usda-common-v2.json',
   './fonts/ibm-plex-sans-latin.woff2',
   './fonts/ibm-plex-sans-latin-ext.woff2',
 ]
+
+// The 2 MB catalog is not part of install: it is fetched on first use or warmed after activation (invariant 7: keep the file name in step with src/catalog).
+const CATALOG = ['./data/usda-common-v2.json']
 
 const scopeUrl = () => new URL(self.registration.scope)
 const absoluteUrl = (path) => new URL(path, scopeUrl()).href
@@ -30,7 +32,8 @@ const cachePageAndAssets = async (cache, response) => {
   const assetUrls = pageAssetUrls(html)
   const cached = await Promise.all(assetUrls.map((url) => (isHashedAsset(url) ? cache.match(url) : undefined)))
   const missingUrls = assetUrls.filter((_, index) => !cached[index])
-  const assetResponses = await Promise.all(missingUrls.map((url) => fetch(url, { cache: 'no-store' })))
+  // Hashed files never change, so the browser's own cache may answer; other files revalidate. Only the page itself is fetched with no-store.
+  const assetResponses = await Promise.all(missingUrls.map((url) => (isHashedAsset(url) ? fetch(url) : fetch(url, { cache: 'no-cache' }))))
   if (assetResponses.some((assetResponse) => !assetResponse.ok)) throw new Error('A page asset could not be cached.')
 
   const indexUrl = absoluteUrl('./index.html')
@@ -50,12 +53,47 @@ self.addEventListener('install', (event) => {
   )
 })
 
+// Carry the catalog over from an older cache when its file name is unchanged, so an update does not download it again.
+const carryCatalog = async (previousKeys) => {
+  const cache = await caches.open(CACHE_NAME)
+  for (const path of CATALOG) {
+    const url = absoluteUrl(path)
+    if (await cache.match(url)) continue
+    for (const key of previousKeys) {
+      const response = await (await caches.open(key)).match(url)
+      if (response) {
+        await cache.put(url, response.clone())
+        break
+      }
+    }
+  }
+}
+
+// Fill the catalog in the background so offline search works once warmed.
+const warmCatalog = async () => {
+  const cache = await caches.open(CACHE_NAME)
+  for (const path of CATALOG) {
+    const url = absoluteUrl(path)
+    if (await cache.match(url)) continue
+    const response = await fetch(url)
+    if (response.ok) await cache.put(url, response.clone())
+  }
+}
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
-      .then(() => self.clients.claim()),
+      .then(async (keys) => {
+        const previous = keys.filter((key) => key !== CACHE_NAME)
+        await carryCatalog(previous).catch(() => undefined)
+        await Promise.all(previous.map((key) => caches.delete(key)))
+      })
+      .then(() => self.clients.claim())
+      .then(() => {
+        // Not awaited: activation must not wait on the catalog download.
+        warmCatalog().catch(() => undefined)
+      }),
   )
 })
 

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DiaryEntry, WeightEntry } from '../types'
 import {
   acknowledgeChanges, applyRemoteChanges, closeDatabase, deleteEntry, exportBackup, getEntries, getMeta, getPendingChanges, getWeights,
-  importBackup, saveEntry, saveWeight, type RemoteChange,
+  importBackup, saveEntry, saveWeight, setMeta, type RemoteChange,
 } from './db'
 import { RejectedRecordError, syncOnce, type OutgoingChange, type SyncBackend } from './sync'
 
@@ -273,6 +273,7 @@ describe('failures and accounts', () => {
   it('keeps the outbox and local data when the push fails, then succeeds next time', async () => {
     const backend = new FakeBackend()
     await useDevice('a')
+    await setMeta('everSynced', true)
     await saveEntry(entry('e1', T(1)))
     await saveEntry(entry('e2', T(2)))
     const before = await getPendingChanges()
@@ -469,6 +470,7 @@ describe('records the server will never accept', () => {
     const backend = new FakeBackend()
     await backend.push([{ store: 'entries', id: 'remote', data: entry('remote', T(1)) as unknown as Record<string, unknown>, deleted: false, client_updated_at: T(1) }])
     await useDevice('a')
+    await setMeta('everSynced', true)
     await saveEntry(entry('e1', T(1)))
     await saveEntry(entry('e2', T(2)))
     const before = await getPendingChanges()

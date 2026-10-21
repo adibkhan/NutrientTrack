@@ -47,3 +47,13 @@ export const weeklyRecap = (entries: DiaryEntry[], weights: WeightEntry[], today
     trendChange,
   }
 }
+
+/** Whole-number display that stays short: 9,800 stays as is, 12345 becomes 12.3k, 1234567 becomes 1.2M. */
+export const compactCount = (value: number): string => {
+  if (!Number.isFinite(value)) return '—'
+  const abs = Math.abs(value)
+  const trim = (n: number) => String(Math.round(n * 10) / 10)
+  if (abs >= 999_950) return `${trim(value / 1_000_000)}M`
+  if (abs >= 10_000) return `${trim(value / 1000)}k`
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value)
+}

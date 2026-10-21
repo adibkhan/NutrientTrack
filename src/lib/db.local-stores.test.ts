@@ -99,6 +99,7 @@ describe('water and measurements never reach the sync outbox', () => {
   })
 
   it('still queues diary entries, so the outbox itself works', async () => {
+    await setMeta('everSynced', true)
     await saveEntry(entry('e1'))
     expect((await getPendingChanges()).map((change) => change.key)).toEqual(['entries:e1'])
   })

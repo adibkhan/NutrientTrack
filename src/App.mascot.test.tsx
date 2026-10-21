@@ -118,7 +118,7 @@ describe('compact empty meals', () => {
     await renderApp()
     const dinner = screen.getByRole('heading', { name: 'Dinner', level: 3 }).closest('section') as HTMLElement
     expect(dinner.classList.contains('is-empty')).toBe(true)
-    expect(within(dinner).getByRole('button', { name: 'Add' })).toBeTruthy()
+    expect(within(dinner).getByRole('button', { name: /^Add to / })).toBeTruthy()
     expect(dinner.querySelector('.meal-subtotal')).toBeNull()
     expect(within(dinner).queryByText('Add a food to start this section.')).toBeNull()
     const lunch = screen.getByRole('heading', { name: 'Lunch', level: 3 }).closest('section') as HTMLElement

@@ -250,17 +250,18 @@ describe('editing an existing entry', () => {
     expect(saved()).toMatchObject({ servings: 2, calories: 600, futureField: 'x' })
   })
 
-  it('shows no stepper for an entry without servings and keeps macros as typed', async () => {
+  it('shows no stepper for an entry without servings and keeps hand-typed macros', async () => {
     entries = [entry({ futureField: 'x' })]
     const user = await renderApp()
     await user.click(first('Edit Stew'))
     await screen.findByLabelText('Food or meal name')
     expect(screen.queryByLabelText('Servings')).toBeNull()
     fireEvent.change(field('entry-calories'), { target: { value: '650' } })
+    fireEvent.change(field('entry-protein'), { target: { value: '31' } })
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     const result = saved()
     expect(result).not.toHaveProperty('servings')
-    expect(result).toMatchObject({ calories: 650, protein: 30, futureField: 'x' })
+    expect(result).toMatchObject({ calories: 650, protein: 31, futureField: 'x' })
   })
 })
 
@@ -271,7 +272,7 @@ describe('modes without a stepper', () => {
     await user.click(await screen.findByRole('button', { name: /Manual quick add/ }))
     expect(screen.queryByLabelText('Servings')).toBeNull()
     await user.type(screen.getByLabelText('Food or meal name'), 'Toast')
-    await user.type(field('entry-calories'), '120')
+    fireEvent.change(field('entry-calories'), { target: { value: '120' } })
     await user.click(screen.getByRole('button', { name: 'Add to diary' }))
     expect(saved()).not.toHaveProperty('servings')
   })
@@ -285,7 +286,7 @@ describe('modes without a stepper', () => {
     await user.click(await screen.findByRole('button', { name: /Manual quick add/ }))
     expect(screen.queryByLabelText('Servings')).toBeNull()
     await user.type(screen.getByLabelText('Food or meal name'), 'Toast')
-    await user.type(field('entry-calories'), '120')
+    fireEvent.change(field('entry-calories'), { target: { value: '120' } })
     await user.click(screen.getByRole('button', { name: 'Add to diary' }))
     expect(saved()).not.toHaveProperty('servings')
   })

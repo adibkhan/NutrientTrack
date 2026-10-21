@@ -102,7 +102,7 @@ describe('logger defaults the meal from the time of day', () => {
   it('keeps lunch when the per-meal Add for Lunch is used at 08:15', async () => {
     const user = await renderApp()
     const lunch = await screen.findByRole('region', { name: 'Lunch' })
-    await user.click(within(lunch).getByRole('button', { name: 'Add' }))
+    await user.click(within(lunch).getByRole('button', { name: /^Add to / }))
     await user.click(await screen.findByRole('button', { name: /Manual quick add/ }))
     expect(await destinationMeal()).toBe('lunch')
   })

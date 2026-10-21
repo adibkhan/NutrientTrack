@@ -152,15 +152,15 @@ describe('Settings: starting estimate', () => {
 
     stored = settingsRecord({ weightUnit: 'kg' })
     const kgUser = await openSettings()
-    expect(screen.getByText('cm', { selector: '#est-height ~ *, label span' })).toBeTruthy()
+    expect(screen.getByText('cm', { selector: 'label span' })).toBeTruthy()
     await type(kgUser, '35', String(67 * CM_PER_INCH), String(154 / LB_PER_KG))
     expect(screen.getByText('Estimated maintenance').nextElementSibling?.textContent).toBe(lbText)
-    expect(height().placeholder).toBe('170')
+    expect(height().placeholder).toBe('e.g. 170')
   })
 
   it('shows inches in the height label for pounds users', async () => {
     await openSettings()
-    expect(height().placeholder).toBe('67')
+    expect(height().placeholder).toBe('e.g. 67')
     expect(screen.getByText('in', { selector: 'label span' })).toBeTruthy()
   })
 

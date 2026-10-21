@@ -78,24 +78,26 @@ const save = (user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement) => 
 
 describe('logging a new weight on a day that already has one', () => {
   it('asks_with_the_existing_value_unit_and_date', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    await logNew([rec('a', day1, 180)], day1, '175')
-    await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1))
-    expect(confirm).toHaveBeenCalledWith(`Replace the 180 lb weigh-in already saved for ${formatShortDate(day1)}?`)
+    const confirm = vi.spyOn(window, 'confirm')
+    const dialog = await logNew([rec('a', day1, 180)], day1, '175')
+    expect(await within(dialog).findByText(`You already logged 180 lb on ${formatShortDate(day1)}. Replace it?`)).toBeTruthy()
+    expect(confirm).not.toHaveBeenCalled()
   })
 
   it('saves_nothing_and_keeps_the_dialog_open_when_declined', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const user = userEvent.setup()
     const dialog = await logNew([rec('a', day1, 180)], day1, '175')
-    await waitFor(() => expect(confirm).toHaveBeenCalled())
+    await user.click(await within(dialog).findByRole('button', { name: 'Cancel' }))
     expect(m.saveWeight).not.toHaveBeenCalled()
     expect(m.deleteWeight).not.toHaveBeenCalled()
     expect(screen.getByRole('dialog')).toBe(dialog)
+    expect((within(dialog).getByLabelText('Weight') as HTMLInputElement).value).toBe('175')
+    expect(screen.queryByText('Weight entry saved.')).toBeNull()
   })
 
   it('replaces_the_record_keeping_id_createdAt_and_unknown_fields_when_accepted', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
-    await logNew([rec('a', day1, 180, { futureField: { keep: 'me' } })], day1, '175')
+    const dialog = await logNew([rec('a', day1, 180, { futureField: { keep: 'me' } })], day1, '175')
+    await userEvent.setup().click(await within(dialog).findByRole('button', { name: 'Replace' }))
     await waitFor(() => expect(m.saveWeight).toHaveBeenCalledTimes(1))
     expect(m.saveWeight.mock.calls[0][0]).toMatchObject({ id: 'a', createdAt: '2026-01-01T00:00:00.000Z', weight: 175, date: day1, futureField: { keep: 'me' } })
     expect(m.deleteWeight).not.toHaveBeenCalled()
@@ -115,31 +117,30 @@ describe('editing a weigh-in', () => {
   const stored = () => [rec('own', day2, 181), rec('other', day1, 179)]
 
   it('saves_the_edited_record_and_deletes_the_displaced_one_when_moved_onto_another_records_day', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const { user, dialog } = await openEdit(stored(), day2, day1)
     await save(user, dialog)
+    expect(await within(dialog).findByText(`You already logged 179 lb on ${formatShortDate(day1)}. Replace it?`)).toBeTruthy()
+    await user.click(within(dialog).getByRole('button', { name: 'Replace' }))
     await waitFor(() => expect(m.deleteWeight).toHaveBeenCalledTimes(1))
-    expect(confirm).toHaveBeenCalledWith(`Replace the 179 lb weigh-in already saved for ${formatShortDate(day1)}?`)
     expect(m.saveWeight.mock.calls[0][0]).toMatchObject({ id: 'own', date: day1, weight: 181 })
     expect(m.deleteWeight).toHaveBeenCalledWith('other')
   })
 
   it('changes_nothing_when_the_move_is_declined', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     const { user, dialog } = await openEdit(stored(), day2, day1)
     await save(user, dialog)
-    await waitFor(() => expect(confirm).toHaveBeenCalled())
+    await user.click(await within(dialog).findByRole('button', { name: 'Cancel' }))
     expect(m.saveWeight).not.toHaveBeenCalled()
     expect(m.deleteWeight).not.toHaveBeenCalled()
     expect(screen.getByRole('dialog')).toBeTruthy()
   })
 
   it('refreshes_closes_and_reports_an_error_when_removing_the_displaced_record_fails', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     m.deleteWeight.mockRejectedValue(new Error('disk'))
     const { user, dialog } = await openEdit(stored(), day2, day1)
     const before = m.getWeights.mock.calls.length
     await save(user, dialog)
+    await user.click(await within(dialog).findByRole('button', { name: 'Replace' }))
     await waitFor(() => expect(m.deleteWeight).toHaveBeenCalled())
     await waitFor(() => expect(m.getWeights.mock.calls.length).toBeGreaterThan(before))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())

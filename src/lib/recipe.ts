@@ -1,5 +1,5 @@
 import type { CatalogFood } from '../catalog/types'
-import { resolveDescription, type DescribedItem, type ResolvedItem } from './describe'
+import { resolveDescription, splitDescription, type DescribedItem, type ResolvedItem } from './describe'
 
 /**
  * The recipe calorie calculator page: ingredients typed one per line become catalog foods with gram amounts, the
@@ -13,15 +13,40 @@ export interface RecipeTotals {
   fat: number
 }
 
+/** A line that was read but cannot be used, with the reason to show next to it. */
+export interface RecipeProblem {
+  text: string
+  message: string
+}
+
 export interface RecipeResult {
   resolved: ResolvedItem[]
   unmatched: DescribedItem[]
+  /** Lines with a negative, scientific or oversized amount: named separately from plain "No match". */
+  problems: RecipeProblem[]
+  /** How many non-empty lines were left unread because of MAX_LINES. */
+  ignoredLines: number
   servings: number
   total: RecipeTotals
   perServing: RecipeTotals
 }
 
 export const MAX_SERVINGS = 200
+export const MAX_LINES = 100
+/** One ingredient above 20 kg is a typo, not a recipe. */
+export const MAX_INGREDIENT_GRAMS = 20_000
+
+export const MSG_TOO_LARGE = 'That amount looks too large'
+export const MSG_NEGATIVE = 'Amounts cannot be negative'
+export const MSG_SCIENTIFIC = 'Write the amount as a plain number, not scientific notation'
+
+/** What is wrong with the amount at the start of an ingredient, if anything. */
+const amountProblem = (text: string): string | undefined => {
+  const start = text.trim()
+  if (/^[-\u2212\u2013]\s*\.?\d/.test(start)) return MSG_NEGATIVE
+  if (/^\+?\.?\d+(\.\d*)?e[-+]?\d/i.test(start)) return MSG_SCIENTIFIC
+  return undefined
+}
 
 export const clampServings = (value: number): number => (Number.isFinite(value) && value >= 1 ? Math.min(MAX_SERVINGS, Math.round(value)) : 1)
 
@@ -34,9 +59,23 @@ const scale = (food: CatalogFood, grams: number): RecipeTotals => ({
 
 export const ingredientTotals = (item: ResolvedItem): RecipeTotals => scale(item.food, item.grams)
 
-/** One ingredient per line. Commas inside a line still split, so "salt, pepper" on one line is two ingredients. */
+/** One ingredient per line, at most MAX_LINES lines. Commas inside a line still split, so "salt, pepper" on one line is two ingredients. */
 export const calculateRecipe = (text: string, servings: number, catalog: CatalogFood[], skipped: ReadonlySet<number> = new Set()): RecipeResult => {
-  const { resolved: all, unmatched } = resolveDescription(text, catalog)
+  const lines = text.split('\n').filter((line) => line.trim())
+  const ignoredLines = Math.max(0, lines.length - MAX_LINES)
+  const problems: RecipeProblem[] = []
+  const usable: string[] = []
+  for (const item of splitDescription(lines.slice(0, MAX_LINES).join('\n'))) {
+    const message = amountProblem(item.text)
+    if (message) problems.push({ text: item.text, message })
+    else usable.push(item.text)
+  }
+  const { resolved: matched, unmatched } = resolveDescription(usable.join('\n'), catalog)
+  const all = matched.filter((item) => {
+    if (Number.isFinite(item.grams) && item.grams >= 0 && item.grams <= MAX_INGREDIENT_GRAMS) return true
+    problems.push({ text: item.item.text, message: MSG_TOO_LARGE })
+    return false
+  })
   const resolved = all.filter((_, index) => !skipped.has(index))
   const count = clampServings(servings)
   const total = resolved.reduce<RecipeTotals>((sum, item) => {
@@ -44,7 +83,7 @@ export const calculateRecipe = (text: string, servings: number, catalog: Catalog
     return { calories: sum.calories + part.calories, protein: sum.protein + part.protein, carbs: sum.carbs + part.carbs, fat: sum.fat + part.fat }
   }, { calories: 0, protein: 0, carbs: 0, fat: 0 })
   const perServing = { calories: total.calories / count, protein: total.protein / count, carbs: total.carbs / count, fat: total.fat / count }
-  return { resolved: all, unmatched, servings: count, total, perServing }
+  return { resolved: all, unmatched, problems, ignoredLines, servings: count, total, perServing }
 }
 
 /** The recipe in the page address, so a link to it brings the same ingredients back: #i=<lines>&s=<servings>. */
@@ -65,9 +104,12 @@ export const decodeRecipeHash = (hash: string): { text: string; servings: number
   return { text, servings: clampServings(Number(params.get('s') ?? 1)) }
 }
 
+// Always a plain decimal: never Infinity, NaN or exponent notation, whatever the inputs were.
 const round = (value: number, digits = 0) => {
+  if (!Number.isFinite(value)) return 0
   const factor = 10 ** digits
-  return Math.round(value * factor) / factor
+  const rounded = Math.round(value * factor) / factor
+  return Math.abs(rounded) < 1e15 ? rounded : 0
 }
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character)
 

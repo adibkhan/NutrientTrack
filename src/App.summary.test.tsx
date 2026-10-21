@@ -258,7 +258,7 @@ describe('diary add controls', () => {
   it('keeps the per-meal Add buttons, one per meal, and one opens the Log food dialog', async () => {
     const user = userEvent.setup()
     await renderApp()
-    const adds = screen.getAllByRole('button', { name: 'Add' })
+    const adds = screen.getAllByRole('button', { name: /^Add to / })
     expect(adds).toHaveLength(4)
     await user.click(adds[0])
     expect(await screen.findByRole('dialog')).toBeTruthy()

@@ -126,6 +126,17 @@ const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, 
 const singular = (word: string) => (word.endsWith('ies') ? `${word.slice(0, -3)}y` : word.endsWith('oes') ? word.slice(0, -2) : word.endsWith('s') && !word.endsWith('ss') ? word.slice(0, -1) : word)
 const PENALTY_WORDS = ['canned', 'frozen', 'dried', 'dehydrated', 'powder', 'babyfood', 'baby', 'infant', 'juice', 'concentrate', 'sweetened', 'syrup', 'imitation', 'restaurant', 'fast', 'mix', 'unprepared', 'flavored', 'substitute', 'school', 'formulated']
 
+// Singular name tokens per food, computed once: matching a long ingredient list otherwise re-normalises the whole catalog for every line.
+const nameTokenCache = new WeakMap<CatalogFood, string[]>()
+const nameTokensOf = (food: CatalogFood) => {
+  let tokens = nameTokenCache.get(food)
+  if (!tokens) {
+    tokens = normalize(food.name).split(' ').map(singular)
+    nameTokenCache.set(food, tokens)
+  }
+  return tokens
+}
+
 /** Best catalog food for a short query: an alias first, then a word match that prefers plain, whole foods. */
 export const matchFood = (query: string, catalog: CatalogFood[]): CatalogFood | undefined => {
   const cleaned = normalize(query)
@@ -139,7 +150,7 @@ export const matchFood = (query: string, catalog: CatalogFood[]): CatalogFood | 
   if (tokens.length === 0) return undefined
   let best: { food: CatalogFood; score: number } | undefined
   for (const food of catalog) {
-    const nameTokens = normalize(food.name).split(' ').map(singular)
+    const nameTokens = nameTokensOf(food)
     const positions = tokens.map((token) => nameTokens.findIndex((nameToken) => nameToken === token || nameToken.startsWith(token)))
     if (positions.some((position) => position < 0)) continue
     let score = positions.reduce((sum, position) => sum + position, 0) * 4 + nameTokens.length

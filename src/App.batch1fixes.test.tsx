@@ -187,11 +187,11 @@ describe('4. Same-day weigh-ins', () => {
   const existing = () => weigh(today, 180, { id: 'w-existing', note: 'old', futureField: { keep: 'me' } })
 
   it('replaces the weigh-in on that date after confirmation, keeping its id, createdAt and unknown fields', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     m.getWeights.mockResolvedValue([existing()])
     const user = await renderApp()
     await user.click(first('Trends'))
     await logWeight(user, '81.5', today, { unit: 'kg' })
+    await user.click(await screen.findByRole('button', { name: 'Replace' }))
     await waitFor(() => expect(m.saveWeight).toHaveBeenCalledTimes(1))
     const saved = m.saveWeight.mock.calls[0][0] as WeightEntry & Extra
     expect(saved).toMatchObject({ id: 'w-existing', createdAt: stamp, date: today, weight: 81.5, unit: 'kg', futureField: { keep: 'me' } })

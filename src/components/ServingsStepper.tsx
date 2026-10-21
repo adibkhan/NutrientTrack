@@ -1,11 +1,12 @@
 interface ServingsStepperProps {
   value: string
   hint?: string
+  error?: string
   onChange: (value: string) => void
 }
 
 /** Half-serving steps around a free-typed amount, for foods that already carry their nutrition per serving. */
-export function ServingsStepper({ value, hint, onChange }: ServingsStepperProps) {
+export function ServingsStepper({ value, hint, error, onChange }: ServingsStepperProps) {
   const amount = Number(value)
   const valid = value.trim() !== '' && Number.isFinite(amount) && amount > 0
   return (
@@ -15,11 +16,12 @@ export function ServingsStepper({ value, hint, onChange }: ServingsStepperProps)
         <div className="grams-stepper">
           <button className="icon-button" type="button" aria-label="Half a serving less" disabled={!valid || amount <= 0.5} onClick={() => onChange(String(Math.max(0.5, Math.round((amount - 0.5) * 100) / 100)))}>−</button>
           <div className="input-with-suffix">
-            <input id="entry-servings" inputMode="decimal" min="0" step="any" type="number" value={value} onChange={(event) => onChange(event.target.value)} />
+            <input id="entry-servings" aria-invalid={error ? true : undefined} aria-describedby={error ? 'entry-servings-error' : undefined} inputMode="decimal" min="0" step="any" type="number" value={value} onChange={(event) => onChange(event.target.value)} />
           </div>
           <button className="icon-button" type="button" aria-label="Half a serving more" onClick={() => onChange(String(Math.round(((valid ? amount : 0) + 0.5) * 100) / 100))}>+</button>
         </div>
       </div>
+      {error && <p className="field-error" id="entry-servings-error" role="alert">{error}</p>}
       {hint && <p className="field-hint">{hint}</p>}
     </div>
   )

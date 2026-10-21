@@ -253,7 +253,11 @@ describe('buildCheckIn', () => {
   })
 
   it('says the budget rises when the new budget is higher than the current one', () => {
-    expect(buildCheckIn(steadyEntries, steadyWeights, settings(lose, 1500), WEDNESDAY)?.headline).toBe('The budget rises by 300 kcal.')
+    // The program asks for +300 (1500 to 1800), but one check-in moves at most 250.
+    const review = buildCheckIn(steadyEntries, steadyWeights, settings(lose, 1500), WEDNESDAY)
+    expect(review?.headline).toBe('The budget rises by 250 kcal.')
+    expect(review?.newBudget?.calories).toBe(1750)
+    expect(review?.limited).toBe(true)
   })
 
   it('says on track when the new budget equals the current one', () => {

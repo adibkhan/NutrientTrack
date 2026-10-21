@@ -12,7 +12,7 @@ interface ParsedFile {
 interface ImportPanelProps {
   defaultUnit: 'lb' | 'kg'
   /** Saves what was read; resolves with how many entries and weigh-ins were new. */
-  onImport: (entries: ImportedEntry[], weights: ImportedWeight[]) => Promise<{ entries: number; weights: number }>
+  onImport: (entries: ImportedEntry[], weights: ImportedWeight[]) => Promise<{ entries: number; weights: number; duplicates?: number }>
 }
 
 const FORMAT_LABELS: Record<ImportFormat, [string, string]> = {
@@ -46,7 +46,7 @@ export function ImportPanel({ defaultUnit, onImport }: ImportPanelProps) {
     setBusy(true)
     try {
       const saved = await onImport(entries, weights)
-      setResult(`Imported ${saved.entries} ${saved.entries === 1 ? 'entry' : 'entries'} and ${saved.weights} ${saved.weights === 1 ? 'weigh-in' : 'weigh-ins'}.${saved.entries < entries.length || saved.weights < weights.length ? ' Anything already here was skipped.' : ''}`)
+      setResult(`Imported ${saved.entries} ${saved.entries === 1 ? 'entry' : 'entries'} and ${saved.weights} ${saved.weights === 1 ? 'weigh-in' : 'weigh-ins'}.${saved.entries < entries.length || saved.weights < weights.length ? ' Anything already here was skipped.' : ''}${saved.duplicates ? ` Skipped ${saved.duplicates} ${saved.duplicates === 1 ? 'entry' : 'entries'} already in your diary.` : ''}`)
       setFiles([])
       if (inputRef.current) inputRef.current.value = ''
     } catch {

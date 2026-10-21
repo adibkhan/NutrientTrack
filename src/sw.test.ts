@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import swSource from '../public/sw.js?raw'
 
 const SCOPE = 'https://app.test/'
-const CACHE_NAME = 'nutrienttrack-shell-v9'
+const CACHE_NAME = 'nutrienttrack-shell-v10'
 const JS = `${SCOPE}assets/index-abc123.js`
 const CSS = `${SCOPE}assets/index-abc123.css`
 const MANIFEST = `${SCOPE}manifest.webmanifest`
@@ -52,9 +52,11 @@ const loadWorker = (source: string = swSource) => {
   }
   const fetched: string[] = []
   const routes = new Map<string, Responder>()
-  const fakeFetch = (input: Keyed) => {
+  const fetchInit = new Map<string, RequestInit | undefined>()
+  const fakeFetch = (input: Keyed, init?: RequestInit) => {
     const url = keyOf(input)
     fetched.push(url)
+    fetchInit.set(url, init)
     return (routes.get(url) ?? (() => ok()))(url)
   }
   new Function('self', 'caches', 'fetch', 'Response', 'URL', source)(self, caches, fakeFetch, Response, URL)
@@ -69,9 +71,16 @@ const loadWorker = (source: string = swSource) => {
     })
     return { responded: responded as Promise<Response>, waits }
   }
+  const lifecycle = (type: 'install' | 'activate') => {
+    const waits: Promise<unknown>[] = []
+    handlers[type]({ request: { method: 'GET', mode: 'cors', url: '' }, respondWith: () => {}, waitUntil: (p) => void waits.push(p) })
+    return Promise.all(waits)
+  }
   return {
     store,
     fetched,
+    fetchInit,
+    lifecycle,
     dispatch,
     route: (url: string, r: Responder) => void routes.set(url, r),
   }
@@ -212,5 +221,64 @@ describe('static food pages', () => {
     }
     await flush()
     expect(await text(INDEX, w)).toContain('old')
+  })
+})
+
+describe('service worker install and warm-up', () => {
+  const CATALOG = `${SCOPE}data/usda-common-v2.json`
+  const CHUNK = `${SCOPE}assets/supabase-9f8e7d.js`
+  const installed = async () => {
+    const w = loadWorker()
+    w.route(INDEX, () => ok(pageHtml('new')))
+    await w.lifecycle('install')
+    return w
+  }
+
+  it('uses_the_v10_cache', () => {
+    expect(swSource).toContain("nutrienttrack-shell-v10")
+  })
+
+  it('install_fetches_only_the_page_with_no_store_and_leaves_the_catalog_out', async () => {
+    const w = await installed()
+    expect(w.fetchInit.get(INDEX)).toMatchObject({ cache: 'no-store' })
+    expect(w.fetchInit.get(JS)?.cache).toBeUndefined()
+    expect(w.fetchInit.get(CSS)?.cache).toBeUndefined()
+    expect(w.fetched).not.toContain(CATALOG)
+    for (const url of [JS, CSS, INDEX]) expect(w.store.has(url)).toBe(true)
+  })
+
+  it('warms_the_catalog_after_activation_without_blocking_it', async () => {
+    const w = await installed()
+    let release: (r: Response) => void = () => {}
+    w.route(CATALOG, () => new Promise<Response>((resolve) => { release = resolve }))
+    const activated = await within(w.lifecycle('activate'))
+    expect(activated).not.toBe(TIMEOUT)
+    await flush()
+    expect(w.fetched).toContain(CATALOG)
+    expect(w.store.has(CATALOG)).toBe(false)
+    release(new Response('[]', { status: 200 }))
+    await flush()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(w.store.has(CATALOG)).toBe(true)
+  })
+
+  it('serves_the_catalog_offline_once_warmed_and_caches_it_on_first_fetch_otherwise', async () => {
+    const w = await installed()
+    w.route(CATALOG, () => ok('[1]'))
+    const first = await w.dispatch(CATALOG, 'cors').responded
+    expect(await first.text()).toBe('[1]')
+    await flush()
+    expect(w.store.has(CATALOG)).toBe(true)
+    w.route(CATALOG, () => Promise.reject(new TypeError('offline')))
+    const second = await w.dispatch(CATALOG, 'cors').responded
+    expect(await second.text()).toBe('[1]')
+  })
+
+  it('runtime_caches_a_lazy_chunk_on_first_fetch', async () => {
+    const w = await installed()
+    w.route(CHUNK, () => ok('chunk'))
+    expect(await (await w.dispatch(CHUNK, 'cors').responded).text()).toBe('chunk')
+    await flush()
+    expect(await text(CHUNK, w)).toBe('chunk')
   })
 })

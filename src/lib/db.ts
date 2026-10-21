@@ -75,15 +75,39 @@ export const onDatabaseEvent = (listener: (event: DatabaseEvent) => void): (() =
 
 const notify = (event: DatabaseEvent) => databaseListeners.forEach((listener) => listener(event))
 
-const localChangeListeners = new Set<() => void>()
+/** 'local': this tab wrote and queued a change for sync. 'remote': another tab wrote, so this tab's copy of the data is stale. */
+export type LocalChangeSource = 'local' | 'remote'
 
-/** Called after any local write that queued a change for sync. Returns an unsubscribe function. */
-export const onLocalChange = (listener: () => void): (() => void) => {
+const localChangeListeners = new Set<(source: LocalChangeSource) => void>()
+
+/** Called after a local write that queued a change for sync, and (source 'remote') after another tab committed a write. Returns an unsubscribe function. */
+export const onLocalChange = (listener: (source: LocalChangeSource) => void): (() => void) => {
   localChangeListeners.add(listener)
+  openChannel()
   return () => localChangeListeners.delete(listener)
 }
 
-const notifyLocalChange = () => localChangeListeners.forEach((listener) => listener())
+const notifyLocalChange = (source: LocalChangeSource = 'local') => localChangeListeners.forEach((listener) => listener(source))
+
+let channel: BroadcastChannel | null = null
+
+/** Other tabs of this origin hear about committed writes here. Absent (old browsers, tests) means no cross-tab refresh. */
+const openChannel = (): BroadcastChannel | null => {
+  if (channel) return channel
+  if (typeof BroadcastChannel === 'undefined') return null
+  try {
+    channel = new BroadcastChannel(DB_NAME)
+    channel.addEventListener('message', () => notifyLocalChange('remote'))
+    ;(channel as BroadcastChannel & { unref?: () => void }).unref?.()
+  } catch {
+    channel = null
+  }
+  return channel
+}
+
+const announceWrite = () => {
+  try { openChannel()?.postMessage('changed') } catch { /* a closed channel must never fail a committed write */ }
+}
 
 let databasePromise: Promise<IDBDatabase> | null = null
 
@@ -121,6 +145,8 @@ const openDatabase = (): Promise<IDBDatabase> => {
 
 /** Close the shared connection. Used by tests and before replacing the database. */
 export const closeDatabase = async (): Promise<void> => {
+  channel?.close()
+  channel = null
   const pending = databasePromise
   databasePromise = null
   if (pending) (await pending.catch(() => undefined))?.close()
@@ -150,13 +176,19 @@ const queueOrAbort = (transaction: IDBTransaction, work: () => void) => {
 }
 
 /** Run `work` in one transaction: aborts if queuing throws, resolves once it commits, rejects if it aborts. */
-const runTransaction = async (storeNames: string[], mode: IDBTransactionMode, work: (transaction: IDBTransaction) => void): Promise<void> => {
+const runTransaction = async (
+  storeNames: string[],
+  mode: IDBTransactionMode,
+  work: (transaction: IDBTransaction) => void,
+  broadcast = mode === 'readwrite' && storeNames.some((name) => name !== 'outbox' && name !== 'meta'),
+): Promise<void> => {
   const database = await openDatabase()
   const transaction = database.transaction(storeNames, mode)
   const completion = transactionToPromise(transaction)
   completion.catch(() => undefined)
   queueOrAbort(transaction, () => work(transaction))
   await completion
+  if (broadcast) announceWrite()
 }
 
 const changeFor = (store: StoreName, record: { id: string; updatedAt?: string }, deleted = false): PendingChange => ({
@@ -173,27 +205,80 @@ const getAll = async <T>(storeName: StoreName | LocalStoreName | 'outbox'): Prom
   return requestToPromise(transaction.objectStore(storeName).getAll())
 }
 
-/** Run writes to a store and record their pending sync changes in the same transaction, so neither can be lost alone. */
-const writeWithChanges = async (storeName: StoreName, work: (store: IDBObjectStore, outbox: IDBObjectStore) => void): Promise<void> => {
-  await runTransaction([storeName, 'outbox'], 'readwrite', (transaction) => work(transaction.objectStore(storeName), transaction.objectStore('outbox')))
+/** Thrown when an edit targets a record another tab already deleted. */
+export class RecordMissingError extends Error {
+  constructor(message = 'That record no longer exists.') {
+    super(message)
+    this.name = 'RecordMissingError'
+  }
+}
+
+/** Queues sync bookkeeping for a write. Resolved against the stored `everSynced` flag in the same transaction. */
+interface OutboxQueue {
+  /** Queue a change, or, when sync was never used, drop any stale queued change for the record instead. */
+  track: (change: PendingChange) => void
+}
+
+/**
+ * Run writes to a store and record their pending sync changes in the same transaction, so neither can be lost alone.
+ * A device that never used sync (`everSynced` unset) queues nothing: the first sign-in queues every record (`queueAllRecords`).
+ * `guard` runs first inside the transaction and may veto the write by returning false (the transaction is aborted).
+ */
+const writeWithChanges = async (
+  storeName: StoreName,
+  work: (store: IDBObjectStore, outbox: OutboxQueue) => void,
+  guard?: (store: IDBObjectStore, proceed: () => void, veto: () => void) => void,
+): Promise<void> => {
+  let missing = false
+  try {
+    await runTransaction([storeName, 'outbox', 'meta'], 'readwrite', (transaction) => {
+      const store = transaction.objectStore(storeName)
+      const outbox = transaction.objectStore('outbox')
+      const changes: PendingChange[] = []
+      const run = () => {
+        work(store, { track: (change) => { changes.push(change) } })
+        const flag = transaction.objectStore('meta').get('everSynced')
+        flag.addEventListener('success', () => {
+          const syncUsed = (flag.result as { value?: unknown } | undefined)?.value === true
+          for (const change of changes) {
+            if (syncUsed) outbox.put(change)
+            else outbox.delete(change.key)
+          }
+        })
+      }
+      if (!guard) { run(); return }
+      guard(store, () => {
+        try { run() } catch (error) { transaction.abort(); throw error }
+      }, () => { missing = true; transaction.abort() })
+    })
+  } catch (error) {
+    if (missing) throw new RecordMissingError()
+    throw error
+  }
   notifyLocalChange()
 }
 
-const put = <T extends { id: string; updatedAt?: string }>(storeName: StoreName, value: T): Promise<void> =>
-  writeWithChanges(storeName, (store, outbox) => {
-    store.put(value)
-    outbox.put(changeFor(storeName, value))
-  })
+const put = <T extends { id: string; updatedAt?: string }>(storeName: StoreName, value: T, mustExist = false): Promise<void> =>
+  writeWithChanges(
+    storeName,
+    (store, outbox) => {
+      store.put(value)
+      outbox.track(changeFor(storeName, value))
+    },
+    mustExist
+      ? (store, proceed, veto) => {
+        const request = store.getKey(value.id)
+        request.addEventListener('success', () => { if (request.result === undefined) veto(); else proceed() })
+      }
+      : undefined,
+  )
 
-const remove = async (storeName: StoreName, id: string): Promise<void> => {
-  // A device that never used sync has nothing to tell the cloud; queueing deletes would only pile up forever.
-  const syncUsed = (await getMeta<boolean>('everSynced')) === true
-  await writeWithChanges(storeName, (store, outbox) => {
+const remove = (storeName: StoreName, id: string): Promise<void> =>
+  // A device that never used sync has nothing to tell the cloud; tracking drops any stale queued change instead of piling up.
+  writeWithChanges(storeName, (store, outbox) => {
     store.delete(id)
-    if (syncUsed) outbox.put(changeFor(storeName, { id }, true))
-    else outbox.delete(`${storeName}:${id}`)
+    outbox.track(changeFor(storeName, { id }, true))
   })
-}
 
 export const getEntries = (): Promise<DiaryEntry[]> => getAll<DiaryEntry>('entries')
 export const getFoods = (): Promise<Food[]> => getAll<Food>('foods')
@@ -204,13 +289,14 @@ export const getSettings = async (): Promise<Settings | undefined> => {
   return requestToPromise(transaction.objectStore('settings').get('profile'))
 }
 
-export const saveEntry = (entry: DiaryEntry): Promise<void> => put('entries', entry)
+/** `mustExist` makes this an edit: if the entry is gone (deleted in another tab) nothing is written and RecordMissingError is thrown. */
+export const saveEntry = (entry: DiaryEntry, options?: { mustExist?: boolean }): Promise<void> => put('entries', entry, options?.mustExist === true)
 /** Persist a group of diary entries in one transaction so a repeated meal is all-or-nothing. */
 export const saveEntries = async (entries: DiaryEntry[]): Promise<void> => {
   if (entries.length === 0) return
   await writeWithChanges('entries', (store, outbox) => entries.forEach((entry) => {
     store.put(entry)
-    outbox.put(changeFor('entries', entry))
+    outbox.track(changeFor('entries', entry))
   }))
 }
 export const deleteEntry = (id: string): Promise<void> => remove('entries', id)
@@ -218,7 +304,51 @@ export const saveFood = (food: Food): Promise<void> => put('foods', food)
 export const deleteFood = (id: string): Promise<void> => remove('foods', id)
 export const saveWeight = (weight: WeightEntry): Promise<void> => put('weights', weight)
 export const deleteWeight = (id: string): Promise<void> => remove('weights', id)
-export const saveSettings = (settings: Settings): Promise<void> => put('settings', settings)
+const isPlain = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/** Apply to `current` only what `next` changed relative to `previous`, recursing into plain objects. Untouched fields keep their stored value. */
+const mergeChanges = (current: Record<string, unknown>, previous: Record<string, unknown>, next: Record<string, unknown>): Record<string, unknown> => {
+  const merged: Record<string, unknown> = { ...current }
+  for (const key of Object.keys(next)) {
+    if (JSON.stringify(previous[key]) === JSON.stringify(next[key])) continue
+    merged[key] = isPlain(next[key]) && isPlain(current[key]) && isPlain(previous[key])
+      ? mergeChanges(current[key] as Record<string, unknown>, previous[key] as Record<string, unknown>, next[key] as Record<string, unknown>)
+      : next[key]
+  }
+  for (const key of Object.keys(previous)) if (!(key in next)) delete merged[key]
+  return merged
+}
+
+/**
+ * Save settings. With `previous` (the record the caller started from), only the fields that differ from it are applied
+ * onto the record stored right now, read in the same transaction, so a tab holding an older snapshot cannot revert
+ * newer changes made elsewhere. Pass null when the caller had no settings yet. Without it the record is replaced as given. Resolves to the record as stored.
+ */
+export const saveSettings = async (settings: Settings, previous?: Settings | null): Promise<Settings | void> => {
+  if (previous === undefined) {
+    await put('settings', settings)
+    return
+  }
+  let saved = settings
+  await writeWithChanges(
+    'settings',
+    (store, outbox) => {
+      outbox.track(changeFor('settings', saved))
+      store.put(saved)
+    },
+    (store, proceed) => {
+      const request = store.get(settings.id)
+      request.addEventListener('success', () => {
+        const current = request.result as Settings | undefined
+        saved = current
+          ? { ...(mergeChanges(current as unknown as Record<string, unknown>, (previous ?? {}) as unknown as Record<string, unknown>, settings as unknown as Record<string, unknown>) as unknown as Settings), id: settings.id, updatedAt: settings.updatedAt }
+          : settings
+        proceed()
+      })
+    },
+  )
+  return saved
+}
 
 export const getWaterLogs = (): Promise<WaterLog[]> => getAll<WaterLog>('water')
 export const saveWaterLog = (log: WaterLog): Promise<void> => runTransaction(['water'], 'readwrite', (transaction) => { transaction.objectStore('water').put(log) })
@@ -247,7 +377,7 @@ export const exportBackup = async (): Promise<BackupPayload> => {
 }
 
 /**
- * Replace local data with a backup. Restored records are queued for sync and win over cloud copies. Records the
+ * Replace local data with a backup. Once sync has been used, restored records are queued and win over cloud copies. Records the
  * backup lacks are NOT deleted from the cloud: the pull cursor is reset so the next sync brings them back.
  */
 export const importBackup = async (backup: BackupPayload): Promise<void> => {
@@ -265,15 +395,21 @@ export const importBackup = async (backup: BackupPayload): Promise<void> => {
     transaction.objectStore('settings').clear()
     const outbox = transaction.objectStore('outbox')
     // A restore is a deliberate new change: stamp it now so it wins over newer cloud copies. Record data is untouched.
+    // A device that never used sync queues nothing; its first sign-in queues every record (queueAllRecords).
     const restoredAt = new Date().toISOString()
+    const queued: PendingChange[] = []
     const restore = (store: StoreName, records: Array<{ id: string; updatedAt?: string }>) => records.forEach((record) => {
       transaction.objectStore(store).put(record)
-      outbox.put({ ...changeFor(store, record), clientUpdatedAt: restoredAt })
+      queued.push({ ...changeFor(store, record), clientUpdatedAt: restoredAt })
     })
     restore('entries', backup.entries)
     restore('foods', backup.foods)
     restore('weights', backup.weights)
     restore('settings', backup.settings)
+    const flag = transaction.objectStore('meta').get('everSynced')
+    flag.addEventListener('success', () => {
+      if ((flag.result as { value?: unknown } | undefined)?.value === true) for (const change of queued) outbox.put(change)
+    })
   })
   notifyLocalChange()
 }
@@ -367,7 +503,7 @@ export const queueAllRecords = (): Promise<void> =>
         }
       })
     }
-  })
+  }, false)
 
 export const getMeta = async <T>(key: string): Promise<T | undefined> => {
   const database = await openDatabase()

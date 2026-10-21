@@ -23,6 +23,7 @@ export function Modal({ title, eyebrow, children, onClose, closeOnBackdrop = tru
   const drag = useRef<{ startY: number; startTime: number; dy: number } | null>(null)
   const [sheetOffset, setSheetOffset] = useState(0)
   const [settling, setSettling] = useState(false)
+  const closeTimer = useRef<number | null>(null)
   const onDragStart = (event: React.TouchEvent) => {
     if (event.touches.length !== 1) return
     drag.current = { startY: event.touches[0].clientY, startTime: Date.now(), dy: 0 }
@@ -42,7 +43,7 @@ export function Modal({ title, eyebrow, children, onClose, closeOnBackdrop = tru
     if (current.dy > 110 || (current.dy > 40 && velocity > 0.5)) {
       setSheetOffset(window.innerHeight)
       setSettling(true)
-      window.setTimeout(() => onCloseRef.current(), 160)
+      closeTimer.current = window.setTimeout(() => onCloseRef.current(), 160)
       return
     }
     setSettling(true)
@@ -57,6 +58,7 @@ export function Modal({ title, eyebrow, children, onClose, closeOnBackdrop = tru
     window.addEventListener('keydown', handleKey)
     return () => {
       window.removeEventListener('keydown', handleKey)
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current)
       trigger?.focus()
     }
   }, [trigger])

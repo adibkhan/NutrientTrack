@@ -11,7 +11,8 @@ export interface WelcomeChoice {
 interface WelcomeCardProps {
   onFinish: (choice: WelcomeChoice) => void
   onSkip: () => void
-  onEstimate: () => void
+  /** Carries what was typed so far, so the estimator in Settings starts from it. */
+  onEstimate: (choice: WelcomeChoice) => void
 }
 
 /** First run only: three optional answers, then straight to logging. Nothing here is required to use the app. */
@@ -47,7 +48,7 @@ export function WelcomeCard({ onFinish, onSkip, onEstimate }: WelcomeCardProps) 
           <div className="form-field"><label htmlFor="welcome-calories">Daily energy goal <span>kcal, optional</span></label><input id="welcome-calories" inputMode="decimal" min="0" placeholder="e.g. 2,000" type="number" value={calories} onChange={(event) => setCalories(event.target.value)} /></div>
           <div className="form-field"><label htmlFor="welcome-protein">Daily protein goal <span>g, optional</span></label><input id="welcome-protein" inputMode="decimal" min="0" placeholder="e.g. 120" type="number" value={protein} onChange={(event) => setProtein(event.target.value)} /></div>
         </div>
-        <button className="text-button welcome-estimate" type="button" onClick={onEstimate}>Not sure? Estimate a starting target<Icon name="arrow-right" size={15} /></button>
+        <button className="text-button welcome-estimate" type="button" onClick={() => onEstimate({ weightUnit: unit, calories: positive(calories), protein: positive(protein) })}>Not sure? Estimate a starting target<Icon name="arrow-right" size={15} /></button>
         <div className="welcome-actions">
           <button className="text-button welcome-skip" type="button" onClick={onSkip}>Skip setup</button>
           <button className="button primary" type="submit">Start logging</button>

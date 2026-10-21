@@ -51,19 +51,18 @@ async function weighIn(stored: WeightEntry[]) {
   await user.clear(within(dialog).getByLabelText('Weight'))
   await user.type(within(dialog).getByLabelText('Weight'), '175')
   await user.click(within(dialog).getByRole('button', { name: 'Save check-in' }))
+  await user.click(await within(dialog).findByRole('button', { name: 'Replace' }))
   await waitFor(() => expect(m.saveWeight).toHaveBeenCalledTimes(1))
   return m.saveWeight.mock.calls[0][0] as WeightEntry
 }
 
 describe('same-day weigh-in with two stored records', () => {
   it('replaces_the_record_with_the_later_createdAt_when_it_is_stored_last', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const saved = await weighIn([rec('early', '2026-01-01T06:00:00.000Z', 181), rec('late', '2026-01-01T20:00:00.000Z', 179)])
     expect(saved).toMatchObject({ id: 'late', createdAt: '2026-01-01T20:00:00.000Z', weight: 175 })
   })
 
   it('replaces_the_record_with_the_later_createdAt_even_when_it_is_returned_first', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const saved = await weighIn([rec('late', '2026-01-01T20:00:00.000Z', 179), rec('early', '2026-01-01T06:00:00.000Z', 181)])
     expect(saved).toMatchObject({ id: 'late', createdAt: '2026-01-01T20:00:00.000Z', weight: 175 })
   })

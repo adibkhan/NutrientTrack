@@ -72,11 +72,25 @@ export const budgetFor = (program: Program, unit: 'lb' | 'kg', expenditure: numb
   const changeLb = unit === 'kg' ? signedWeeklyChange(program) * LB_PER_KG : signedWeeklyChange(program)
   const nudge = maintenanceNudge(program, unit, trendWeightInUnit)
   const raw = expenditure + (changeLb * KCAL_PER_LB) / 7 + nudge
-  const calories = Math.round(Math.max(MIN_BUDGET_KCAL, raw))
+  return budgetAt(program, Math.round(Math.max(MIN_BUDGET_KCAL, raw)), raw < MIN_BUDGET_KCAL, trendWeightInUnit, nudge)
+}
+
+/** A budget at a given calorie level, with the macros the program's protein ratio and diet style give for it. */
+const budgetAt = (program: Program, calories: number, floored: boolean, trendWeightInUnit: number | undefined, nudge: number): Budget => {
   const protein = program.proteinPerWeight !== undefined && trendWeightInUnit !== undefined ? Math.round(program.proteinPerWeight * trendWeightInUnit) : undefined
   const fat = Math.round((calories * DIET_STYLES[program.dietStyle ?? 'balanced'].fatShare) / 9)
   const carbs = protein === undefined ? undefined : Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4))
-  return { calories, ...(protein !== undefined ? { protein, carbs, fat } : {}), floored: raw < MIN_BUDGET_KCAL, ...(nudge !== 0 ? { nudge } : {}) }
+  return { calories, ...(protein !== undefined ? { protein, carbs, fat } : {}), floored, ...(nudge !== 0 ? { nudge } : {}) }
+}
+
+/** The most a single weekly check-in may move the daily budget, in either direction. */
+export const MAX_CHECKIN_CHANGE_KCAL = 250
+
+/** Move from the current budget toward the target by at most MAX_CHECKIN_CHANGE_KCAL; the safety floor still applies. */
+export const limitBudgetChange = (program: Program, target: Budget, current: number | undefined, trendWeightInUnit?: number): { budget: Budget; limited: boolean } => {
+  if (current === undefined || Math.abs(target.calories - current) <= MAX_CHECKIN_CHANGE_KCAL) return { budget: target, limited: false }
+  const calories = Math.max(MIN_BUDGET_KCAL, current + Math.sign(target.calories - current) * MAX_CHECKIN_CHANGE_KCAL)
+  return { budget: budgetAt(program, calories, calories === MIN_BUDGET_KCAL && target.floored, trendWeightInUnit, target.nudge ?? 0), limited: true }
 }
 
 /**
@@ -151,6 +165,8 @@ export interface CheckIn {
   expenditure: ExpenditureEstimate
   currentBudget?: number
   newBudget?: Budget
+  /** True when the program asked for a bigger change than one check-in allows and newBudget was held to MAX_CHECKIN_CHANGE_KCAL. */
+  limited?: boolean
   /** Plain-language summary of how the week went against the program. */
   headline: string
 }
@@ -179,12 +195,14 @@ export const buildCheckIn = (entries: DiaryEntry[], weights: WeightEntry[], sett
   const after = [...series].reverse().find((entry) => entry.date <= weekEnding)
   const trendChange = before && after && before.date !== after.date ? after.trend - before.trend : undefined
   const expenditure = estimateExpenditure(entries, weights, weekEnding)
-  const newBudget = expenditure.kind === 'ok' ? budgetFor(program, unit, expenditure.kcalPerDay, after?.trend) : undefined
+  const target = expenditure.kind === 'ok' ? budgetFor(program, unit, expenditure.kcalPerDay, after?.trend) : undefined
+  const limit = target ? limitBudgetChange(program, target, goals.calories, after?.trend) : undefined
+  const newBudget = limit?.budget
   let headline: string
   if (daysLogged < MIN_CHECKIN_DAYS) headline = 'Not enough logged days to adjust. Log food on at least four days next week.'
   else if (expenditure.kind !== 'ok') headline = 'The budget stays as it is until there is enough data to estimate your expenditure.'
   else if (newBudget && goals.calories !== undefined && newBudget.calories === goals.calories) headline = 'On track. The budget stays the same.'
   else if (newBudget && goals.calories !== undefined) headline = `The budget ${newBudget.calories > goals.calories ? 'rises' : 'falls'} by ${Math.abs(newBudget.calories - goals.calories)} kcal.`
   else headline = 'A budget is ready to set from your program.'
-  return { dueDate, weekEnding, daysLogged, avgIntake, trendChange, unit, expenditure, currentBudget: goals.calories, newBudget, headline }
+  return { dueDate, weekEnding, daysLogged, avgIntake, trendChange, unit, expenditure, currentBudget: goals.calories, newBudget, ...(limit?.limited ? { limited: true } : {}), headline }
 }
