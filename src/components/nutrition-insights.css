@@ -69,3 +69,6 @@
 @media (prefers-reduced-motion: reduce) {
   .nutrition-range-control button { transition: none; }
 }
+
+.nutrition-insights-note { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.nutrition-card-meta:empty { display: none; }

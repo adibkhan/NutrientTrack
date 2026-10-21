@@ -104,8 +104,8 @@ describe('macro display in the diary summary', () => {
     m.getEntries.mockResolvedValue([entry()])
     m.getSettings.mockResolvedValue(settingsRecord())
     await renderApp()
-    await waitFor(() => expect(summary().textContent).toContain('50g / 150g'))
-    expect(macroTexts()).toEqual(['50g / 150g', '50g', '0g'])
+    await waitFor(() => expect(summary().textContent).toContain('100g left'))
+    expect(macroTexts()).toEqual(['100g left', '50g', '0g'])
   })
 
   it('shows percents of energy when macroDisplay is percent', async () => {

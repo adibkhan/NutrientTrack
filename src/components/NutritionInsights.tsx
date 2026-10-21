@@ -109,7 +109,7 @@ function MetricCard({ metric, points, goal, rangeDays, endDate, loggedDays }: Me
       </header>
 
       <div className="nutrition-card-meta">
-        <span>{hasData ? `${loggedDays} of ${rangeDays} days with food logged` : `No food logged in the last ${rangeDays} days`}</span>
+        {!hasData && <span>No food logged in the last {rangeDays} days</span>}
         {safeGoal !== undefined && <span className="nutrition-goal-key"><i aria-hidden="true" />Goal {metricValue(metric, safeGoal)} {unit}</span>}
       </div>
 
@@ -147,10 +147,7 @@ function MetricCard({ metric, points, goal, rangeDays, endDate, loggedDays }: Me
         </div>
       </div>
 
-      <p className="nutrition-card-note">
-        {hasData ? 'Average uses logged days only.' : 'Start logging food to see your pattern here.'}
-        <span>A logged day may be partial.</span>
-      </p>
+      {!hasData && <p className="nutrition-card-note">Start logging food to see your pattern here.</p>}
 
       <details className="nutrition-details">
         <summary>View daily values</summary>
@@ -194,6 +191,7 @@ export default function NutritionInsights({ entries, goals }: NutritionInsightsP
           <p className="nutrition-insights-context" role="status">
             {loggedDays} of {rangeDays} days logged · {formatShortDate(rangeStart)} – {formatShortDate(endDate)}
           </p>
+          <p className="nutrition-insights-note">Averages count logged days only, and a logged day may be partial.</p>
         </div>
         <div className="nutrition-range-control" role="group" aria-label="Nutrition insight range">
           {([7, 30] as const).map((days) => (

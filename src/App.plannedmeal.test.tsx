@@ -46,19 +46,22 @@ async function renderWith(entries: DiaryEntry[]) {
 }
 const section = (label: string) => screen.getByRole('heading', { name: label, level: 3 }).closest('section') as HTMLElement
 const subtotal = (label: string) => section(label).querySelector('.meal-subtotal')?.textContent
+const mealMacros = (label: string) => section(label).querySelector('.meal-macros')?.textContent
 const badge = () => document.querySelector('.sidebar .nav-count')
 
 describe('meal subtotal with planned entries', () => {
   it('says_planned_not_counted_when_every_entry_is_planned', async () => {
     await renderWith([entry('lunch', true), entry('lunch', true)])
-    expect(subtotal('Lunch')).toBe('Planned, not counted')
+    expect(mealMacros('Lunch')).toBe('Planned, not counted')
+    expect(subtotal('Lunch')).toBeUndefined()
   })
 
   it('shows_only_the_eaten_subtotal_for_a_mixed_meal', async () => {
     await renderWith([entry('lunch', false, 250), entry('lunch', true, 900)])
     const text = subtotal('Lunch') ?? ''
     expect(text).not.toMatch(/Planned/)
-    expect(text).toContain('7 P · 11 C · 3 F · 250')
+    expect(text).toBe('250 kcal')
+    expect(mealMacros('Lunch')).toBe('7g protein · 11g carbs · 3g fat')
   })
 
   it('shows_the_normal_subtotal_for_a_single_eaten_entry', async () => {

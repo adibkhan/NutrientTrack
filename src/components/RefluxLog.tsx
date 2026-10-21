@@ -26,7 +26,6 @@ export function RefluxLog({ symptoms, onLog, onDelete }: RefluxLogProps) {
     <div className="reflux-row" aria-label="Heartburn log">
       <span className="water-label">Heartburn</span>
       <div className="reflux-flares">
-        {symptoms.length === 0 && !choosing && <span className="reflux-none">None today</span>}
         {symptoms.map((symptom) => (
           <span className={`reflux-chip severity-${symptom.severity}`} key={symptom.id}>
             {SEVERITY_LABELS[symptom.severity]}{symptom.time && <small> {formatClockTime(symptom.time)}</small>}
@@ -40,7 +39,7 @@ export function RefluxLog({ symptoms, onLog, onDelete }: RefluxLogProps) {
           <button className="icon-button quiet" type="button" aria-label="Cancel" onClick={() => setChoosing(false)}><Icon name="x" size={14} /></button>
         </div>
       ) : (
-        <button className="button secondary compact" type="button" onClick={() => setChoosing(true)}><Icon name="plus" size={15} />Log heartburn</button>
+        <button className="text-button reflux-log" type="button" onClick={() => setChoosing(true)}><Icon name="plus" size={15} />{symptoms.length === 0 ? 'Log heartburn' : 'Log another'}</button>
       )}
     </div>
   )

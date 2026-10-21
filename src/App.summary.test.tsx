@@ -191,9 +191,9 @@ describe('daily summary macros', () => {
     const protein = macro(s, 'Protein')
     const carbs = macro(s, 'Carbs')
     const fat = macro(s, 'Fat')
-    expect(protein.text).toBe('120g / 100g')
-    expect(carbs.text).toBe('50g / 200g')
-    expect(fat.text).toBe('50g / 50g')
+    expect(protein.text).toBe('20g over')
+    expect(carbs.text).toBe('150g left')
+    expect(fat.text).toBe('0g left')
     expect(protein.fill.classList.contains('over')).toBe(true)
     expect(carbs.fill.classList.contains('over')).toBe(false)
     expect(fat.fill.classList.contains('over')).toBe(false) // exactly at goal
@@ -203,7 +203,7 @@ describe('daily summary macros', () => {
     m.getSettings.mockResolvedValue(settingsWith({ protein: 100 }))
     entries = [entry({ id: 'a', name: 'Meal', protein: 40, carbs: 300, fat: 90 })]
     const s = await renderApp()
-    expect(macro(s, 'Protein').text).toBe('40g / 100g')
+    expect(macro(s, 'Protein').text).toBe('60g left')
     expect(macro(s, 'Protein').fill.style.width).toBe('40%')
     for (const label of ['Carbs', 'Fat']) {
       const r = macro(s, label)
@@ -259,7 +259,7 @@ describe('diary add controls', () => {
     const user = userEvent.setup()
     await renderApp()
     const adds = screen.getAllByRole('button', { name: 'Add' })
-    expect(adds).toHaveLength(5)
+    expect(adds).toHaveLength(4)
     await user.click(adds[0])
     expect(await screen.findByRole('dialog')).toBeTruthy()
   })

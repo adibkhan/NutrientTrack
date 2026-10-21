@@ -49,8 +49,8 @@ export function WelcomeCard({ onFinish, onSkip, onEstimate }: WelcomeCardProps) 
         </div>
         <button className="text-button welcome-estimate" type="button" onClick={onEstimate}>Not sure? Estimate a starting target<Icon name="arrow-right" size={15} /></button>
         <div className="welcome-actions">
-          <button className="button secondary" type="button" onClick={onSkip}>Skip setup</button>
-          <button className="button primary" type="submit"><Icon name="check" size={16} />Start logging</button>
+          <button className="text-button welcome-skip" type="button" onClick={onSkip}>Skip setup</button>
+          <button className="button primary" type="submit">Start logging</button>
         </div>
       </form>
     </section>

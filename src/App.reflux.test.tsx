@@ -1,5 +1,5 @@
 // The heartburn log under the water line and the trigger finder on Trends, both only with reflux watch on.
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DiaryEntry, Settings, Symptom } from './types'
@@ -69,7 +69,8 @@ describe('heartburn log on the diary', () => {
     vi.setSystemTime(new Date(`${today}T14:05:00`))
     const user = await renderApp()
     const log = heartburnLog()!
-    expect(within(log).getByText('None today')).toBeTruthy()
+    expect(within(log).queryByText('None today')).toBeNull()
+    expect(within(log).queryByRole('button', { name: /Remove .* heartburn at/ })).toBeNull()
     await user.click(within(log).getByRole('button', { name: 'Log heartburn' }))
     await user.click(within(log).getByRole('button', { name: 'Moderate' }))
     expect(m.saveSymptom).toHaveBeenCalledWith(expect.objectContaining({ date: today, time: '14:05', kind: 'heartburn', severity: 2 }))
@@ -78,7 +79,8 @@ describe('heartburn log on the diary', () => {
     const savedId = symptoms[0].id
     await user.click(chip)
     expect(m.deleteSymptom).toHaveBeenCalledWith(savedId)
-    expect(await within(heartburnLog()!).findByText('None today')).toBeTruthy()
+    await waitFor(() => expect(within(heartburnLog()!).queryByRole('button', { name: /Remove .* heartburn at/ })).toBeNull())
+    expect(within(heartburnLog()!).getByRole('button', { name: 'Log heartburn' })).toBeTruthy()
     vi.useRealTimers()
   })
 
