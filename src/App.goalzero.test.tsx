@@ -71,9 +71,16 @@ describe('Settings goals: calorie goal of zero', () => {
     expect(await screen.findByRole('button', { name: /Set an energy goal/ })).toBeTruthy()
   })
 
-  it('stores no calorie goal when a negative number is submitted', async () => {
-    await saveCalories('-50', true)
-    expect(saved().calories).toBeUndefined()
+  it('refuses a negative calorie goal with a message and saves nothing', async () => {
+    stored = settingsRecord()
+    const user = userEvent.setup()
+    await renderApp()
+    await user.click(first('Settings'))
+    const input = (await screen.findByLabelText(/^Calories/)) as HTMLInputElement
+    fireEvent.change(input, { target: { value: '-50' } })
+    fireEvent.submit(input.closest('form') as HTMLFormElement)
+    expect(await screen.findByText('Calories goal must be a number, zero or greater.')).toBeTruthy()
+    expect(m.saveSettings).not.toHaveBeenCalled()
   })
 
   it('still saves a positive calorie goal', async () => {

@@ -66,7 +66,7 @@ export const calculateRecipe = (text: string, servings: number, catalog: Catalog
   const problems: RecipeProblem[] = []
   const usable: string[] = []
   for (const item of splitDescription(lines.slice(0, MAX_LINES).join('\n'))) {
-    const message = amountProblem(item.text)
+    const message = item.problem ?? amountProblem(item.text)
     if (message) problems.push({ text: item.text, message })
     else usable.push(item.text)
   }

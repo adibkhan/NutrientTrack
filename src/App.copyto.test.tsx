@@ -176,11 +176,12 @@ describe('copy a day', () => {
     expect(m.saveEntry).not.toHaveBeenCalled()
     const saved = m.saveEntries.mock.calls[0][0] as Array<DiaryEntry & Record<string, unknown>>
     expect(saved.map((item) => item.name).sort()).toEqual(['Eggs', 'Salad'])
-    expect(saved.every((item) => item.date === '2026-06-11' && !item.planned)).toBe(true)
+    // Tomorrow is a later day, so the copies are plans.
+    expect(saved.every((item) => item.date === '2026-06-11' && item.planned === true)).toBe(true)
     expect(new Set(saved.map((item) => item.id)).size).toBe(2)
     expect(saved.some((item) => ['a', 'b'].includes(item.id))).toBe(false)
     expect(saved.find((item) => item.name === 'Salad')).toMatchObject({ meal: 'lunch', futureField: 'x', servings: 2, fiber: 5 })
-    await waitFor(() => expect(toast()?.textContent).toContain('Copied 2 foods to Thu, Jun 11.'))
+    await waitFor(() => expect(toast()?.textContent).toContain('Copied 2 foods to Thu, Jun 11. 2 later meals added as planned.'))
     expect(store.filter((item) => ['a', 'b', 'p', 'y'].includes(item.id))).toHaveLength(4)
   })
 
@@ -237,14 +238,14 @@ describe('copy a day', () => {
     await waitFor(() => expect(m.saveEntries).toHaveBeenCalledTimes(1))
   })
 
-  it('does_not_ask_when_the_target_day_only_has_planned_food', async () => {
+  it('asks_when_the_target_day_only_has_planned_food', async () => {
     store = [...day(), entry({ id: 't', name: 'Planned tomorrow', date: '2026-06-11', planned: true })]
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     const user = await renderApp()
     await openDayCopy(user)
     await submitCopy(user)
-    await waitFor(() => expect(m.saveEntries).toHaveBeenCalledTimes(1))
-    expect(confirm).not.toHaveBeenCalled()
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(m.saveEntries).not.toHaveBeenCalled()
   })
 
   it('does_not_ask_for_an_empty_target_day', async () => {

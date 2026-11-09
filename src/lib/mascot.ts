@@ -78,7 +78,8 @@ export const pickMascotLine = ({ date, today, hour, entries, weights, goals, ref
     if (earlier && earlier < shiftDate(today, -2)) {
       return line('welcome-back', 'wave', ['Welcome back! No catching up needed. Just log what comes next.', 'Good to see you again. Today is a fresh page.'], { action: 'log', meal })
     }
-    if (earlier === shiftDate(today, -1)) {
+    // Not when today already holds anything, planned included: a copy would double the day.
+    if (earlier === shiftDate(today, -1) && !entries.some((entry) => entry.date === today)) {
       return line('copy-yesterday', 'happy', ['Yesterday is all logged. Eating the same today? Copy it in one tap.', 'Same routine as yesterday? I can copy it over for you.'], { action: 'copy-yesterday' })
     }
     if (isNight(hour)) return line('night-empty', 'sleepy', ['Quiet day on the log. Even one entry keeps the picture honest.'], { action: 'log', meal })

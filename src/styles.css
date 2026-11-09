@@ -437,6 +437,14 @@ strong { font-weight: 600; }
 .entry-row:first-child { border-top: 0; }
 .entry-row:hover { background: var(--surface-row); }
 .entry-row.is-dragging { opacity: .35; }
+/* The row body is one Edit button laid over the row. Every other control sits above it (z-index 1). */
+.entry-edit-hit { position: absolute; inset: 0; z-index: 0; width: 100%; padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) { .entry-edit-hit:hover { background: var(--surface-row); } }
+.entry-edit-hit:active { background: var(--surface-soft); }
+.entry-edit-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.entry-row > :not(.entry-edit-hit) { position: relative; z-index: 1; pointer-events: none; }
+.entry-row > .entry-drag-handle, .entry-row > .entry-more, .entry-row > .entry-row-actions { pointer-events: auto; }
+.entry-row > .entry-row-actions button { pointer-events: auto; }
 .entry-drag-handle { display: grid; place-items: center; flex: 0 0 auto; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 6px; color: var(--muted-light); background: transparent; cursor: grab; touch-action: none; user-select: none; }
 .entry-drag-handle:hover { color: var(--ink-2); background: var(--surface-soft); }
 .entry-drag-handle:active { cursor: grabbing; }
@@ -740,7 +748,7 @@ strong { font-weight: 600; }
 .toast.error > svg { color: var(--danger); }
 .toast button { display: grid; place-items: center; width: 28px; height: 28px; margin-left: 4px; padding: 0; border: 0; border-radius: 6px; color: var(--muted); background: transparent; }
 .toast button:hover { background: var(--surface-soft); }
-.toast button.toast-action { width: auto; min-height: 32px; margin-left: auto; padding: 0 10px; color: var(--accent-text); font-weight: 700; }
+.toast button.toast-action { flex: none; width: auto; white-space: nowrap; min-height: 32px; margin-left: auto; padding: 0 10px; color: var(--accent-text); font-weight: 700; }
 .toast button.toast-action:hover { background: var(--accent-soft); }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modal-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
@@ -812,6 +820,8 @@ strong { font-weight: 600; }
   .library-row > .food-avatar { display: none; }
   .entry-row .entry-drag-handle { display: none; }
   .entry-row .entry-copy { display: contents; }
+  /* display: contents drops the copy block's z-index, so its children need their own to stay above the edit overlay. */
+  .entry-row .entry-copy > * { position: relative; z-index: 1; pointer-events: none; }
   .entry-row .entry-copy strong { grid-area: name; overflow: visible; font-size: 14px; line-height: 1.3; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
   .entry-row .entry-meta { grid-area: meta; column-gap: 8px; font-size: 12px; }
   .entry-meta > span + span::before { content: none; }
@@ -1433,3 +1443,6 @@ strong { font-weight: 600; }
 .est-suffix input { text-align: left; }
 .inline-confirm { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--surface-soft); }
 .inline-confirm p { margin: 0; color: var(--ink); font-size: 14px; overflow-wrap: anywhere; }
+
+/* A message for one box of a multi-column grid is one full-width row under the grid, not a narrow column beside it. */
+.goal-fields > .field-error, .macro-input-grid > .field-error, .nutrient-grid > .field-error, .recipe-line-macros > .field-error { grid-column: 1 / -1; margin: 0; }

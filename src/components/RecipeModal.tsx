@@ -2,6 +2,9 @@ import { useState, type FormEvent } from 'react'
 import type { Food, RecipeIngredient } from '../types'
 import { ingredientFromFood, isRecipe, recipePerServing } from '../lib/recipes'
 import { formatNumber, newId } from '../lib/utils'
+import { inputText, parseDecimal } from '../lib/decimal'
+import { firstNumberProblem } from '../lib/numberProblem'
+import { useFieldProblem } from '../lib/useFieldProblem'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
 
@@ -32,16 +35,16 @@ interface Line {
 const toLine = (ingredient: RecipeIngredient): Line => ({
   key: newId(),
   name: ingredient.name,
-  calories: String(ingredient.calories),
-  protein: String(ingredient.protein),
-  carbs: String(ingredient.carbs),
-  fat: String(ingredient.fat),
+  calories: inputText(ingredient.calories),
+  protein: inputText(ingredient.protein),
+  carbs: inputText(ingredient.carbs),
+  fat: inputText(ingredient.fat),
   quantity: ingredient.quantity,
   foodId: ingredient.foodId,
 })
 
 const number = (text: string): number => {
-  const parsed = Number(text)
+  const parsed = parseDecimal(text)
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0
 }
 
@@ -57,23 +60,32 @@ const fromLine = (line: Line): RecipeIngredient => ({
 
 export function RecipeModal({ recipe, foods, onClose, onSave }: RecipeModalProps) {
   const [name, setName] = useState(recipe?.name ?? '')
-  const [servings, setServings] = useState(String(recipe?.recipeServings ?? 1))
+  const [servings, setServings] = useState(inputText(recipe?.recipeServings ?? 1))
   const [lines, setLines] = useState<Line[]>(() => (recipe?.ingredients ?? []).map(toLine))
   const [pickId, setPickId] = useState('')
   const [pickQuantity, setPickQuantity] = useState('1')
   const [error, setError] = useState('')
+  const [problem, setProblem] = useFieldProblem((id) => {
+    if (id === 'recipe-servings') return servings
+    if (id === 'recipe-quantity') return pickQuantity
+    const [lineKey, field] = id.replace(/^recipe-line-/, '').split('__')
+    return lines.find((line) => line.key === lineKey)?.[field as 'calories'] ?? ''
+  })
   const [saving, setSaving] = useState(false)
 
   // A recipe cannot contain itself, and nesting recipes would hide where the numbers come from.
   const pickable = foods.filter((food) => food.id !== recipe?.id && !isRecipe(food))
-  const servingsNumber = Number(servings)
+  const servingsNumber = parseDecimal(servings)
   const perServing = recipePerServing(lines.map(fromLine), servingsNumber)
   const update = (key: string, patch: Partial<Line>) => setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)))
 
   const addSaved = () => {
     const food = pickable.find((candidate) => candidate.id === pickId)
     if (!food) return
-    const quantity = Number(pickQuantity)
+    const found = firstNumberProblem([{ id: 'recipe-quantity', text: pickQuantity, message: 'Servings must be a number greater than zero.', positive: true }])
+    if (found) { setProblem(found); document.getElementById(found.field)?.focus(); return }
+    setProblem(undefined)
+    const quantity = parseDecimal(pickQuantity)
     setLines((current) => [...current, toLine(ingredientFromFood(food, Number.isFinite(quantity) && quantity > 0 ? quantity : 1))])
     setPickId('')
     setPickQuantity('1')
@@ -84,6 +96,12 @@ export function RecipeModal({ recipe, foods, onClose, onSave }: RecipeModalProps
     event.preventDefault()
     if (saving) return
     if (!name.trim()) { setError('Give this recipe a name.'); return }
+    const found = firstNumberProblem([
+      { id: 'recipe-servings', text: servings, message: 'Enter how many servings the recipe makes, more than zero.', required: true, positive: true },
+      ...lines.flatMap((line, index) => (['calories', 'protein', 'carbs', 'fat'] as const).map((key) => ({ id: `recipe-line-${line.key}__${key}`, text: line[key], message: `Ingredient ${index + 1} ${key} must be a number, zero or greater.` }))),
+    ])
+    if (found) { setProblem(found); setError(''); document.getElementById(found.field)?.focus(); return }
+    setProblem(undefined)
     if (!(servingsNumber > 0) || !Number.isFinite(servingsNumber)) { setError('Enter how many servings the recipe makes, more than zero.'); return }
     if (lines.length === 0) { setError('Add at least one ingredient.'); return }
     if (lines.some((line) => !line.name.trim())) { setError('Give every ingredient a name.'); return }
@@ -101,7 +119,8 @@ export function RecipeModal({ recipe, foods, onClose, onSave }: RecipeModalProps
         </div>
         <div className="form-field full">
           <label htmlFor="recipe-servings">Servings made</label>
-          <input id="recipe-servings" inputMode="decimal" min="0" step="any" type="number" value={servings} onChange={(event) => setServings(event.target.value)} />
+          <input id="recipe-servings" aria-invalid={problem?.field === 'recipe-servings' ? true : undefined} aria-describedby={problem?.field === 'recipe-servings' ? 'recipe-servings-error' : undefined} inputMode="decimal" type="text" value={servings} onChange={(event) => setServings(event.target.value)} />
+          {problem?.field === 'recipe-servings' && <p className="field-error" id="recipe-servings-error" role="alert">{problem.message}</p>}
         </div>
         <div className="recipe-lines" aria-label="Ingredients">
           {lines.length === 0 && <p className="logger-empty-line">No ingredients yet. Add a saved food below, or a custom line.</p>}
@@ -113,8 +132,9 @@ export function RecipeModal({ recipe, foods, onClose, onSave }: RecipeModalProps
               </div>
               <div className="recipe-line-macros">
                 {(['calories', 'protein', 'carbs', 'fat'] as const).map((key) => (
-                  <input key={key} aria-label={`Ingredient ${index + 1} ${key}`} inputMode="decimal" min="0" placeholder={key === 'calories' ? 'kcal' : `${key[0].toUpperCase()} g`} step="any" type="number" value={line[key]} onChange={(event) => update(line.key, { [key]: event.target.value })} />
+                  <input key={key} id={`recipe-line-${line.key}__${key}`} aria-invalid={problem?.field === `recipe-line-${line.key}__${key}` ? true : undefined} aria-describedby={problem?.field === `recipe-line-${line.key}__${key}` ? `recipe-line-${line.key}__${key}-error` : undefined} aria-label={`Ingredient ${index + 1} ${key}`} inputMode="decimal" placeholder={key === 'calories' ? 'kcal' : `${key[0].toUpperCase()} g`} type="text" value={line[key]} onChange={(event) => update(line.key, { [key]: event.target.value })} />
                 ))}
+                {problem?.field.startsWith(`recipe-line-${line.key}__`) && <p className="field-error" id={`${problem.field}-error`} role="alert">{problem.message}</p>}
               </div>
             </div>
           ))}
@@ -129,7 +149,8 @@ export function RecipeModal({ recipe, foods, onClose, onSave }: RecipeModalProps
           </div>
           <div className="form-field">
             <label htmlFor="recipe-quantity">Servings</label>
-            <input id="recipe-quantity" inputMode="decimal" min="0" step="any" type="number" value={pickQuantity} onChange={(event) => setPickQuantity(event.target.value)} />
+            <input id="recipe-quantity" aria-invalid={problem?.field === 'recipe-quantity' ? true : undefined} aria-describedby={problem?.field === 'recipe-quantity' ? 'recipe-quantity-error' : undefined} inputMode="decimal" type="text" value={pickQuantity} onChange={(event) => setPickQuantity(event.target.value)} />
+            {problem?.field === 'recipe-quantity' && <p className="field-error" id="recipe-quantity-error" role="alert">{problem.message}</p>}
           </div>
           <button className="button secondary compact" type="button" disabled={!pickId} onClick={addSaved}><Icon name="plus" size={15} />Add</button>
         </div>

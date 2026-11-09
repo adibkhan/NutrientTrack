@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import type { BodyMeasurement } from '../types'
 import { emptyMeasurementDraft, measurementDraftFrom, MEASUREMENTS, measurementValuesFrom, type MeasurementDraft, type MeasurementKey } from '../lib/measurements'
 import { Icon } from './Icon'
+import { firstNumberProblem } from '../lib/numberProblem'
+import { useFieldProblem } from '../lib/useFieldProblem'
 import { Modal } from './Modal'
 
 export interface MeasurementsSubmit {
@@ -22,14 +24,16 @@ export function MeasurementsModal({ measurement, defaultDate, unit, onClose, onS
   const [date, setDate] = useState(measurement?.date ?? defaultDate)
   const [draft, setDraft] = useState<MeasurementDraft>(() => (measurement ? measurementDraftFrom(measurement, unit) : emptyMeasurementDraft()))
   const [error, setError] = useState('')
+  const [problem, setProblem] = useFieldProblem((id) => draft[id.replace(/^measure-/, '') as MeasurementKey] ?? '')
   const [saving, setSaving] = useState(false)
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (saving) return
     if (!date) { setError('Choose a date.'); return }
-    const bad = MEASUREMENTS.find(({ key }) => draft[key].trim() && !(Number(draft[key]) > 0 && Number.isFinite(Number(draft[key]))))
-    if (bad) { setError(`${bad.label} must be a number greater than zero.`); return }
+    const found = firstNumberProblem(MEASUREMENTS.map(({ key, label }) => ({ id: `measure-${key}`, text: draft[key], message: `${label} must be a number greater than zero.`, positive: true })))
+    if (found) { setProblem(found); setError(''); document.getElementById(found.field)?.focus(); return }
+    setProblem(undefined)
     const values = measurementValuesFrom(draft)
     if (Object.keys(values).length === 0) { setError('Enter at least one measurement.'); return }
     setError('')
@@ -48,9 +52,10 @@ export function MeasurementsModal({ measurement, defaultDate, unit, onClose, onS
           {MEASUREMENTS.map(({ key, label }) => (
             <div className="form-field" key={key}>
               <label htmlFor={`measure-${key}`}>{label} <span>{unit}</span></label>
-              <input autoFocus={key === 'waist'} id={`measure-${key}`} inputMode="decimal" min="0" placeholder="Not measured" step="any" type="number" value={draft[key]} onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} />
+              <input autoFocus={key === 'waist'} id={`measure-${key}`} aria-invalid={problem?.field === `measure-${key}` ? true : undefined} aria-describedby={problem?.field === `measure-${key}` ? `measure-${key}-error` : undefined} inputMode="decimal" placeholder="Not measured" type="text" value={draft[key]} onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} />
             </div>
           ))}
+          {problem && <p className="field-error" id={`${problem.field}-error`} role="alert">{problem.message}</p>}
         </div>
         <p className="move-note"><Icon name="info" size={14} />Saving a second check-in for the same day replaces the first.</p>
         {error && <p className="form-error" role="alert"><Icon name="info" size={15} />{error}</p>}

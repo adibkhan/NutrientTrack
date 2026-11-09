@@ -75,7 +75,7 @@ async function openManualEntry(user: ReturnType<typeof userEvent.setup>) {
 }
 
 async function editEntry(user: ReturnType<typeof userEvent.setup>, name: string) {
-  await user.click(await screen.findByRole('button', { name: `Edit ${name}` }))
+  await user.click(await screen.findByRole('button', { name: new RegExp(`^Edit ${name}\\b`) }))
   return screen.findByRole('dialog')
 }
 
@@ -152,13 +152,13 @@ describe('entry form: More nutrients', () => {
     expect(m.saveEntry).not.toHaveBeenCalled()
   })
 
-  it('does not save when the Add button is pressed with a negative nutrient (the box is natively invalid)', async () => {
+  it('does not save when the Add button is pressed with a negative nutrient, and says why', async () => {
     const user = await renderApp()
     const dialog = await openManualEntry(user)
     await user.type(within(dialog).getByLabelText(/^Sodium/), '-5')
     await user.click(within(dialog).getByRole('button', { name: 'Add to diary' }))
 
-    expect((within(dialog).getByLabelText(/^Sodium/) as HTMLInputElement).validity.rangeUnderflow).toBe(true)
+    expect(await within(dialog).findByText('Sodium must be zero or greater.')).toBeTruthy()
     expect(m.saveEntry).not.toHaveBeenCalled()
   })
 })

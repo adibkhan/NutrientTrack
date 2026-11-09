@@ -3,6 +3,7 @@ import type { CatalogFood } from '../catalog/types'
 import { FoodGlyph } from '../components/FoodGlyph'
 import { Icon } from '../components/Icon'
 import { MAX_LINES, MAX_SERVINGS, calculateRecipe, clampServings, decodeRecipeHash, encodeRecipeHash, ingredientTotals, recipeLabelHtml, recipeLabelText } from '../lib/recipe'
+import { ambiguityMessage, inputText, parseDecimal } from '../lib/decimal'
 import { formatNumber } from '../lib/utils'
 
 const EXAMPLE = '2 cups rice\n1 lb chicken breast\n2 tbsp olive oil\n1 onion\n2 cloves garlic\n1 can tomatoes'
@@ -30,19 +31,21 @@ export function RecipeCalculator({ catalog, appHref = '../' }: RecipeCalculatorP
   const fromHash = typeof window !== 'undefined' ? decodeRecipeHash(window.location.hash) : undefined
   const [text, setText] = useState(fromHash?.text ?? '')
   // Kept as typed so clearing the box to type a new number does not snap it back to 1 mid-edit.
-  const [servingsText, setServingsText] = useState(String(fromHash?.servings ?? 4))
-  const servings = clampServings(Number(servingsText))
+  const [servingsText, setServingsText] = useState(inputText(fromHash?.servings ?? 4))
+  const servings = clampServings(parseDecimal(servingsText))
   // The ingredient matcher scans the whole catalog per line, so wait for a pause in typing before running it.
   const [settled, setSettled] = useState({ text, servings })
   useEffect(() => {
     const timer = window.setTimeout(() => setSettled({ text, servings }), 250)
     return () => window.clearTimeout(timer)
   }, [text, servings])
-  const typed = servingsText.trim() === '' ? undefined : Number(servingsText)
-  const servingsHint = typed === undefined || !Number.isFinite(typed) ? undefined
+  const typed = servingsText.trim() === '' ? undefined : parseDecimal(servingsText)
+  const servingsAmbiguity = ambiguityMessage(servingsText)
+  const servingsInvalid = typed !== undefined && !Number.isFinite(typed) && !servingsAmbiguity
+  const servingsHint = servingsAmbiguity ?? (servingsInvalid ? 'Servings must be a number, like 4. Using 1 until it is.' : typed === undefined || !Number.isFinite(typed) ? undefined
     : typed > MAX_SERVINGS ? `Using ${MAX_SERVINGS}, the maximum`
       : typed < 1 ? 'Using 1, the minimum'
-        : !Number.isInteger(typed) ? `Using ${servings}, servings are whole numbers` : undefined
+        : !Number.isInteger(typed) ? `Using ${servings}, servings are whole numbers` : undefined)
   const [title, setTitle] = useState('')
   const [skipped, setSkipped] = useState<Set<number>>(new Set())
   const [showEmbed, setShowEmbed] = useState(false)
@@ -87,8 +90,8 @@ export function RecipeCalculator({ catalog, appHref = '../' }: RecipeCalculatorP
           <div className="recipe-input-row">
             <div className="form-field">
               <label htmlFor="recipe-servings">Servings</label>
-              <input id="recipe-servings" type="number" inputMode="numeric" min={1} max={MAX_SERVINGS} value={servingsText} onChange={(event) => setServingsText(event.target.value)} onBlur={() => setServingsText(String(servings))} aria-describedby={servingsHint ? 'recipe-servings-hint' : undefined} />
-              {servingsHint && <small className="field-hint warn" id="recipe-servings-hint" role="status">{servingsHint}</small>}
+              <input id="recipe-servings" type="text" inputMode="numeric" value={servingsText} onChange={(event) => setServingsText(event.target.value)} onBlur={() => { if (!servingsAmbiguity && !servingsInvalid) setServingsText(inputText(servings)) }} aria-invalid={servingsAmbiguity || servingsInvalid ? true : undefined} aria-describedby={servingsHint ? 'recipe-servings-hint' : undefined} />
+              {servingsHint && <small className={servingsAmbiguity || servingsInvalid ? 'field-error' : 'field-hint warn'} id="recipe-servings-hint" role={servingsAmbiguity || servingsInvalid ? 'alert' : 'status'}>{servingsHint}</small>}
             </div>
             <div className="form-field recipe-title-field">
               <label htmlFor="recipe-title">Recipe name <span>optional, for the label</span></label>

@@ -70,7 +70,7 @@ const saved = () => {
 }
 async function openEdit(name = 'Banana') {
   const user = await boot()
-  await user.click(first(`Edit ${name}`))
+  await user.click(first(new RegExp(`^Edit ${name}\\b`)))
   await screen.findByLabelText('Food or meal name')
   return user
 }
@@ -81,7 +81,7 @@ describe('numeric caps', () => {
     fireEvent.change(field('entry-name'), { target: { value: 'Huge' } })
     fireEvent.change(field('entry-calories'), { target: { value: '1000000000' } })
     await user.click(screen.getByRole('button', { name: 'Add to diary' }))
-    expect(await screen.findByText("That's more than 10,000 kcal for one entry. Check the number.")).toBeTruthy()
+    expect(await screen.findByText("That's more than 10000 kcal for one entry. Check the number.")).toBeTruthy()
     expect(field('entry-calories').getAttribute('aria-invalid')).toBe('true')
     expect(m.saveEntry).not.toHaveBeenCalled()
   })
@@ -92,11 +92,11 @@ describe('numeric caps', () => {
     fireEvent.change(field('entry-calories'), { target: { value: '500' } })
     fireEvent.change(field('entry-protein'), { target: { value: '1001' } })
     await user.click(screen.getByRole('button', { name: 'Add to diary' }))
-    expect(await screen.findByText("That's more than 1,000 g of protein for one entry. Check the number.")).toBeTruthy()
+    expect(await screen.findByText("That's more than 1000 g of protein for one entry. Check the number.")).toBeTruthy()
     fireEvent.change(field('entry-protein'), { target: { value: '30' } })
     fireEvent.change(field('entry-sodium'), { target: { value: '100001' } })
     await user.click(screen.getByRole('button', { name: 'Add to diary' }))
-    expect(await screen.findByText(/more than 100,000 mg of sodium/)).toBeTruthy()
+    expect(await screen.findByText(/more than 100000 mg of sodium/)).toBeTruthy()
     expect(m.saveEntry).not.toHaveBeenCalled()
   })
 
@@ -105,7 +105,7 @@ describe('numeric caps', () => {
     const user = await openEdit()
     fireEvent.change(field('entry-calories'), { target: { value: '10001' } })
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
-    expect(await screen.findByText(/more than 10,000 kcal/)).toBeTruthy()
+    expect(await screen.findByText(/more than 10000 kcal/)).toBeTruthy()
     expect(m.saveEntry).not.toHaveBeenCalled()
   })
 

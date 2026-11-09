@@ -98,13 +98,13 @@ describe('Copy yesterday', () => {
     expect(entries.find((e) => e.id === 'a')?.date).toBe(yesterday)
   })
 
-  it('does not ask for confirmation when the viewed day has no eaten entries, even with a planned one', async () => {
+  it('asks first when the viewed day holds only a planned entry, and a declined confirm adds nothing', async () => {
     entries = [entry({ id: 'a', name: 'Porridge' }), entry({ id: 'tp', name: 'Planned today', date: today, planned: true })]
-    const confirm = vi.spyOn(window, 'confirm')
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     const user = await renderApp()
     await user.click(await screen.findByRole('button', { name: 'Copy yesterday' }))
-    await waitFor(() => expect(m.saveEntries).toHaveBeenCalledTimes(1))
-    expect(confirm).not.toHaveBeenCalled()
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(m.saveEntries).not.toHaveBeenCalled()
   })
 
   it('asks first when the viewed day already has eaten entries and does nothing if declined', async () => {

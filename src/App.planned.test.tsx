@@ -160,7 +160,7 @@ describe('entry form planned checkbox', () => {
   it('removes planned but keeps every unknown field when an existing planned entry is unchecked and saved', async () => {
     entries = [withUnknown(entry({ id: 'p', name: 'Dinner', planned: true }), { sodium: 120, source: 'future-build' })]
     const user = await renderApp()
-    await user.click(await screen.findByRole('button', { name: 'Edit Dinner' }))
+    await user.click(await screen.findByRole('button', { name: /^Edit Dinner\b/ }))
     const dialog = await screen.findByRole('dialog')
     const box = within(dialog).getByRole('checkbox', { name: /Planned, not eaten yet/ })
     expect(box).toHaveProperty('checked', true)
@@ -174,7 +174,7 @@ describe('entry form planned checkbox', () => {
   it('keeps planned and unknown fields when an existing planned entry is edited without touching the box', async () => {
     entries = [withUnknown(entry({ id: 'p', name: 'Dinner', planned: true }), { sodium: 120 })]
     const user = await renderApp()
-    await user.click(await screen.findByRole('button', { name: 'Edit Dinner' }))
+    await user.click(await screen.findByRole('button', { name: /^Edit Dinner\b/ }))
     const dialog = await screen.findByRole('dialog')
     await user.click(within(dialog).getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))

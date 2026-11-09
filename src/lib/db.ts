@@ -300,6 +300,15 @@ export const saveEntries = async (entries: DiaryEntry[]): Promise<void> => {
   }))
 }
 export const deleteEntry = (id: string): Promise<void> => remove('entries', id)
+/** Delete a group of diary entries in one transaction (all or none), with the same outbox rules as a single delete. */
+export const deleteEntries = async (ids: string[]): Promise<void> => {
+  const unique = [...new Set(ids)]
+  if (unique.length === 0) return
+  await writeWithChanges('entries', (store, outbox) => unique.forEach((id) => {
+    store.delete(id)
+    outbox.track(changeFor('entries', { id }, true))
+  }))
+}
 export const saveFood = (food: Food): Promise<void> => put('foods', food)
 export const deleteFood = (id: string): Promise<void> => remove('foods', id)
 export const saveWeight = (weight: WeightEntry): Promise<void> => put('weights', weight)

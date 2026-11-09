@@ -48,7 +48,7 @@ async function openEdit() {
   const user = userEvent.setup()
   render(<App />)
   await screen.findAllByRole('button', { name: 'Log food' })
-  await user.click(first('Edit Stew'))
+  await user.click(first(/^Edit Stew\s*\d/))
   await screen.findByLabelText('Servings')
   return user
 }
@@ -95,7 +95,7 @@ describe('editing an entry with grams but no servings', () => {
     const user = userEvent.setup()
     render(<App />)
     await screen.findAllByRole('button', { name: 'Log food' })
-    await user.click(first('Edit Stew'))
+    await user.click(first(/^Edit Stew\s*\d/))
     await screen.findByLabelText('Food or meal name')
     fireEvent.change(field('entry-calories'), { target: { value: '650' } })
     fireEvent.change(field('entry-protein'), { target: { value: '33' } })

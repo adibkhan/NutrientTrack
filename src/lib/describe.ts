@@ -1,4 +1,5 @@
 import type { CatalogFood } from '../catalog/types'
+import { ambiguityMessage, parseDecimalDetailed } from './decimal'
 
 /**
  * Describe-to-log: "2 eggs, toast and a coffee" becomes catalog foods with amounts, on the device and without AI.
@@ -9,6 +10,8 @@ export interface DescribedItem {
   quantity: number
   unit?: string
   query: string
+  /** Set when the amount could be read two ways ("2,000 g"): the item is not matched and this says what to type instead. */
+  problem?: string
 }
 
 export interface ResolvedItem {
@@ -84,9 +87,15 @@ const ALIASES: Array<[RegExp, string]> = [
   [/^grapes?$/, 'Grapes, red or green'],
 ]
 
-const parseQuantity = (word: string): number | undefined => {
+const parseQuantity = (word: string): number | 'ambiguous' | undefined => {
   if (word in NUMBER_WORDS) return NUMBER_WORDS[word]
-  if (/^\d+(\.\d+)?$/.test(word)) return Number(word)
+  if (/^[\d.,]*\d[\d.,]*$/.test(word)) {
+    const { value, reason } = parseDecimalDetailed(word)
+    if (reason === 'ambiguous') return 'ambiguous'
+    // A run of digits too long for a number is an absurd amount, which the recipe limits name, not a word of the food.
+    if (!Number.isFinite(value) && /^\d+$/.test(word)) return Infinity
+    return Number.isFinite(value) ? value : undefined
+  }
   const fraction = /^(\d+)\/(\d+)$/.exec(word)
   if (fraction && Number(fraction[2]) > 0) return Number(fraction[1]) / Number(fraction[2])
   return undefined
@@ -95,7 +104,7 @@ const parseQuantity = (word: string): number | undefined => {
 /** Split a sentence into food items with a quantity and an optional unit. */
 export const splitDescription = (text: string): DescribedItem[] => text
   .toLowerCase()
-  .split(/\s*(?:,|;|\n|\+|&|\band\b|\bwith\b|\bplus\b)\s*/)
+  .split(/\s*(?:,(?!\d)|(?<!\d),|;|\n|\+|&|\band\b|\bwith\b|\bplus\b)\s*/)
   .map((part) => part.trim())
   .filter(Boolean)
   .map((part) => {
@@ -105,12 +114,16 @@ export const splitDescription = (text: string): DescribedItem[] => text
     let unit: string | undefined
     let index = 0
     const first = parseQuantity(words[0])
+    if (first === 'ambiguous') {
+      const message = ambiguityMessage(words[0])
+      return { text: part, quantity: 1, unit, query: words.slice(1).join(' ') || part, problem: `${message ?? 'The amount could be read two ways.'} Not matched` }
+    }
     if (first !== undefined) {
       quantity = first
       index = 1
       // "1 1/2 cups"
       const second = words[1] && /^\d+\/\d+$/.test(words[1]) ? parseQuantity(words[1]) : undefined
-      if (second !== undefined) { quantity += second; index = 2 }
+      if (typeof second === 'number') { quantity += second; index = 2 }
     }
     if (words[index] && UNIT_ALIASES[words[index]] && words.length > index + 1) {
       unit = UNIT_ALIASES[words[index]]
@@ -210,6 +223,7 @@ export const resolveDescription = (text: string, catalog: CatalogFood[]): { reso
   const resolved: ResolvedItem[] = []
   const unmatched: DescribedItem[] = []
   for (const item of splitDescription(text)) {
+    if (item.problem) { unmatched.push(item); continue }
     // "1 can tomatoes" means the canned food, which the matcher otherwise avoids in favour of fresh.
     const food = matchFood(item.unit === 'can' && !/\bcanned\b/.test(item.query) ? `canned ${item.query}` : item.query, catalog) ?? matchFood(item.query, catalog)
     if (!food) { unmatched.push(item); continue }

@@ -1,5 +1,6 @@
 import type { BodyMeasurement } from '../types'
 import { dateFromISO, shiftDate } from './utils'
+import { inputText, parseDecimal } from './decimal'
 
 export const MEASUREMENTS = [
   { key: 'waist', label: 'Waist' },
@@ -28,7 +29,7 @@ export const measurementDraftFrom = (record: BodyMeasurement | undefined, unit: 
   if (!record) return draft
   for (const { key } of MEASUREMENTS) {
     const value = record[key]
-    if (typeof value === 'number' && Number.isFinite(value) && value > 0) draft[key] = String(Math.round(convertLength(value, record.unit, unit) * 10) / 10)
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) draft[key] = inputText(Math.round(convertLength(value, record.unit, unit) * 10) / 10)
   }
   return draft
 }
@@ -39,7 +40,7 @@ export const measurementValuesFrom = (draft: MeasurementDraft): Partial<Record<M
   for (const { key } of MEASUREMENTS) {
     const text = draft[key].trim()
     if (!text) continue
-    const parsed = Number(text)
+    const parsed = parseDecimal(text)
     if (Number.isFinite(parsed) && parsed > 0) values[key] = parsed
   }
   return values

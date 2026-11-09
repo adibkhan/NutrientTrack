@@ -132,7 +132,7 @@ describe('diary row overflow toggle', () => {
     expect(row.classList.contains('is-open')).toBe(false)
   })
 
-  it('points aria-controls at the container holding Move, Edit and Delete, in every state', async () => {
+  it('points aria-controls at the container holding Move and Delete, in every state', async () => {
     entries = [entry({ id: 'e1', name: 'Oatmeal' })]
     const user = userEvent.setup()
     await renderApp()
@@ -140,7 +140,7 @@ describe('diary row overflow toggle', () => {
     const check = () => {
       const target = document.getElementById(toggle.getAttribute('aria-controls') ?? '')
       expect(target).not.toBeNull()
-      for (const verb of ['Move', 'Edit', 'Delete']) expect(within(target as HTMLElement).getByRole('button', { name: `${verb} Oatmeal` })).toBeTruthy()
+      for (const verb of ['Move', 'Delete']) expect(within(target as HTMLElement).getByRole('button', { name: `${verb} Oatmeal` })).toBeTruthy()
     }
     check()
     await user.click(toggle)

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ambiguityMessage, inputText, parseDecimal } from '../lib/decimal'
 import { lookupBarcode, normalizeBarcode, scaleProduct, type BarcodeProduct, type BarcodeResult } from '../lib/barcode'
 import { cameraAvailable, startScanning, type ScanSession } from '../lib/scanner'
 import { formatNumber } from '../lib/utils'
@@ -45,7 +46,7 @@ export function BarcodeLookup({ enabled, onEnable, onUse, onBack }: BarcodeLooku
     const found = await lookupBarcode(code)
     setBusy(false)
     setResult(found)
-    if (found.kind === 'found') setGrams(String(found.product.servingGrams ?? 100))
+    if (found.kind === 'found') setGrams(inputText(found.product.servingGrams ?? 100))
   }
 
   const startCamera = async () => {
@@ -89,7 +90,8 @@ export function BarcodeLookup({ enabled, onEnable, onUse, onBack }: BarcodeLooku
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled])
 
-  const amount = Number(grams)
+  const amount = parseDecimal(grams)
+  const gramsProblem = ambiguityMessage(grams)
   const scaled = result?.kind === 'found' && amount > 0 ? scaleProduct(result.product, amount) : undefined
   const live = camera === 'scanning' || camera === 'starting'
 
@@ -143,7 +145,8 @@ export function BarcodeLookup({ enabled, onEnable, onUse, onBack }: BarcodeLooku
           <div className="logger-selected"><span className="result-avatar catalog"><Icon name="food" size={18} /></span><div><strong>{result.product.name}</strong><span>{result.product.brand ?? 'Open Food Facts'} · {formatNumber(result.product.per100g.calories, 0)} kcal / 100 g</span></div></div>
           <div className="grams-field">
             <label htmlFor="barcode-grams"><Icon name="scale" size={15} />Amount</label>
-            <div className="input-with-suffix"><input id="barcode-grams" inputMode="decimal" min="0" step="any" type="number" value={grams} onChange={(event) => setGrams(event.target.value)} /><span>g</span></div>
+            <div className="input-with-suffix"><input id="barcode-grams" inputMode="decimal" type="text" aria-invalid={gramsProblem ? true : undefined} aria-describedby={gramsProblem ? 'barcode-grams-error' : undefined} value={grams} onChange={(event) => setGrams(event.target.value)} /><span>g</span></div>
+            {gramsProblem && <p className="field-error" id="barcode-grams-error" role="alert">{gramsProblem}</p>}
           </div>
           {result.product.servingGrams && <p className="field-hint">One labelled serving is {formatNumber(result.product.servingGrams, 1)} g.</p>}
           {scaled && <div className="nutrition-preview"><div><span>Calories</span><strong>{formatNumber(scaled.calories, 1)}<small>kcal</small></strong></div><div><span><i className="macro-dot protein" />Protein</span><strong>{formatNumber(scaled.protein, 1)}<small>g</small></strong></div><div><span><i className="macro-dot carbs" />Carbs</span><strong>{formatNumber(scaled.carbs, 1)}<small>g</small></strong></div><div><span><i className="macro-dot fat" />Fat</span><strong>{formatNumber(scaled.fat, 1)}<small>g</small></strong></div></div>}

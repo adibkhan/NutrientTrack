@@ -54,6 +54,9 @@ describe('food page links', () => {
     const dialog = await screen.findByRole('dialog')
     expect(await within(dialog).findByText('Bananas, raw')).toBeTruthy()
     expect(window.location.search).toBe('?utm_source=x')
+    // 1 medium starts selected at 118 g; the first tap on it keeps one, the next adds another.
+    expect((within(dialog).getByLabelText(/Amount/) as HTMLInputElement).value).toBe('118')
+    expect(within(dialog).getByRole('button', { name: /1 medium/ }).getAttribute('aria-pressed')).toBe('true')
     await user.click(within(dialog).getByRole('button', { name: /1 medium/ }))
     expect((within(dialog).getByLabelText(/Amount/) as HTMLInputElement).value).toBe('118')
     await user.click(within(dialog).getByRole('button', { name: /1 medium/ }))

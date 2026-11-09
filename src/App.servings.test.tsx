@@ -222,7 +222,7 @@ describe('editing an existing entry', () => {
   it('shows the stepper at the stored servings', async () => {
     entries = [entry({ servings: 2 })]
     const user = await renderApp()
-    await user.click(first('Edit Stew'))
+    await user.click(first(/^Edit Stew\s*\d/))
     expect(((await screen.findByLabelText('Servings')) as HTMLInputElement).value).toBe('2')
     expect(field('entry-calories').value).toBe('600')
   })
@@ -230,7 +230,7 @@ describe('editing an existing entry', () => {
   it('removes the servings key when changed to 1 while unknown fields survive', async () => {
     entries = [entry({ servings: 2, futureField: { keep: 'me' } })]
     const user = await renderApp()
-    await user.click(first('Edit Stew'))
+    await user.click(first(/^Edit Stew\s*\d/))
     await screen.findByLabelText('Servings')
     setServings('1')
     expect(field('entry-calories').value).toBe('300')
@@ -244,7 +244,7 @@ describe('editing an existing entry', () => {
   it('keeps servings and unknown fields when saved unchanged', async () => {
     entries = [entry({ servings: 2, futureField: 'x' })]
     const user = await renderApp()
-    await user.click(first('Edit Stew'))
+    await user.click(first(/^Edit Stew\s*\d/))
     await screen.findByLabelText('Servings')
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     expect(saved()).toMatchObject({ servings: 2, calories: 600, futureField: 'x' })
@@ -253,7 +253,7 @@ describe('editing an existing entry', () => {
   it('shows no stepper for an entry without servings and keeps hand-typed macros', async () => {
     entries = [entry({ futureField: 'x' })]
     const user = await renderApp()
-    await user.click(first('Edit Stew'))
+    await user.click(first(/^Edit Stew\s*\d/))
     await screen.findByLabelText('Food or meal name')
     expect(screen.queryByLabelText('Servings')).toBeNull()
     fireEvent.change(field('entry-calories'), { target: { value: '650' } })

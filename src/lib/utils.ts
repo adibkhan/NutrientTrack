@@ -1,3 +1,4 @@
+import { inputText } from './decimal'
 import type { DiaryEntry, MacroKey, MacroTotals, MealCategory } from '../types'
 
 export const todayISO = (): string => {
@@ -51,7 +52,7 @@ export const formatNumber = (value: number, maximumFractionDigits = 0): string =
 }
 
 export const formatInputNumber = (value: number | undefined): string => {
-  return value === undefined ? '' : String(value)
+  return value === undefined ? '' : inputText(value)
 }
 
 export const newId = (): string => {

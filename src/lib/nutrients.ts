@@ -1,4 +1,5 @@
 import type { DiaryEntry } from '../types'
+import { inputText, parseDecimal } from './decimal'
 
 /** Extra nutrients a food or entry can carry. Each is optional: missing means "not recorded", never zero. */
 export const NUTRIENTS = [
@@ -22,7 +23,7 @@ export const nutrientDraftFrom = (record: NutrientValues | undefined): NutrientD
   const draft = emptyNutrientDraft()
   for (const key of NUTRIENT_KEYS) {
     const value = record?.[key]
-    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) draft[key] = String(value)
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) draft[key] = inputText(value)
   }
   return draft
 }
@@ -33,7 +34,7 @@ export const nutrientValuesFrom = (draft: NutrientDraft): NutrientValues => {
   for (const key of NUTRIENT_KEYS) {
     const text = draft[key].trim()
     if (!text) continue
-    const parsed = Number(text)
+    const parsed = parseDecimal(text)
     if (Number.isFinite(parsed) && parsed >= 0) values[key] = parsed
   }
   return values
@@ -44,7 +45,7 @@ export const invalidNutrient = (draft: NutrientDraft): (typeof NUTRIENTS)[number
   NUTRIENTS.find((nutrient) => {
     const text = draft[nutrient.key].trim()
     if (!text) return false
-    const parsed = Number(text)
+    const parsed = parseDecimal(text)
     return !Number.isFinite(parsed) || parsed < 0
   })
 

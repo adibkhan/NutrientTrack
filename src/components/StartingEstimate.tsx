@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Program } from '../types'
+import { ambiguityMessage, parseDecimal } from '../lib/decimal'
 import { budgetFor, readProgram } from '../lib/program'
 import { ACTIVITY_LEVELS, estimateMaintenance, type ActivityLevel } from '../lib/startingEstimate'
 import { CM_PER_INCH } from '../lib/measurements'
@@ -29,10 +30,11 @@ export function StartingEstimate({ unit, trendWeight, program, defaultOpen, onUs
   const [weight, setWeight] = useState('')
   const [activity, setActivity] = useState<ActivityLevel>('light')
 
-  const weightValue = weight.trim() ? Number(weight) : trendWeight
-  const heightCm = Number(height) * (unit === 'lb' ? CM_PER_INCH : 1)
+  const weightValue = weight.trim() ? parseDecimal(weight) : trendWeight
+  const heightCm = parseDecimal(height) * (unit === 'lb' ? CM_PER_INCH : 1)
   const weightKg = weightValue === undefined ? NaN : unit === 'lb' ? weightValue / LB_PER_KG : weightValue
-  const maintenance = estimateMaintenance({ formula, age: Number(age), heightCm, weightKg, activity })
+  const maintenance = estimateMaintenance({ formula, age: parseDecimal(age), heightCm, weightKg, activity })
+  const ambiguous = { age: ambiguityMessage(age), height: ambiguityMessage(height), weight: ambiguityMessage(weight) }
   const stored = readProgram(program)
   const forProgram = maintenance !== undefined && stored.direction && !((stored.direction === 'lose' || stored.direction === 'gain') && stored.weeklyRate === undefined)
     ? budgetFor(stored, unit, maintenance, weightValue)
@@ -52,9 +54,9 @@ export function StartingEstimate({ unit, trendWeight, program, defaultOpen, onUs
           </select>
         </div>
         <div className="goal-fields">
-          <div className="form-field"><label htmlFor="est-age">Age</label><div className="input-with-suffix wide est-suffix"><input id="est-age" inputMode="numeric" min="0" placeholder="e.g. 35" type="number" value={age} onChange={(event) => setAge(event.target.value)} /><span aria-hidden="true">yr</span></div></div>
-          <div className="form-field"><label htmlFor="est-height">Height <span>{unit === 'lb' ? 'in' : 'cm'}</span></label><div className="input-with-suffix wide est-suffix"><input id="est-height" inputMode="decimal" min="0" placeholder={unit === 'lb' ? 'e.g. 67' : 'e.g. 170'} type="number" value={height} onChange={(event) => setHeight(event.target.value)} /><span aria-hidden="true">{unit === 'lb' ? 'in' : 'cm'}</span></div></div>
-          <div className="form-field"><label htmlFor="est-weight">Weight <span>{unit}</span></label><div className="input-with-suffix wide est-suffix"><input id="est-weight" inputMode="decimal" min="0" placeholder={trendWeight === undefined ? (unit === 'lb' ? 'e.g. 150' : 'e.g. 70') : formatNumber(trendWeight, 1)} type="number" value={weight} onChange={(event) => setWeight(event.target.value)} /><span aria-hidden="true">{unit}</span></div></div>
+          <div className="form-field"><label htmlFor="est-age">Age</label><div className="input-with-suffix wide est-suffix"><input id="est-age" aria-invalid={ambiguous.age ? true : undefined} aria-describedby={ambiguous.age ? 'est-age-error' : undefined} inputMode="numeric" placeholder="e.g. 35" type="text" value={age} onChange={(event) => setAge(event.target.value)} /><span aria-hidden="true">yr</span></div>{ambiguous.age && <p className="field-error" id="est-age-error" role="alert">{ambiguous.age}</p>}</div>
+          <div className="form-field"><label htmlFor="est-height">Height <span>{unit === 'lb' ? 'in' : 'cm'}</span></label><div className="input-with-suffix wide est-suffix"><input id="est-height" aria-invalid={ambiguous.height ? true : undefined} aria-describedby={ambiguous.height ? 'est-height-error' : undefined} inputMode="decimal" placeholder={unit === 'lb' ? 'e.g. 67' : 'e.g. 170'} type="text" value={height} onChange={(event) => setHeight(event.target.value)} /><span aria-hidden="true">{unit === 'lb' ? 'in' : 'cm'}</span></div>{ambiguous.height && <p className="field-error" id="est-height-error" role="alert">{ambiguous.height}</p>}</div>
+          <div className="form-field"><label htmlFor="est-weight">Weight <span>{unit}</span></label><div className="input-with-suffix wide est-suffix"><input id="est-weight" aria-invalid={ambiguous.weight ? true : undefined} aria-describedby={ambiguous.weight ? 'est-weight-error' : undefined} inputMode="decimal" placeholder={trendWeight === undefined ? (unit === 'lb' ? 'e.g. 150' : 'e.g. 70') : formatNumber(trendWeight, 1)} type="text" value={weight} onChange={(event) => setWeight(event.target.value)} /><span aria-hidden="true">{unit}</span></div>{ambiguous.weight && <p className="field-error" id="est-weight-error" role="alert">{ambiguous.weight}</p>}</div>
         </div>
         <div className="form-field full">
           <label htmlFor="est-activity">Activity</label>

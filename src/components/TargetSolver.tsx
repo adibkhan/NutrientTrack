@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ambiguityMessage, parseDecimal } from '../lib/decimal'
 import { solveAmount } from '../lib/solve'
 import { formatNumber } from '../lib/utils'
 
@@ -25,7 +26,8 @@ export function TargetSolver({ options, unit, digits = 2, onApply }: TargetSolve
   const [target, setTarget] = useState('')
   if (usable.length === 0) return null
   const chosen = usable.find((option) => option.key === key) ?? usable[0]
-  const amount = solveAmount(Number(target), chosen.perUnit, digits)
+  const amount = solveAmount(parseDecimal(target), chosen.perUnit, digits)
+  const ambiguous = ambiguityMessage(target)
   return (
     <div className="target-solver">
       <span className="field-label">Log by target</span>
@@ -33,9 +35,10 @@ export function TargetSolver({ options, unit, digits = 2, onApply }: TargetSolve
         <select aria-label="Log by target nutrient" value={chosen.key} onChange={(event) => setKey(event.target.value)}>
           {usable.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
         </select>
-        <input aria-label="Target amount" inputMode="decimal" min="0" placeholder="e.g. 30" step="any" type="number" value={target} onChange={(event) => setTarget(event.target.value)} />
+        <input aria-label="Target amount" aria-invalid={ambiguous ? true : undefined} aria-describedby={ambiguous ? 'target-amount-error' : undefined} inputMode="decimal" placeholder="e.g. 30" type="text" value={target} onChange={(event) => setTarget(event.target.value)} />
         <button className="button secondary compact" disabled={amount === undefined} type="button" onClick={() => { if (amount !== undefined) onApply(amount) }}>Set amount</button>
       </div>
+      {ambiguous && <p className="field-error" id="target-amount-error" role="alert">{ambiguous}</p>}
       <p className="field-hint" aria-live="polite">{amount === undefined ? 'Enter how much you want, and the amount of this food is worked out for you.' : `That is ${formatNumber(amount, digits)} ${unit}.`}</p>
     </div>
   )

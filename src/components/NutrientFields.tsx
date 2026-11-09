@@ -19,10 +19,10 @@ export function NutrientFields({ idPrefix, values, onChange, error }: NutrientFi
         {NUTRIENTS.map((nutrient) => (
           <div className="form-field" key={nutrient.key}>
             <label htmlFor={`${idPrefix}-${nutrient.key}`}>{nutrient.label} <span>{nutrient.unit}</span></label>
-            <input id={`${idPrefix}-${nutrient.key}`} inputMode="decimal" min="0" placeholder="Not recorded" step="any" type="number" value={values[nutrient.key]} aria-invalid={error?.field === `${idPrefix}-${nutrient.key}` ? true : undefined} aria-describedby={error?.field === `${idPrefix}-${nutrient.key}` ? `${idPrefix}-${nutrient.key}-error` : undefined} onChange={(event) => onChange(nutrient.key, event.target.value)} />
-            {error?.field === `${idPrefix}-${nutrient.key}` && <p className="field-error" id={`${idPrefix}-${nutrient.key}-error`} role="alert">{error.message}</p>}
+            <input id={`${idPrefix}-${nutrient.key}`} inputMode="decimal" placeholder="Not recorded" type="text" value={values[nutrient.key]} aria-invalid={error?.field === `${idPrefix}-${nutrient.key}` ? true : undefined} aria-describedby={error?.field === `${idPrefix}-${nutrient.key}` ? `${idPrefix}-${nutrient.key}-error` : undefined} onChange={(event) => onChange(nutrient.key, event.target.value)} />
           </div>
         ))}
+        {error?.field.startsWith(`${idPrefix}-`) && NUTRIENTS.some((nutrient) => error.field === `${idPrefix}-${nutrient.key}`) && <p className="field-error" id={`${error.field}-error`} role="alert">{error.message}</p>}
       </div>
     </details>
   )

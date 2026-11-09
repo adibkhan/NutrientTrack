@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { ambiguityMessage, parseDecimalDetailed } from '../lib/decimal'
 import { PipFigure } from './Mascot'
 import { Icon } from './Icon'
 
@@ -20,13 +21,29 @@ export function WelcomeCard({ onFinish, onSkip, onEstimate }: WelcomeCardProps) 
   const [unit, setUnit] = useState<'lb' | 'kg'>(() => (typeof navigator !== 'undefined' && /^en-(US|LR|MM)\b/.test(navigator.language) ? 'lb' : 'kg'))
   const [calories, setCalories] = useState('')
   const [protein, setProtein] = useState('')
-  const positive = (value: string) => {
-    const number = Number(value)
-    return value.trim() && Number.isFinite(number) && number > 0 ? number : undefined
+  const [errors, setErrors] = useState<{ calories?: string; protein?: string }>({})
+  /** Blank or zero is "no goal"; anything else must be a clear number, and the message says what to fix. */
+  const check = (value: string, label: string): { goal?: number; error?: string } => {
+    if (value.trim() === '') return {}
+    const { value: number } = parseDecimalDetailed(value)
+    const unclear = ambiguityMessage(value)
+    if (unclear) return { error: unclear }
+    if (!Number.isFinite(number) || number < 0) return { error: `${label} must be a number, zero or greater.` }
+    return number > 0 ? { goal: number } : {}
+  }
+  const read = () => {
+    const energy = check(calories, 'Daily energy goal')
+    const protein_ = check(protein, 'Daily protein goal')
+    const next = { calories: energy.error, protein: protein_.error }
+    setErrors(next)
+    const failed = next.calories ? 'welcome-calories' : next.protein ? 'welcome-protein' : undefined
+    if (failed) document.getElementById(failed)?.focus()
+    return failed ? undefined : { weightUnit: unit, calories: energy.goal, protein: protein_.goal }
   }
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    onFinish({ weightUnit: unit, calories: positive(calories), protein: positive(protein) })
+    const choice = read()
+    if (choice) onFinish(choice)
   }
   return (
     <section className="welcome-card" aria-labelledby="welcome-title">
@@ -45,10 +62,10 @@ export function WelcomeCard({ onFinish, onSkip, onEstimate }: WelcomeCardProps) 
           </div>
         </div>
         <div className="welcome-fields">
-          <div className="form-field"><label htmlFor="welcome-calories">Daily energy goal <span>kcal, optional</span></label><input id="welcome-calories" inputMode="decimal" min="0" placeholder="e.g. 2,000" type="number" value={calories} onChange={(event) => setCalories(event.target.value)} /></div>
-          <div className="form-field"><label htmlFor="welcome-protein">Daily protein goal <span>g, optional</span></label><input id="welcome-protein" inputMode="decimal" min="0" placeholder="e.g. 120" type="number" value={protein} onChange={(event) => setProtein(event.target.value)} /></div>
+          <div className="form-field"><label htmlFor="welcome-calories">Daily energy goal <span>kcal, optional</span></label><input id="welcome-calories" inputMode="decimal" placeholder="e.g. 2000" type="text" value={calories} aria-invalid={errors.calories ? true : undefined} aria-describedby={errors.calories ? 'welcome-calories-error' : undefined} onChange={(event) => { setCalories(event.target.value); setErrors({ ...errors, calories: undefined }) }} />{errors.calories && <p className="field-error" id="welcome-calories-error" role="alert">{errors.calories}</p>}</div>
+          <div className="form-field"><label htmlFor="welcome-protein">Daily protein goal <span>g, optional</span></label><input id="welcome-protein" inputMode="decimal" placeholder="e.g. 120" type="text" value={protein} aria-invalid={errors.protein ? true : undefined} aria-describedby={errors.protein ? 'welcome-protein-error' : undefined} onChange={(event) => { setProtein(event.target.value); setErrors({ ...errors, protein: undefined }) }} />{errors.protein && <p className="field-error" id="welcome-protein-error" role="alert">{errors.protein}</p>}</div>
         </div>
-        <button className="text-button welcome-estimate" type="button" onClick={() => onEstimate({ weightUnit: unit, calories: positive(calories), protein: positive(protein) })}>Not sure? Estimate a starting target<Icon name="arrow-right" size={15} /></button>
+        <button className="text-button welcome-estimate" type="button" onClick={() => { const choice = read(); if (choice) onEstimate(choice) }}>Not sure? Estimate a starting target<Icon name="arrow-right" size={15} /></button>
         <div className="welcome-actions">
           <button className="text-button welcome-skip" type="button" onClick={onSkip}>Skip setup</button>
           <button className="button primary" type="submit">Start logging</button>

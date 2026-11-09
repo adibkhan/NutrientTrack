@@ -27,7 +27,9 @@ export function DescribeLog({ text, saving, onAdd }: DescribeLogProps) {
   if (!catalog) return null
   const { resolved, unmatched } = resolveDescription(text, catalog)
   const items = resolved.filter((_, index) => !removed.has(index))
-  if (resolved.length === 0) return null
+  const unclear = unmatched.filter((item) => item.problem)
+  if (resolved.length === 0 && unclear.length === 0) return null
+  if (resolved.length === 0) return <section className="describe-log" aria-label="Log as a meal">{unclear.map((item) => <p className="field-error" role="alert" key={item.text}>{item.problem}: “{item.text}”.</p>)}</section>
   const total = items.reduce((sum, item) => sum + kcal(item), 0)
   return (
     <section className="describe-log" aria-label="Log as a meal">
@@ -41,7 +43,8 @@ export function DescribeLog({ text, saving, onAdd }: DescribeLogProps) {
           </li>
         ))}
       </ul>
-      {unmatched.length > 0 && <p className="field-hint">No match for {unmatched.map((item) => `“${item.query}”`).join(', ')}. Search for it below or add it by hand.</p>}
+      {unclear.map((item) => <p className="field-error" role="alert" key={item.text}>{item.problem}: “{item.text}”.</p>)}
+      {unmatched.length > unclear.length && <p className="field-hint">No match for {unmatched.filter((item) => !item.problem).map((item) => `“${item.query}”`).join(', ')}. Search for it below or add it by hand.</p>}
       <button className="button primary describe-add" type="button" disabled={saving || items.length === 0} onClick={() => onAdd(items)}><Icon name="plus" size={16} />{saving ? 'Adding…' : `Add ${items.length} ${items.length === 1 ? 'food' : 'foods'} · ${formatNumber(total)} kcal`}</button>
     </section>
   )

@@ -58,7 +58,7 @@ async function renderApp() {
 }
 
 async function editEntry(user: ReturnType<typeof userEvent.setup>, name: string) {
-  await user.click(await screen.findByRole('button', { name: `Edit ${name}` }))
+  await user.click(await screen.findByRole('button', { name: new RegExp(`^Edit ${name}\\b`) }))
   return screen.findByRole('dialog')
 }
 
