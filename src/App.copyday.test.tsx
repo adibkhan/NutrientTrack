@@ -81,7 +81,7 @@ describe('Copy yesterday', () => {
   })
 
   it('copies eaten entries to today with new ids, fresh timestamps and unknown fields, and skips planned ones', async () => {
-    const eaten = { ...entry({ id: 'a', name: 'Porridge', time: '08:00', grams: 50, calories: 250 }), sodium: 40 } as DiaryEntry
+    const eaten = { ...entry({ id: 'a', name: 'Porridge', time: '00:05', grams: 50, calories: 250 }), sodium: 40 } as DiaryEntry
     entries = [eaten, entry({ id: 'p', name: 'Later', planned: true }), entry({ id: 'old', name: 'Older', date: shiftDate(today, -2) })]
     const user = await renderApp()
     await user.click(await screen.findByRole('button', { name: 'Copy yesterday' }))
@@ -89,7 +89,7 @@ describe('Copy yesterday', () => {
     await waitFor(() => expect(m.saveEntries).toHaveBeenCalledTimes(1))
     const saved = copies()
     expect(saved).toHaveLength(1)
-    expect(saved[0]).toMatchObject({ name: 'Porridge', date: today, time: '08:00', grams: 50, calories: 250, sodium: 40 })
+    expect(saved[0]).toMatchObject({ name: 'Porridge', date: today, time: '00:05', grams: 50, calories: 250, sodium: 40 })
     expect(saved[0].id).not.toBe('a')
     expect(saved[0].createdAt).not.toBe(stamp)
     expect(saved[0].updatedAt).toBe(saved[0].createdAt)
