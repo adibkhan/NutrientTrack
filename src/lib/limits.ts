@@ -4,6 +4,9 @@ import { NUTRIENTS, type NutrientDraft } from './nutrients'
 /** Sane caps for one diary entry, enforced when the form saves. Existing stored data and backups are never checked against them. */
 export const LIMITS = { calories: 10000, macro: 1000, grams: 5000, servings: 100, nutrient: 100000, nameLength: 120 } as const
 
+/** A label inside a sentence: "Saturated fat" becomes "saturated fat", but "Vitamin K" and "Thiamin (B1)" keep their capitals. */
+export const inSentence = (label: string): string => (/[A-Z]/.test(label.slice(1)) ? label : label.toLowerCase())
+
 /** Round to one decimal place. */
 export const round1 = (value: number): number => Math.round(value * 10) / 10
 /** Round to two decimal places (servings). */
@@ -25,7 +28,7 @@ export const findLimitProblem = (draft: { calories: string; protein: string; car
   if (over(draft.grams, LIMITS.grams)) return { field: 'entry-grams', message: `That's more than ${LIMITS.grams} g for one entry. Check the number.` }
   if (over(draft.servings, LIMITS.servings)) return { field: 'entry-servings', message: `That's more than ${LIMITS.servings} servings for one entry. Check the number.` }
   for (const nutrient of NUTRIENTS) {
-    if (over(draft.nutrients[nutrient.key], LIMITS.nutrient)) return { field: `entry-${nutrient.key}`, message: `That's more than ${LIMITS.nutrient} ${nutrient.unit} of ${nutrient.label.toLowerCase()} for one entry. Check the number.` }
+    if (over(draft.nutrients[nutrient.key], LIMITS.nutrient)) return { field: `entry-${nutrient.key}`, message: `That's more than ${LIMITS.nutrient} ${nutrient.unit} of ${inSentence(nutrient.label)} for one entry. Check the number.` }
   }
   return undefined
 }

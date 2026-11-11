@@ -9,13 +9,15 @@ import { Icon } from './Icon'
 interface DescribeLogProps {
   text: string
   saving: boolean
+  /** Foods are already on the plate, so these join it instead of being saved on their own. */
+  toPlate?: boolean
   onAdd: (items: ResolvedItem[]) => void
 }
 
 const kcal = (item: ResolvedItem) => (item.food.per100g.calories * item.grams) / 100
 
 /** "2 eggs, toast and a coffee" as a list to check, then one tap to log them all. Matching happens on the device. */
-export function DescribeLog({ text, saving, onAdd }: DescribeLogProps) {
+export function DescribeLog({ text, saving, toPlate, onAdd }: DescribeLogProps) {
   const [catalog, setCatalog] = useState<CatalogFood[] | null>(null)
   const [removed, setRemoved] = useState<Set<number>>(new Set())
   useEffect(() => {
@@ -45,7 +47,7 @@ export function DescribeLog({ text, saving, onAdd }: DescribeLogProps) {
       </ul>
       {unclear.map((item) => <p className="field-error" role="alert" key={item.text}>{item.problem}: “{item.text}”.</p>)}
       {unmatched.length > unclear.length && <p className="field-hint">No match for {unmatched.filter((item) => !item.problem).map((item) => `“${item.query}”`).join(', ')}. Search for it below or add it by hand.</p>}
-      <button className="button primary describe-add" type="button" disabled={saving || items.length === 0} onClick={() => onAdd(items)}><Icon name="plus" size={16} />{saving ? 'Adding…' : `Add ${items.length} ${items.length === 1 ? 'food' : 'foods'} · ${formatNumber(total)} kcal`}</button>
+      <button className="button primary describe-add" type="button" disabled={saving || items.length === 0} onClick={() => onAdd(items)}><Icon name="plus" size={16} />{saving ? 'Adding…' : `Add ${items.length} ${items.length === 1 ? 'food' : 'foods'}${toPlate ? ' to plate' : ''} · ${formatNumber(total)} kcal`}</button>
     </section>
   )
 }

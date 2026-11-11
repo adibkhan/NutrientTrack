@@ -1,5 +1,6 @@
 import { useId, useMemo, useState } from 'react'
 import type { DiaryEntry, Goals } from '../types'
+import { hasShift, targetFor } from '../lib/calorieShift'
 import { formatNumber, formatShortDate, shiftDate, todayISO } from '../lib/utils'
 import './nutrition-insights.css'
 
@@ -22,6 +23,8 @@ interface MetricCardProps {
   metric: MetricKey
   points: DaySummary[]
   goal?: number
+  /** Each day's own target when uneven calorie days are on, in the order of `points`. */
+  dayGoals?: number[]
   rangeDays: RangeDays
   endDate: string
   loggedDays: number
@@ -63,7 +66,7 @@ const buildDays = (entries: DiaryEntry[], rangeDays: RangeDays, endDate: string)
   return days.map((date) => byDate.get(date) as DaySummary)
 }
 
-function MetricCard({ metric, points, goal, rangeDays, endDate, loggedDays }: MetricCardProps) {
+function MetricCard({ metric, points, goal, dayGoals, rangeDays, endDate, loggedDays }: MetricCardProps) {
   const instanceId = useId().replace(/:/g, '')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const label = metricLabel(metric)
@@ -77,9 +80,9 @@ function MetricCard({ metric, points, goal, rangeDays, endDate, loggedDays }: Me
   const loggedValues = values.filter((value): value is number => value !== null)
   const average = loggedValues.length > 0 ? loggedValues.reduce((sum, value) => sum + value, 0) / loggedValues.length : null
   const safeGoal = goal !== undefined && Number.isFinite(goal) && goal > 0 ? goal : undefined
-  const maxValue = Math.max(safeGoal ?? 0, ...loggedValues, 0)
+  const maxValue = Math.max(safeGoal ?? 0, ...(dayGoals ?? []), ...loggedValues, 0)
   const scaleMax = niceScaleMax(maxValue)
-  const goalPercent = safeGoal === undefined ? null : Math.min(100, (safeGoal / scaleMax) * 100)
+  const goalPercent = safeGoal === undefined || dayGoals ? null : Math.min(100, (safeGoal / scaleMax) * 100)
   const firstDate = points[0]?.date ?? shiftDate(endDate, -rangeDays + 1)
   const middleDate = points[Math.floor(Math.max(0, points.length - 1) / 2)]?.date ?? firstDate
   const lastDate = points.at(-1)?.date ?? endDate
@@ -90,7 +93,7 @@ function MetricCard({ metric, points, goal, rangeDays, endDate, loggedDays }: Me
   const selectedIndex = points.findIndex((point) => point.date === selectedDate)
   const readout = selectedIndex === -1
     ? 'Tap or hover a bar for that day’s value.'
-    : `${formatShortDate(points[selectedIndex].date)} · ${values[selectedIndex] === null ? 'No food logged' : `${metricValue(metric, values[selectedIndex])} ${unit}`}`
+    : `${formatShortDate(points[selectedIndex].date)} · ${values[selectedIndex] === null ? 'No food logged' : `${metricValue(metric, values[selectedIndex])} ${unit}`}${dayGoals ? ` · goal ${metricValue(metric, dayGoals[selectedIndex])}` : ''}`
 
   return (
     <section className={`nutrition-card nutrition-card-${colorClass}`} aria-labelledby={titleId}>
@@ -110,7 +113,7 @@ function MetricCard({ metric, points, goal, rangeDays, endDate, loggedDays }: Me
 
       <div className="nutrition-card-meta">
         {!hasData && <span>No food logged in the last {rangeDays} days</span>}
-        {safeGoal !== undefined && <span className="nutrition-goal-key"><i aria-hidden="true" />Goal {metricValue(metric, safeGoal)} {unit}</span>}
+        {safeGoal !== undefined && <span className="nutrition-goal-key"><i aria-hidden="true" />{dayGoals ? `Goal averages ${metricValue(metric, safeGoal)} ${unit}, set per weekday` : `Goal ${metricValue(metric, safeGoal)} ${unit}`}</span>}
       </div>
 
       <div className="nutrition-chart-shell">
@@ -133,8 +136,9 @@ function MetricCard({ metric, points, goal, rangeDays, endDate, loggedDays }: Me
                 key={point.date}
                 onClick={() => setSelectedDate(point.date)}
                 onPointerEnter={() => setSelectedDate(point.date)}
-                title={`${formatShortDate(point.date)}: ${value === null ? 'no food logged' : `${metricValue(metric, value)} ${unit}`}`}
+                title={`${formatShortDate(point.date)}: ${value === null ? 'no food logged' : `${metricValue(metric, value)} ${unit}`}${dayGoals ? ` (goal ${metricValue(metric, dayGoals[index])})` : ''}`}
               >
+                {dayGoals && <span className="bar-day-goal" style={{ bottom: `${Math.min(100, (dayGoals[index] / scaleMax) * 100)}%` }} />}
                 <span className={`bar ${value === null ? 'empty' : ''}`} style={value === null ? undefined : { height: `${height}%` }} />
               </span>
             )
@@ -181,6 +185,9 @@ export default function NutritionInsights({ entries, goals }: NutritionInsightsP
   const endDate = todayISO()
   const points = useMemo(() => buildDays(entries, rangeDays, endDate), [entries, endDate, rangeDays])
   const loggedDays = points.filter((point) => point.entryCount > 0).length
+  const shifted = hasShift(goals)
+  const dayGoals = shifted ? points.map((point) => targetFor(goals, point.date) ?? 0) : undefined
+  const averageGoal = dayGoals ? dayGoals.reduce((total, value) => total + value, 0) / dayGoals.length : goals?.calories
   const rangeStart = points[0]?.date ?? shiftDate(endDate, -rangeDays + 1)
 
   return (
@@ -202,7 +209,7 @@ export default function NutritionInsights({ entries, goals }: NutritionInsightsP
         </div>
       </div>
       <div className="nutrition-chart-grid">
-        <MetricCard metric="calories" points={points} goal={goals?.calories} rangeDays={rangeDays} endDate={endDate} loggedDays={loggedDays} />
+        <MetricCard metric="calories" points={points} goal={averageGoal} dayGoals={dayGoals} rangeDays={rangeDays} endDate={endDate} loggedDays={loggedDays} />
         <MetricCard metric="protein" points={points} goal={goals?.protein} rangeDays={rangeDays} endDate={endDate} loggedDays={loggedDays} />
       </div>
     </section>

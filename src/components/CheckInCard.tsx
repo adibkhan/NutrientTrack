@@ -20,6 +20,7 @@ export function CheckInCard({ checkIn, onAccept, onKeep }: CheckInCardProps) {
       <div className="stat-grid">
         <div><span>Trend change</span><strong>{checkIn.trendChange === undefined ? '—' : `${signed(checkIn.trendChange)} ${checkIn.unit}`}</strong></div>
         <div><span>Average intake</span><strong>{checkIn.avgIntake === undefined ? '—' : `${formatNumber(checkIn.avgIntake)} kcal`}</strong></div>
+        {checkIn.avgTarget !== undefined && <div><span>Average target</span><strong>{formatNumber(checkIn.avgTarget)} kcal</strong></div>}
         <div><span>Expenditure</span><strong>{checkIn.expenditure.kind === 'ok' ? `${formatNumber(checkIn.expenditure.kcalPerDay)} kcal` : '—'}</strong></div>
         <div><span>Days logged</span><strong>{checkIn.daysLogged} / 7</strong></div>
       </div>

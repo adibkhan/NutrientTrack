@@ -72,3 +72,5 @@
 
 .nutrition-insights-note { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
 .nutrition-card-meta:empty { display: none; }
+.bar-col { position: relative; }
+.bar-day-goal { position: absolute; right: 8%; left: 8%; z-index: 1; height: 0; border-top: 2px solid var(--ink); opacity: .75; pointer-events: none; }

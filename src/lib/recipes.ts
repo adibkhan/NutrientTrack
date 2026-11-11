@@ -1,4 +1,6 @@
 import type { Food, RecipeIngredient } from '../types'
+import { NUTRIENT_KEYS, type NutrientValues } from './nutrients'
+import { roundNutrient } from './servings'
 
 export interface RecipeTotals {
   calories: number
@@ -26,12 +28,39 @@ export const recipePerServing = (ingredients: RecipeIngredient[], servings: numb
   return { calories: tidy(sum.calories), protein: tidy(sum.protein), carbs: tidy(sum.carbs), fat: tidy(sum.fat) }
 }
 
+/**
+ * Nutrients per serving, summed like the macros. A nutrient no ingredient recorded stays absent. One that only some ingredients
+ * recorded is summed over those (the recipe cannot know the rest), which is how partial data behaves everywhere else.
+ */
+export const recipeNutrientsPerServing = (ingredients: RecipeIngredient[], servings: number): NutrientValues => {
+  const divisor = servings > 0 && Number.isFinite(servings) ? servings : 1
+  const totals: NutrientValues = {}
+  for (const line of ingredients) {
+    for (const key of NUTRIENT_KEYS) {
+      const value = line[key]
+      if (typeof value === 'number' && Number.isFinite(value) && value >= 0) totals[key] = (totals[key] ?? 0) + value
+    }
+  }
+  const result: NutrientValues = {}
+  for (const key of NUTRIENT_KEYS) {
+    const total = totals[key]
+    if (total !== undefined) result[key] = roundNutrient(key, total / divisor)
+  }
+  return result
+}
+
 /** An ingredient line for `quantity` servings of a saved food, as a snapshot of that moment. */
 export const ingredientFromFood = (food: Food, quantity: number): RecipeIngredient => {
   const amount = quantity > 0 && Number.isFinite(quantity) ? quantity : 1
   const scale = (value: number) => Math.round(value * amount * 10) / 10
+  const nutrients: NutrientValues = {}
+  for (const key of NUTRIENT_KEYS) {
+    const value = food[key]
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) nutrients[key] = roundNutrient(key, value * amount)
+  }
   return {
     name: food.name,
+    ...nutrients,
     calories: scale(food.calories),
     protein: scale(food.protein),
     carbs: scale(food.carbs),

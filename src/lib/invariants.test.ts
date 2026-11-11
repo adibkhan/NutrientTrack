@@ -1,9 +1,11 @@
 // Enforces the data invariants in CLAUDE.md that are about files rather than behaviour.
 import { describe, expect, it } from 'vitest'
 import catalogSource from '../catalog/index.ts?raw'
+import nutrientsSource from '../catalog/nutrients.ts?raw'
 import swSource from '../../public/sw.js?raw'
 import catalogV1 from '../../public/data/usda-common-v1.json?raw'
 import catalogV2 from '../../public/data/usda-common-v2.json?raw'
+import nutrientsV1 from '../../public/data/usda-nutrients-v1.json?raw'
 import backupV1 from './__fixtures__/backup-v1.json?raw'
 import backupV2 from './__fixtures__/backup-v2.json?raw'
 import backupV3 from './__fixtures__/backup-v3.json?raw'
@@ -36,5 +38,26 @@ describe('catalog is versioned by file name (invariant 7)', () => {
   // Browsers and the service worker cache the catalog by URL, so new content needs a new file name.
   it.each([['usda-common-v1.json', catalogV1, '0202e227'], ['usda-common-v2.json', catalogV2, '50586e04']])('%s content matches its name', (name, text, pinned) => {
     expect(catalogPath?.endsWith(name) ? fingerprint(text) : pinned).toBe(pinned)
+  })
+})
+
+describe('catalog nutrient table is versioned by file name (invariant 7)', () => {
+  const nutrientsPath = /NUTRIENTS_PATH\s*=\s*'([^']+)'/.exec(nutrientsSource)?.[1]
+
+  it('the app and the service worker warm the same nutrient file', () => {
+    expect(nutrientsPath).toBeDefined()
+    expect(swSource).toContain(`'${nutrientsPath}'`)
+  })
+
+  // Cached by URL like the catalog: a content change ships as usda-nutrients-v2.json, never an edit of v1.
+  it.each([['usda-nutrients-v1.json', nutrientsV1, '80f8518d']])('%s content matches its name', (name, text, pinned) => {
+    expect(nutrientsPath?.endsWith(name) ? fingerprint(text) : pinned).toBe(pinned)
+  })
+
+  it('covers the same foods as the catalog and no others', () => {
+    const catalogIds = new Set((JSON.parse(catalogV2) as Array<{ fdcId: number }>).map((food) => food.fdcId))
+    const rows = (JSON.parse(nutrientsV1) as { rows: number[][] }).rows
+    expect(rows.length).toBeGreaterThan(7000)
+    expect(rows.every((row) => catalogIds.has(row[0]))).toBe(true)
   })
 })

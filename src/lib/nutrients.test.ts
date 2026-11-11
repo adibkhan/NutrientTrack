@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DiaryEntry } from '../types'
-import { emptyNutrientDraft, invalidNutrient, NUTRIENT_KEYS, NUTRIENTS, nutrientDraftFrom, nutrientValuesFrom, sumNutrients, type NutrientDraft } from './nutrients'
+import { BASIC_NUTRIENT_KEYS, emptyNutrientDraft, EXTRA_NUTRIENTS, invalidNutrient, NUTRIENT_GROUPS, NUTRIENT_KEYS, NUTRIENTS, nutrientDraftFrom, nutrientValuesFrom, sumNutrients, type NutrientDraft } from './nutrients'
 
 const stamp = '2026-01-01T00:00:00.000Z'
 const entry = (over: Partial<DiaryEntry> = {}): DiaryEntry => ({
@@ -9,9 +9,59 @@ const entry = (over: Partial<DiaryEntry> = {}): DiaryEntry => ({
 const draft = (over: Partial<NutrientDraft> = {}): NutrientDraft => ({ ...emptyNutrientDraft(), ...over })
 
 describe('NUTRIENTS', () => {
-  it('lists the five extra nutrients and their keys in order', () => {
-    expect(NUTRIENT_KEYS).toEqual(['fiber', 'sodium', 'sugar', 'satFat', 'cholesterol'])
-    expect(NUTRIENTS.map((n) => n.unit)).toEqual(['g', 'mg', 'g', 'g', 'mg'])
+  it('keeps the five original nutrients first, in their original order and units', () => {
+    expect(NUTRIENT_KEYS.slice(0, 5)).toEqual(['fiber', 'sodium', 'sugar', 'satFat', 'cholesterol'])
+    expect(NUTRIENTS.slice(0, 5).map((n) => n.unit)).toEqual(['g', 'mg', 'g', 'g', 'mg'])
+    expect(BASIC_NUTRIENT_KEYS).toEqual(NUTRIENT_KEYS.slice(0, 5))
+  })
+
+  it('tracks 33 nutrients with unique keys, a known unit and decimals', () => {
+    expect(NUTRIENTS).toHaveLength(33)
+    expect(new Set(NUTRIENT_KEYS).size).toBe(33)
+    for (const nutrient of NUTRIENTS) {
+      expect(['g', 'mg', 'mcg']).toContain(nutrient.unit)
+      expect(NUTRIENT_GROUPS).toContain(nutrient.group)
+      expect(Number.isInteger(nutrient.decimals)).toBe(true)
+    }
+  })
+
+  it('uses the FDA adult Daily Values', () => {
+    const dv = Object.fromEntries(NUTRIENTS.flatMap((n) => (n.dv === undefined ? [] : [[n.key, `${n.dv} ${n.unit}`]])))
+    expect(dv).toEqual({
+      fiber: '28 g', sodium: '2300 mg', satFat: '20 g', cholesterol: '300 mg', potassium: '4700 mg', calcium: '1300 mg', iron: '18 mg', magnesium: '420 mg',
+      phosphorus: '1250 mg', zinc: '11 mg', copper: '0.9 mg', manganese: '2.3 mg', selenium: '55 mcg', vitaminA: '900 mcg', vitaminC: '90 mg', vitaminD: '20 mcg',
+      vitaminE: '15 mg', vitaminK: '120 mcg', thiamin: '1.2 mg', riboflavin: '1.3 mg', niacin: '16 mg', vitaminB6: '1.7 mg', folate: '400 mcg', vitaminB12: '2.4 mcg', choline: '550 mg',
+    })
+  })
+
+  it('marks sodium, saturated fat and cholesterol as limits and vitamins and minerals as aim-for', () => {
+    expect(NUTRIENTS.filter((n) => n.kind === 'limit' && n.dv !== undefined).map((n) => n.key)).toEqual(['sodium', 'satFat', 'cholesterol'])
+    for (const nutrient of NUTRIENTS.filter((n) => n.group === 'Vitamins' || n.group === 'Minerals')) {
+      if (nutrient.key !== 'sodium') expect(nutrient.kind).toBe('aim')
+    }
+  })
+
+  it('offers every nutrient outside the original five in one of the four groups', () => {
+    expect(EXTRA_NUTRIENTS).toHaveLength(28)
+    expect(NUTRIENT_GROUPS).toEqual(['Fats', 'Minerals', 'Vitamins', 'Other'])
+    expect(EXTRA_NUTRIENTS.every((n) => NUTRIENT_GROUPS.includes(n.group))).toBe(true)
+  })
+
+  it('gives every key an empty draft box, so a manual entry leaves them all "not recorded"', () => {
+    const empty = emptyNutrientDraft()
+    expect(Object.keys(empty).sort()).toEqual([...NUTRIENT_KEYS].sort())
+    expect(Object.values(empty).every((text) => text === '')).toBe(true)
+    expect(nutrientValuesFrom(empty)).toEqual({})
+  })
+
+  it('round-trips the newer nutrients through a draft, keeping a recorded zero', () => {
+    const values = { potassium: 358, vitaminC: 8.7, vitaminB12: 0, copper: 0.081 }
+    expect(nutrientValuesFrom(nutrientDraftFrom(values))).toEqual(values)
+  })
+
+  it('flags a bad value in a newer box by its label', () => {
+    expect(invalidNutrient(draft({ potassium: '-5' }))?.label).toBe('Potassium')
+    expect(invalidNutrient(draft({ vitaminD: 'abc' }))?.key).toBe('vitaminD')
   })
 })
 

@@ -1,5 +1,6 @@
 import type { BackupPayload, DiaryEntry, Goals, MealCategory, Settings, WaterLog, WeightEntry } from '../types'
 import { isoFromDate } from './utils'
+import { NUTRIENT_KEYS } from './nutrients'
 
 /** Current backup format. Bump it only together with a new BACKUP_MIGRATIONS step and a fixture test. */
 export const BACKUP_VERSION = 3
@@ -95,7 +96,6 @@ export const validateBackup = (value: unknown): value is BackupPayload => {
     const value = item && typeof item === 'object' ? (item as Record<string, unknown>)[key] : undefined
     return value === undefined || typeof value === 'string'
   }
-  const NUTRIENT_KEYS = ['fiber', 'sodium', 'sugar', 'satFat', 'cholesterol']
   const isOptionalBoolean = (item: unknown, key: string) => {
     const value = item && typeof item === 'object' ? (item as Record<string, unknown>)[key] : undefined
     return value === undefined || typeof value === 'boolean'
@@ -106,7 +106,7 @@ export const validateBackup = (value: unknown): value is BackupPayload => {
   }
   const isOptionalIngredients = (item: unknown) => {
     const value = item && typeof item === 'object' ? (item as Record<string, unknown>).ingredients : undefined
-    return value === undefined || (Array.isArray(value) && value.every((line) => hasStrings(line, ['name']) && hasNumbers(line, ['calories', 'protein', 'carbs', 'fat'])))
+    return value === undefined || (Array.isArray(value) && value.every((line) => hasStrings(line, ['name']) && hasNumbers(line, ['calories', 'protein', 'carbs', 'fat']) && NUTRIENT_KEYS.every((key) => isOptionalNonNegativeNumber(line, key))))
   }
   const validUnit = (value: unknown): value is 'lb' | 'kg' => value === 'lb' || value === 'kg'
   const validGoals = (value: unknown) => {

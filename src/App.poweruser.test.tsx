@@ -9,7 +9,7 @@ vi.mock('./lib/db', () => ({
   deleteEntry: vi.fn(), deleteFood: vi.fn(), deleteWeight: vi.fn(), exportBackup: vi.fn(), clearAllData: vi.fn(),
   getEntries: vi.fn(), getFoods: vi.fn(), getSettings: vi.fn(), getWeights: vi.fn(), importBackup: vi.fn(),
   requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), onLocalChange: vi.fn(() => () => undefined),
-  saveEntries: vi.fn(), saveEntry: vi.fn(), saveFood: vi.fn(), saveSettings: vi.fn(), saveWeight: vi.fn(),
+  saveEntries: vi.fn(), saveEntry: vi.fn(), saveFood: vi.fn(), saveSettings: vi.fn(), saveWeight: vi.fn(), saveEntriesAndWeights: vi.fn(),
 }))
 
 import * as db from './lib/db'
@@ -32,7 +32,7 @@ beforeEach(() => {
   m.getFoods.mockResolvedValue(manyFoods)
   m.getWeights.mockResolvedValue([])
   m.getSettings.mockResolvedValue(settings)
-  m.saveEntries.mockImplementation(async (copies) => { entries = [...entries, ...copies] })
+  m.saveEntriesAndWeights.mockImplementation(async (copies) => { entries = [...entries, ...copies] })
 })
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.resetAllMocks() })
 
@@ -87,9 +87,9 @@ describe('logger saved-food results', () => {
     expect(within(dialog).queryByText('Chicken soup')).toBeNull()
     await user.clear(box)
     await user.type(box, 'chicken')
-    expect(within(dialog).getAllByRole('button', { name: /^Quick add Chicken/ })).toHaveLength(5)
+    expect(within(dialog).getAllByRole('button', { name: /^Log Chicken.* now$/ })).toHaveLength(5)
     await user.click(within(dialog).getByRole('button', { name: 'Show 1 more' }))
-    expect(within(dialog).getAllByRole('button', { name: /^Quick add Chicken/ })).toHaveLength(6)
+    expect(within(dialog).getAllByRole('button', { name: /^Log Chicken.* now$/ })).toHaveLength(6)
     expect(within(dialog).queryByRole('button', { name: /Show \d+ more/ })).toBeNull()
   })
 })
@@ -123,10 +123,10 @@ describe('MyFitnessPal re-import', () => {
     render(<App />)
     await user.click((await screen.findAllByRole('button', { name: 'Settings' }))[0])
     const panel = await screen.findByRole('region', { name: 'Import from another app' })
-    await user.upload(within(panel).getByLabelText('Choose CSV files'), new File([MFP], 'Nutrition-Summary.csv', { type: 'text/csv' }))
-    await user.click(await within(panel).findByRole('button', { name: 'Import 2 items' }))
-    await waitFor(() => expect(m.saveEntries).toHaveBeenCalledTimes(1))
-    expect((m.saveEntries.mock.calls[0][0] as DiaryEntry[]).map((e) => e.meal)).toEqual(['dinner'])
-    expect(await within(panel).findByText(/Skipped 1 entry already in your diary\./)).toBeTruthy()
+    await user.upload(within(panel).getByLabelText('Choose CSV or Excel files'), new File([MFP], 'Nutrition-Summary.csv', { type: 'text/csv' }))
+    await user.click(await within(panel).findByRole('button', { name: 'Import 1 item' }))
+    await waitFor(() => expect(m.saveEntriesAndWeights).toHaveBeenCalledTimes(1))
+    expect((m.saveEntriesAndWeights.mock.calls[0][0] as DiaryEntry[]).map((e) => e.meal)).toEqual(['dinner'])
+    expect(await within(panel).findByText(/Skipped 1 item already in your diary\./)).toBeTruthy()
   })
 })

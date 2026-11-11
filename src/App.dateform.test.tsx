@@ -153,7 +153,7 @@ describe('catalog quick amounts', () => {
   const openCatalogForm = async (user: ReturnType<typeof setup>) => {
     await user.click(first('Log food'))
     await user.type(await screen.findByPlaceholderText(/Search foods/), 'oats')
-    await user.click(await screen.findByRole('button', { name: /Rolled oats/ }))
+    await user.click(await screen.findByRole('button', { name: /^Rolled oats/ }))
     return screen.findByRole('group', { name: 'Quick amounts' })
   }
   const pressed = (group: HTMLElement) => Array.from(group.querySelectorAll('button')).map((b) => b.getAttribute('aria-pressed'))

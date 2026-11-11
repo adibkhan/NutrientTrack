@@ -237,7 +237,7 @@ describe('logging from something that carries nutrients', () => {
     m.getEntries.mockResolvedValue([entry({ date: shiftDate(todayISO(), -3), name: 'Bran muffin', fiber: 6 })])
     const user = await renderApp()
     await user.click(first('Log food'))
-    await user.click(await screen.findByRole('button', { name: 'Quick add Bran muffin' }))
+    await user.click(await screen.findByRole('button', { name: 'Log Bran muffin now' }))
 
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
     const saved = savedEntry()
@@ -249,7 +249,7 @@ describe('logging from something that carries nutrients', () => {
     m.getEntries.mockResolvedValue([entry({ date: shiftDate(todayISO(), -3), name: 'Toast' })])
     const user = await renderApp()
     await user.click(first('Log food'))
-    await user.click(await screen.findByRole('button', { name: 'Quick add Toast' }))
+    await user.click(await screen.findByRole('button', { name: 'Log Toast now' }))
 
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
     for (const key of NUTRIENT_KEYS) expect(savedEntry()).not.toHaveProperty(key)
@@ -259,7 +259,7 @@ describe('logging from something that carries nutrients', () => {
     m.getEntries.mockResolvedValue([entry({ date: shiftDate(todayISO(), -2), name: 'Rolled oats', catalogId: 'usda-oats', catalogSource: 'USDA SR Legacy', grams: 80, fiber: 8.4 })])
     const user = await renderApp()
     await user.click(first('Log food'))
-    await user.click(await screen.findByRole('button', { name: 'Quick add Rolled oats' }))
+    await user.click(await screen.findByRole('button', { name: 'Log Rolled oats now' }))
 
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
     expect(savedEntry()).toMatchObject({ fiber: 8.4, catalogId: 'usda-oats', grams: 80 })

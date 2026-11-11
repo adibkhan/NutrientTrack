@@ -1,5 +1,5 @@
 import type { NutrientValues } from './nutrients'
-import { NUTRIENT_KEYS } from './nutrients'
+import { BASIC_NUTRIENT_KEYS, NUTRIENT_KEYS, type NutrientKey } from './nutrients'
 
 /** The nutrition of exactly one serving: the starting point a servings stepper scales from. */
 export interface ServingBase {
@@ -16,6 +16,17 @@ type Macros = { calories: number; protein: number; carbs: number; fat: number; g
 
 const finite = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0)
 const tidy = (value: number): number => Math.round(value * 100) / 100
+/**
+ * One nutrient amount rounded for storage: two decimals from 1 up, and below 1 two decimals for the original five and three
+ * significant figures for the newer ones. A non-zero amount never rounds to zero, which would read as "none".
+ */
+export const roundNutrient = (key: NutrientKey, value: number): number => {
+  if (!(value > 0)) return value
+  if (value >= 1) return tidy(value)
+  const twoDecimals = tidy(value)
+  if (BASIC_NUTRIENT_KEYS.includes(key) && twoDecimals > 0) return twoDecimals
+  return Number(value.toPrecision(3))
+}
 
 /** One serving's worth from a record that already covers `servings` servings. A bad or zero count counts as one. */
 export const baseFromRecord = (record: Macros, servings = 1): ServingBase => {
@@ -36,7 +47,7 @@ export const scaleBase = (base: ServingBase, servings: number): ServingBase => {
   const nutrients: NutrientValues = {}
   for (const key of NUTRIENT_KEYS) {
     const value = base.nutrients[key]
-    if (typeof value === 'number') nutrients[key] = tidy(value * factor)
+    if (typeof value === 'number') nutrients[key] = roundNutrient(key, value * factor)
   }
   const grams = base.grams !== undefined ? { grams: Math.round(base.grams * factor * 10) / 10 } : {}
   return { calories: tidy(base.calories * factor), protein: tidy(base.protein * factor), carbs: tidy(base.carbs * factor), fat: tidy(base.fat * factor), nutrients, ...grams }
@@ -59,7 +70,7 @@ export const scaleNutrientsPer100g = (per100: NutrientValues, grams: number): Nu
   const scaled: NutrientValues = {}
   for (const key of NUTRIENT_KEYS) {
     const value = per100[key]
-    if (typeof value === 'number') scaled[key] = tidy(value * factor)
+    if (typeof value === 'number') scaled[key] = roundNutrient(key, value * factor)
   }
   return scaled
 }

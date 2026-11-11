@@ -1,5 +1,5 @@
 // Nutrient contributors panel on Trends.
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DiaryEntry, Settings } from './types'
@@ -59,7 +59,9 @@ describe('Nutrient contributors panel', () => {
     const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
     const at = headings.indexOf('Nutrient contributors')
     expect(at).toBeGreaterThan(0)
-    expect(panel.previousElementSibling?.className).toContain('nutrition-insights')
+    // The lazy Nutrients card sits between the insights and this panel once it has loaded.
+    await waitFor(() => expect(panel.previousElementSibling?.className).toContain('nutrients-card'))
+    expect(panel.previousElementSibling?.previousElementSibling?.className).toContain('nutrition-insights')
   })
 
   it('says_nothing_is_logged_for_an_empty_diary_in_each_range', async () => {
@@ -144,8 +146,12 @@ describe('Nutrient contributors panel', () => {
 
   it('lists_every_nutrient_with_dashes_for_unknown_averages_and_goals', async () => {
     const { panel } = await openTrends([entry({ fiber: 4 })], goals({ calories: 2000 }))
+    const details = within(panel).getByText('Averages for every nutrient').closest('details') as HTMLDetailsElement
+    expect(panel.querySelectorAll('tbody tr')).toHaveLength(0)
+    details.open = true
+    fireEvent(details, new Event('toggle'))
     const rows = Array.from(panel.querySelectorAll('tbody tr'))
-    expect(rows).toHaveLength(9)
+    expect(rows).toHaveLength(37)
     const cells = (label: string) => Array.from(rows.find((r) => r.querySelector('th')?.textContent === label)!.querySelectorAll('td')).map((td) => td.textContent)
     expect(cells('Calories')).toEqual(['100 kcal', '2,000 kcal'])
     expect(cells('Fiber')).toEqual(['4 g', '—'])

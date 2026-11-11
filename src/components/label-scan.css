@@ -1,0 +1,55 @@
+.label-scan { display: grid; gap: 12px; }
+.label-scan-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.label-scan-actions .button { flex: 1 1 140px; }
+.label-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.label-scan-photo { display: block; max-width: 100%; max-height: 200px; margin: 0 auto; border: 1px solid var(--line); border-radius: var(--radius-control); object-fit: contain; background: var(--surface-soft); }
+.label-scan-status { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink-2); font-size: 13px; }
+.label-scan-note { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.label-scan-values { display: grid; margin: 0; border: 1px solid var(--line); border-radius: var(--radius-control); }
+.label-scan-values > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 6px 12px; border-top: 1px solid var(--line-soft); }
+.label-scan-values > div:first-child { border-top: 0; }
+.label-scan-values dt { color: var(--ink-2); font-size: 13px; }
+.label-scan-values dd { margin: 0; color: var(--ink); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.check-badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 6px; color: var(--warn-text); background: var(--warn-soft); border: 1px solid var(--warn-line); font-size: 11px; font-weight: 700; }
+.label-review { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface-row); }
+.label-review strong { color: var(--ink); font-size: 13px; }
+.label-review p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.label-review .label-review-check { color: var(--warn-text); }
+.label-fill-button { justify-self: start; }
+/* The form marks the boxes the reader was unsure of. The names match the entry form's box ids. */
+.logger-form[data-label-check~="calories"] #entry-calories,
+.logger-form[data-label-check~="protein"] #entry-protein,
+.logger-form[data-label-check~="carbs"] #entry-carbs,
+.logger-form[data-label-check~="fat"] #entry-fat,
+.logger-form[data-label-check~="fiber"] #entry-fiber,
+.logger-form[data-label-check~="sodium"] #entry-sodium,
+.logger-form[data-label-check~="sugar"] #entry-sugar,
+.logger-form[data-label-check~="satFat"] #entry-satFat,
+.logger-form[data-label-check~="cholesterol"] #entry-cholesterol,
+.logger-form[data-label-check~="transFat"] #entry-transFat,
+.logger-form[data-label-check~="vitaminD"] #entry-vitaminD,
+.logger-form[data-label-check~="calcium"] #entry-calcium,
+.logger-form[data-label-check~="iron"] #entry-iron,
+.logger-form[data-label-check~="potassium"] #entry-potassium,
+.logger-form[data-label-check~="serving"] #entry-serving { border-color: var(--warn); background: var(--warn-soft); }
+.logger-form[data-label-check~="calories"] label[for="entry-calories"]::after,
+.logger-form[data-label-check~="protein"] label[for="entry-protein"]::after,
+.logger-form[data-label-check~="carbs"] label[for="entry-carbs"]::after,
+.logger-form[data-label-check~="fat"] label[for="entry-fat"]::after,
+.logger-form[data-label-check~="fiber"] label[for="entry-fiber"]::after,
+.logger-form[data-label-check~="sodium"] label[for="entry-sodium"]::after,
+.logger-form[data-label-check~="sugar"] label[for="entry-sugar"]::after,
+.logger-form[data-label-check~="satFat"] label[for="entry-satFat"]::after,
+.logger-form[data-label-check~="cholesterol"] label[for="entry-cholesterol"]::after,
+.logger-form[data-label-check~="transFat"] label[for="entry-transFat"]::after,
+.logger-form[data-label-check~="vitaminD"] label[for="entry-vitaminD"]::after,
+.logger-form[data-label-check~="calcium"] label[for="entry-calcium"]::after,
+.logger-form[data-label-check~="iron"] label[for="entry-iron"]::after,
+.logger-form[data-label-check~="potassium"] label[for="entry-potassium"]::after,
+.logger-form[data-label-check~="serving"] label[for="entry-serving"]::after { content: "Check"; margin-left: 6px; padding: 1px 6px; border-radius: 6px; color: var(--warn-text); background: var(--warn-soft); border: 1px solid var(--warn-line); font-size: 11px; font-weight: 700; }
+.label-review-photo { display: block; width: 100%; max-height: 110px; border: 1px solid var(--line); border-radius: var(--radius-control); object-fit: cover; object-position: top; background: var(--surface-soft); }
+.label-checks { display: grid; gap: 8px; }
+.label-check { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--warn-line); border-radius: var(--radius-control); background: var(--warn-soft); color: var(--ink); font-size: 13px; }
+.label-check small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.label-confirm { justify-self: start; min-height: 44px; }
+.label-eaten label span { color: var(--warn-text); font-size: 11px; }

@@ -1,4 +1,5 @@
 import type { DiaryEntry, Goals, MealCategory } from '../types'
+import { NUTRIENTS, type NutrientKey } from './nutrients'
 import { shiftDate } from './utils'
 
 export const CONTRIBUTOR_METRICS = [
@@ -6,14 +7,10 @@ export const CONTRIBUTOR_METRICS = [
   { key: 'protein', label: 'Protein', unit: 'g', digits: 0 },
   { key: 'carbs', label: 'Carbs', unit: 'g', digits: 0 },
   { key: 'fat', label: 'Fat', unit: 'g', digits: 0 },
-  { key: 'fiber', label: 'Fiber', unit: 'g', digits: 1 },
-  { key: 'sugar', label: 'Sugar', unit: 'g', digits: 1 },
-  { key: 'satFat', label: 'Saturated fat', unit: 'g', digits: 1 },
-  { key: 'sodium', label: 'Sodium', unit: 'mg', digits: 0 },
-  { key: 'cholesterol', label: 'Cholesterol', unit: 'mg', digits: 0 },
-] as const
+  ...NUTRIENTS.map((nutrient) => ({ key: nutrient.key, label: nutrient.label, unit: nutrient.unit as string, digits: nutrient.decimals as number })),
+] as Array<{ key: 'calories' | 'protein' | 'carbs' | 'fat' | NutrientKey; label: string; unit: string; digits: number }>
 
-export type ContributorMetric = (typeof CONTRIBUTOR_METRICS)[number]['key']
+export type ContributorMetric = 'calories' | 'protein' | 'carbs' | 'fat' | NutrientKey
 export type ContributorRange = 7 | 30 | 90
 
 export interface Contributor {
@@ -35,6 +32,8 @@ export interface NutrientSummary {
   total: number
   /** Days in the range with at least one eaten food. */
   loggedDays: number
+  /** Logged days on which at least one food recorded this nutrient. Older entries may not carry newer nutrients. */
+  recordedDays: number
   /** Average per logged day; undefined when nothing was logged or nothing recorded this nutrient. */
   average?: number
   /** Eaten foods in the range, and how many of them recorded this nutrient: the average only covers those. */
@@ -63,12 +62,14 @@ export const summarizeNutrient = (entries: DiaryEntry[], metric: ContributorMetr
   const loggedDays = new Set(inRange.map((entry) => entry.date)).size
   const byName = new Map<string, { name: string; total: number }>()
   const byMeal = new Map<MealCategory, number>()
+  const recordedDates = new Set<string>()
   let total = 0
   let recordedFoods = 0
   for (const entry of inRange) {
     const value = valueOf(entry, metric)
     if (value === undefined) continue
     recordedFoods += 1
+    recordedDates.add(entry.date)
     total += value
     const key = entry.name.trim().toLocaleLowerCase()
     const existing = byName.get(key)
@@ -85,6 +86,7 @@ export const summarizeNutrient = (entries: DiaryEntry[], metric: ContributorMetr
     metric,
     total,
     loggedDays,
+    recordedDays: recordedDates.size,
     ...(loggedDays > 0 && recordedFoods > 0 ? { average: total / loggedDays } : {}),
     foods: inRange.length,
     recordedFoods,
@@ -98,3 +100,7 @@ export const goalFor = (goals: Goals | undefined, metric: ContributorMetric): nu
   const value = metric === 'calories' || metric === 'protein' || metric === 'carbs' || metric === 'fat' ? goals?.[metric] : undefined
   return typeof value === 'number' && value > 0 ? value : undefined
 }
+
+/** Average per day that recorded the nutrient: days with no data for it are left out, never counted as zero. */
+export const averageOnRecordedDays = (summary: NutrientSummary): number | undefined =>
+  summary.recordedDays > 0 ? summary.total / summary.recordedDays : undefined

@@ -55,4 +55,16 @@ describe('long unbroken text', () => {
       expect(flat).toMatch(new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^{}]*\\{[^}]*overflow-wrap:\\s*anywhere`))
     }
   })
+
+  it('keeps the one-tap Log now button a 44px target with room from the plate plus', () => {
+    expect(flat).toMatch(/^\.quick-result \{ gap: 8px;/m)
+    expect(flat).toMatch(/^\.quick-result \.quick-add \{ width: 44px; height: 44px;/m)
+    expect(declarations('.plate-add')).toMatch(/width:\s*44px;\s*height:\s*44px/)
+  })
+
+  it('keeps the plate tray above the keyboard and last in the sheet', () => {
+    expect(declarations('.plate-tray')).toMatch(/order:\s*9/)
+    expect(declarations('.plate-tray')).toMatch(/var\(--kb-inset/)
+    expect(declarations('.logger-search')).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/)
+  })
 })

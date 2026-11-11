@@ -1,4 +1,5 @@
-import type { DiaryEntry, WeightEntry } from '../types'
+import type { DiaryEntry, Goals, WeightEntry } from '../types'
+import { averageTarget, hasShift } from './calorieShift'
 import { loggingStreak } from './mascot'
 import { trendSeries } from './trend'
 import { shiftDate } from './utils'
@@ -14,13 +15,15 @@ export interface WeeklyRecap {
   /** Averages over logged days only; a day with nothing logged is missing, not zero. */
   avgCalories?: number
   avgProtein?: number
+  /** Average calorie target over the logged days; only set when uneven calorie days are on. */
+  avgTarget?: number
   streak: number
   /** Change in trend weight across the window, in `unit`, when at least two weigh-ins fall inside it. */
   trendChange?: number
 }
 
 /** The seven days ending on `today`. Planned entries never count. */
-export const weeklyRecap = (entries: DiaryEntry[], weights: WeightEntry[], today: string, unit: 'lb' | 'kg'): WeeklyRecap => {
+export const weeklyRecap = (entries: DiaryEntry[], weights: WeightEntry[], today: string, unit: 'lb' | 'kg', goals?: Goals): WeeklyRecap => {
   const start = shiftDate(today, -6)
   const eaten = entries.filter((entry) => !entry.planned)
   const inWindow = eaten.filter((entry) => entry.date >= start && entry.date <= today)
@@ -43,6 +46,7 @@ export const weeklyRecap = (entries: DiaryEntry[], weights: WeightEntry[], today
     foodsLogged: inWindow.length,
     avgCalories: average((day) => day.calories),
     avgProtein: average((day) => day.protein),
+    ...(hasShift(goals) ? { avgTarget: averageTarget(goals, [...byDay.keys()]) } : {}),
     streak: loggingStreak(eaten, today),
     trendChange,
   }

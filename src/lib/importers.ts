@@ -34,7 +34,7 @@ export interface ParsedImport {
 }
 
 /** RFC 4180 CSV with quotes, doubled quotes, CRLF and a leading byte-order mark. */
-export const parseCsv = (input: string): string[][] => {
+export const parseCsv = (input: string, delimiter = ','): string[][] => {
   const text = input.replace(/^﻿/, '')
   const rows: string[][] = []
   let row: string[] = []
@@ -47,7 +47,7 @@ export const parseCsv = (input: string): string[][] => {
         if (text[index + 1] === '"') { field += '"'; index += 1 } else quoted = false
       } else field += character
     } else if (character === '"' && field === '') quoted = true
-    else if (character === ',') { row.push(field); field = '' }
+    else if (character === delimiter) { row.push(field); field = '' }
     else if (character === '\n' || character === '\r') {
       if (character === '\r' && text[index + 1] === '\n') index += 1
       row.push(field)

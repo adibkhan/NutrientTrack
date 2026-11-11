@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { Food, RecipeIngredient } from '../types'
 import { ingredientFromFood, isRecipe, recipePerServing } from '../lib/recipes'
+import { NUTRIENT_KEYS, type NutrientValues } from '../lib/nutrients'
 import { formatNumber, newId } from '../lib/utils'
 import { inputText, parseDecimal } from '../lib/decimal'
 import { firstNumberProblem } from '../lib/numberProblem'
@@ -30,6 +31,14 @@ interface Line {
   fat: string
   quantity?: number
   foodId?: string
+  /** Nutrients the ingredient carries (a saved food's snapshot); kept as is so the recipe can total them. */
+  nutrients?: NutrientValues
+}
+
+const pickNutrients = (record: NutrientValues): NutrientValues => {
+  const picked: NutrientValues = {}
+  for (const key of NUTRIENT_KEYS) if (typeof record[key] === 'number') picked[key] = record[key]
+  return picked
 }
 
 const toLine = (ingredient: RecipeIngredient): Line => ({
@@ -41,6 +50,7 @@ const toLine = (ingredient: RecipeIngredient): Line => ({
   fat: inputText(ingredient.fat),
   quantity: ingredient.quantity,
   foodId: ingredient.foodId,
+  nutrients: pickNutrients(ingredient),
 })
 
 const number = (text: string): number => {
@@ -56,6 +66,7 @@ const fromLine = (line: Line): RecipeIngredient => ({
   fat: number(line.fat),
   ...(line.quantity !== undefined ? { quantity: line.quantity } : {}),
   ...(line.foodId ? { foodId: line.foodId } : {}),
+  ...(line.nutrients ?? {}),
 })
 
 export function RecipeModal({ recipe, foods, onClose, onSave }: RecipeModalProps) {

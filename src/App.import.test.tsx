@@ -9,7 +9,7 @@ vi.mock('./lib/db', () => ({
   deleteEntry: vi.fn(), deleteFood: vi.fn(), deleteWeight: vi.fn(), exportBackup: vi.fn(), clearAllData: vi.fn(),
   getEntries: vi.fn(), getFoods: vi.fn(), getSettings: vi.fn(), getWeights: vi.fn(), importBackup: vi.fn(),
   requestPersistentStorage: vi.fn(), onDatabaseEvent: vi.fn(() => () => undefined), onLocalChange: vi.fn(() => () => undefined),
-  saveEntries: vi.fn(), saveEntry: vi.fn(), saveFood: vi.fn(), saveSettings: vi.fn(), saveWeight: vi.fn(),
+  saveEntries: vi.fn(), saveEntry: vi.fn(), saveFood: vi.fn(), saveSettings: vi.fn(), saveWeight: vi.fn(), saveEntriesAndWeights: vi.fn(),
 }))
 
 import * as db from './lib/db'
@@ -31,7 +31,7 @@ beforeEach(() => {
   m.getFoods.mockResolvedValue([])
   m.getWeights.mockResolvedValue([])
   m.getSettings.mockResolvedValue(welcomed())
-  m.saveEntries.mockImplementation(async (copies) => { entries = [...entries, ...copies] })
+  m.saveEntriesAndWeights.mockImplementation(async (copies) => { entries = [...entries, ...copies] })
   m.saveSettings.mockResolvedValue(undefined)
   m.onDatabaseEvent.mockImplementation(() => () => undefined)
   m.onLocalChange.mockImplementation(() => () => undefined)
@@ -57,25 +57,24 @@ describe('import from another app', () => {
   it('adds_new_foods_and_weigh_ins_and_skips_what_is_already_here', async () => {
     m.getSettings.mockResolvedValue(welcomed())
     m.getWeights.mockResolvedValue([{ id: 'mine', date: '2026-01-06', weight: 80, unit: 'kg', createdAt: stamp }])
-    m.saveEntries.mockResolvedValue(undefined)
-    m.saveWeight.mockResolvedValue(undefined)
+    m.saveEntriesAndWeights.mockResolvedValue(undefined)
     const user = userEvent.setup()
     render(<App />)
     await screen.findAllByRole('button', { name: 'Log food' })
     await user.click(screen.getAllByRole('button', { name: 'Settings' })[0])
     const panel = await screen.findByRole('region', { name: 'Import from another app' })
-    await user.upload(within(panel).getByLabelText('Choose CSV files'), [new File([LOSEIT], 'food-logs.csv', { type: 'text/csv' }), new File([WEIGHTS], 'weights.csv', { type: 'text/csv' })])
-    expect(await within(panel).findByText(/Lose It! · 2 foods · 1 skipped/)).toBeTruthy()
+    await user.upload(within(panel).getByLabelText('Choose CSV or Excel files'), [new File([LOSEIT], 'food-logs.csv', { type: 'text/csv' }), new File([WEIGHTS], 'weights.csv', { type: 'text/csv' })])
+    expect(await within(panel).findByText(/Lose It! · 2 foods · 1 couldn't be read/)).toBeTruthy()
     await user.selectOptions(within(panel).getByLabelText('Weights in those files are in'), 'kg')
-    await user.click(within(panel).getByRole('button', { name: 'Import 4 items' }))
-    await waitFor(() => expect(m.saveEntries).toHaveBeenCalledTimes(1))
-    const saved = m.saveEntries.mock.calls[0][0] as DiaryEntry[]
+    await user.click(within(panel).getByRole('button', { name: 'Import 3 items' }))
+    await waitFor(() => expect(m.saveEntriesAndWeights).toHaveBeenCalledTimes(1))
+    const saved = m.saveEntriesAndWeights.mock.calls[0][0] as DiaryEntry[]
     expect(saved.map((entry) => [entry.date, entry.meal, entry.name, entry.importedFrom])).toEqual([['2026-01-05', 'breakfast', 'Oatmeal', 'loseit'], ['2026-01-05', 'snack', 'Banana', 'loseit']])
     expect(saved.every((entry) => entry.createdAt && entry.updatedAt)).toBe(true)
     // 01/06 already has a weigh-in, so only 01/05 is added, in the unit chosen.
-    expect(m.saveWeight).toHaveBeenCalledTimes(1)
-    expect(m.saveWeight.mock.calls[0][0]).toMatchObject({ date: '2026-01-05', weight: 182.4, unit: 'kg', importedFrom: 'loseit' })
-    expect(await within(panel).findByText(/Imported 2 entries and 1 weigh-in\. Anything already here was skipped\./)).toBeTruthy()
+    expect(m.saveEntriesAndWeights.mock.calls[0][1]).toHaveLength(1)
+    expect(m.saveEntriesAndWeights.mock.calls[0][1][0]).toMatchObject({ date: '2026-01-05', weight: 182.4, unit: 'kg', importedFrom: 'loseit' })
+    expect(await within(panel).findByText(/Imported 2 entries and 1 weigh-in\. Skipped 1 item already in your diary\./)).toBeTruthy()
   })
 
   it('skips_entries_whose_ids_already_exist', async () => {
@@ -85,15 +84,16 @@ describe('import from another app', () => {
     await screen.findAllByRole('button', { name: 'Log food' })
     await user.click(screen.getAllByRole('button', { name: 'Settings' })[0])
     const panel = await screen.findByRole('region', { name: 'Import from another app' })
-    await user.upload(within(panel).getByLabelText('Choose CSV files'), new File([LOSEIT], 'food-logs.csv', { type: 'text/csv' }))
+    await user.upload(within(panel).getByLabelText('Choose CSV or Excel files'), new File([LOSEIT], 'food-logs.csv', { type: 'text/csv' }))
     await user.click(await within(panel).findByRole('button', { name: 'Import 2 items' }))
-    await waitFor(() => expect(m.saveEntries).toHaveBeenCalledTimes(1))
-    const first = m.saveEntries.mock.calls[0][0] as DiaryEntry[]
+    await waitFor(() => expect(m.saveEntriesAndWeights).toHaveBeenCalledTimes(1))
+    const first = m.saveEntriesAndWeights.mock.calls[0][0] as DiaryEntry[]
     entries = first
-    m.saveEntries.mockClear()
-    await user.upload(within(panel).getByLabelText('Choose CSV files'), new File([LOSEIT], 'food-logs.csv', { type: 'text/csv' }))
-    await user.click(await within(panel).findByRole('button', { name: 'Import 2 items' }))
-    expect(await within(panel).findByText(/Imported 0 entries/)).toBeTruthy()
-    expect(m.saveEntries).not.toHaveBeenCalled()
+    m.saveEntriesAndWeights.mockClear()
+    await user.upload(within(panel).getByLabelText('Choose CSV or Excel files'), new File([LOSEIT], 'food-logs.csv', { type: 'text/csv' }))
+    // The preview already knows everything is here, so there is nothing to click.
+    expect(await within(panel).findByText('Nothing new to import.')).toBeTruthy()
+    expect((within(panel).getByRole('button', { name: /^Import/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect(m.saveEntriesAndWeights).not.toHaveBeenCalled()
   })
 })

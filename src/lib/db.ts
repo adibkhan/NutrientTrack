@@ -312,6 +312,36 @@ export const deleteEntries = async (ids: string[]): Promise<void> => {
 export const saveFood = (food: Food): Promise<void> => put('foods', food)
 export const deleteFood = (id: string): Promise<void> => remove('foods', id)
 export const saveWeight = (weight: WeightEntry): Promise<void> => put('weights', weight)
+/** Persist a group of weigh-ins in one transaction (all or none), with the same outbox rules as a single save. */
+export const saveWeights = async (weights: WeightEntry[]): Promise<void> => {
+  if (weights.length === 0) return
+  await writeWithChanges('weights', (store, outbox) => weights.forEach((weight) => {
+    store.put(weight)
+    outbox.track(changeFor('weights', weight))
+  }))
+}
+/** Persist imported foods and weigh-ins together in one transaction, so an import is all or nothing. `removeEntryIds` are entries the import replaces (delete markers are queued like any delete). Outbox rules as for any save (nothing is queued until sync was first used). */
+export const saveEntriesAndWeights = async (entries: DiaryEntry[], weights: WeightEntry[], removeEntryIds: string[] = []): Promise<void> => {
+  if (entries.length === 0 && weights.length === 0 && removeEntryIds.length === 0) return
+  await runTransaction(['entries', 'weights', 'outbox', 'meta'], 'readwrite', (transaction) => {
+    const changes: PendingChange[] = []
+    const entryStore = transaction.objectStore('entries')
+    const weightStore = transaction.objectStore('weights')
+    new Set(removeEntryIds).forEach((id) => { entryStore.delete(id); changes.push(changeFor('entries', { id }, true)) })
+    entries.forEach((entry) => { entryStore.put(entry); changes.push(changeFor('entries', entry)) })
+    weights.forEach((weight) => { weightStore.put(weight); changes.push(changeFor('weights', weight)) })
+    const outbox = transaction.objectStore('outbox')
+    const flag = transaction.objectStore('meta').get('everSynced')
+    flag.addEventListener('success', () => {
+      const syncUsed = (flag.result as { value?: unknown } | undefined)?.value === true
+      for (const change of changes) {
+        if (syncUsed) outbox.put(change)
+        else outbox.delete(change.key)
+      }
+    })
+  })
+  notifyLocalChange()
+}
 export const deleteWeight = (id: string): Promise<void> => remove('weights', id)
 const isPlain = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 

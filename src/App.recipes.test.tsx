@@ -289,7 +289,9 @@ describe('editing and logging a recipe', () => {
 
     await waitFor(() => expect(m.saveFood).toHaveBeenCalledTimes(1))
     const saved = savedFoodArg()
-    expect(saved).toMatchObject({ id: 'r1', createdAt: stamp, brand: 'Homemade', fiber: 9, favorite: true, recipeServings: 5, calories: 100, protein: 6, carbs: 12, fat: 2 })
+    expect(saved).toMatchObject({ id: 'r1', createdAt: stamp, brand: 'Homemade', favorite: true, recipeServings: 5, calories: 100, protein: 6, carbs: 12, fat: 2 })
+    // Nutrients are recomputed from the ingredients: a stale value the ingredients do not support is dropped, not kept.
+    expect(saved).not.toHaveProperty('fiber')
     expect(saved.updatedAt).not.toBe(stamp)
     expect(saved.ingredients).toHaveLength(2)
     expect(saved.ingredients?.[1]).toMatchObject({ quantity: 1, foodId: 'f9' })

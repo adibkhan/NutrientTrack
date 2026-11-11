@@ -1,10 +1,12 @@
+import type { NutrientValues } from './lib/nutrients'
+
 export type MacroKey = 'protein' | 'carbs' | 'fat'
 
 export type View = 'diary' | 'trends' | 'foods' | 'settings'
 
 export type MealCategory = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'other'
 
-export interface DiaryEntry {
+export interface DiaryEntry extends NutrientValues {
   id: string
   date: string
   meal: MealCategory
@@ -24,20 +26,20 @@ export interface DiaryEntry {
   planned?: boolean
   /** How many servings the nutrition snapshot below already covers. Missing means one. */
   servings?: number
-  /** Extra nutrients. Missing means "not recorded", never zero. Fiber, sugar and saturated fat are grams; sodium and cholesterol are milligrams. */
-  fiber?: number
-  sodium?: number
-  sugar?: number
-  satFat?: number
-  cholesterol?: number
+  /**
+   * Extra nutrients come from NutrientValues (see NUTRIENTS in lib/nutrients.ts for keys and units). Missing means
+   * "not recorded", never zero. Fiber, sugar and saturated fat are grams; sodium and cholesterol are milligrams.
+   */
   /** Set on entries brought in from another tracker's export, e.g. "cronometer". Missing means logged here. */
   importedFrom?: string
+  /** "day-total" on an entry that stands for a whole imported day (one summary line, not individual foods). Missing means an ordinary entry. */
+  importedKind?: 'day-total'
   createdAt: string
   updatedAt: string
 }
 
 /** One line of a recipe: the nutrition of the quantity used, as a snapshot, so later edits to a saved food never change the recipe. */
-export interface RecipeIngredient {
+export interface RecipeIngredient extends NutrientValues {
   name: string
   calories: number
   protein: number
@@ -48,7 +50,7 @@ export interface RecipeIngredient {
   foodId?: string
 }
 
-export interface Food {
+export interface Food extends NutrientValues {
   id: string
   name: string
   serving: string
@@ -56,11 +58,6 @@ export interface Food {
   protein: number
   carbs: number
   fat: number
-  fiber?: number
-  sodium?: number
-  sugar?: number
-  satFat?: number
-  cholesterol?: number
   /** Pinned to the top of quick lists. Missing means not a favorite. */
   favorite?: boolean
   /** Present on a recipe: how it was built. The macros above are per serving. */
@@ -91,6 +88,8 @@ export interface Goals {
   protein?: number
   carbs?: number
   fat?: number
+  /** Kcal added to (or taken from) the calorie goal on each weekday, Sunday first. Sums to zero. Missing means every day has the same goal. */
+  calorieShift?: number[]
   weightUnit: 'lb' | 'kg'
 }
 

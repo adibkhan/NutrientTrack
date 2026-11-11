@@ -71,7 +71,9 @@ const entry = (over: Partial<DiaryEntry> & { id: string }): DiaryEntry => ({
 
 describe('entriesCsv', () => {
   it('has the expected header', () => {
-    expect(rows(entriesCsv([]))[0]).toBe('Date,Time,Meal,Food,Grams,Calories,Protein (g),Carbs (g),Fat (g),Fiber (g),Sodium (mg),Sugar (g),Saturated fat (g),Cholesterol (mg),Planned')
+    const header = rows(entriesCsv([]))[0]
+    expect(header.startsWith('Date,Time,Meal,Food,Grams,Calories,Protein (g),Carbs (g),Fat (g),Fiber (g),Sodium (mg),Sugar (g),Saturated fat (g),Cholesterol (mg),')).toBe(true)
+    expect(header.endsWith(',Planned')).toBe(true)
   })
 
   it('sorts by date then time, with missing time first', () => {
@@ -91,11 +93,11 @@ describe('entriesCsv', () => {
   })
 
   it('leaves missing time and grams empty rather than zero, and planned empty when unset', () => {
-    expect(rows(entriesCsv([entry({ id: 'a' })]))[1]).toBe('2026-03-02,,lunch,Food,,100,1,2,3,,,,,,')
+    expect(rows(entriesCsv([entry({ id: 'a' })]))[1]).toBe(`2026-03-02,,lunch,Food,,100,1,2,3,${','.repeat(5 + 28)}`)
   })
 
   it('keeps a recorded grams of zero and writes planned true', () => {
-    expect(rows(entriesCsv([entry({ id: 'a', grams: 0, planned: true })]))[1]).toBe('2026-03-02,,lunch,Food,0,100,1,2,3,,,,,,true')
+    expect(rows(entriesCsv([entry({ id: 'a', grams: 0, planned: true })]))[1]).toBe(`2026-03-02,,lunch,Food,0,100,1,2,3,${','.repeat(5 + 28)}true`)
   })
 })
 
@@ -118,5 +120,28 @@ describe('foodsCsv', () => {
   it('neutralises a food named like a formula', () => {
     const line = rows(foodsCsv([f('=HYPERLINK("x")')]))[1]
     expect(line.startsWith('"\'=HYPERLINK(""x"")",')).toBe(true)
+  })
+})
+
+describe('micronutrient columns', () => {
+  const stamp = '2026-01-01T00:00:00.000Z'
+  const base = { id: 'e1', date: '2026-02-01', meal: 'lunch' as const, name: 'Banana', calories: 100, protein: 1, carbs: 25, fat: 0, createdAt: stamp, updatedAt: stamp }
+
+  it('exports every newer nutrient after cholesterol, empty when not recorded and 0 when recorded as zero', () => {
+    const lines = entriesCsv([{ ...base, potassium: 422.4, vitaminB12: 0 }]).replace('﻿', '').split('\r\n')
+    const header = lines[0].split(',')
+    const row = lines[1].split(',')
+    expect(header.slice(header.indexOf('Cholesterol (mg)') + 1, header.indexOf('Cholesterol (mg)') + 4)).toEqual(['Monounsaturated fat (g)', 'Polyunsaturated fat (g)', 'Trans fat (g)'])
+    expect(header).toContain('Vitamin D (mcg)')
+    expect(row[header.indexOf('Potassium (mg)')]).toBe('422.4')
+    expect(row[header.indexOf('Vitamin B12 (mcg)')]).toBe('0')
+    expect(row[header.indexOf('Calcium (mg)')]).toBe('')
+    expect(header[header.length - 1]).toBe('Planned')
+  })
+
+  it('exports them for saved foods too', () => {
+    const csv = foodsCsv([{ id: 'f1', name: 'Oats', serving: '1 cup', calories: 150, protein: 5, carbs: 27, fat: 3, iron: 2.1, createdAt: stamp, updatedAt: stamp }])
+    const [header, row] = csv.replace('﻿', '').split('\r\n').map((line) => line.split(','))
+    expect(row[header.indexOf('Iron (mg)')]).toBe('2.1')
   })
 })

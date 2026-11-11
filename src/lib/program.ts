@@ -2,6 +2,7 @@ import type { DiaryEntry, Goals, Program, Settings, WeightEntry } from '../types
 import { dateFromISO, shiftDate } from './utils'
 import { estimateExpenditure, KCAL_PER_LB, type ExpenditureEstimate } from './expenditure'
 import { LB_PER_KG, trendSeries } from './trend'
+import { averageTarget, hasShift } from './calorieShift'
 
 /** Never suggest a daily budget below this, whatever the rate asks for. */
 export const MIN_BUDGET_KCAL = 1200
@@ -167,6 +168,8 @@ export interface CheckIn {
   newBudget?: Budget
   /** True when the program asked for a bigger change than one check-in allows and newBudget was held to MAX_CHECKIN_CHANGE_KCAL. */
   limited?: boolean
+  /** Average calorie target over the logged days, only when uneven calorie days are on (it then differs from the daily goal). */
+  avgTarget?: number
   /** Plain-language summary of how the week went against the program. */
   headline: string
 }
@@ -204,5 +207,6 @@ export const buildCheckIn = (entries: DiaryEntry[], weights: WeightEntry[], sett
   else if (newBudget && goals.calories !== undefined && newBudget.calories === goals.calories) headline = 'On track. The budget stays the same.'
   else if (newBudget && goals.calories !== undefined) headline = `The budget ${newBudget.calories > goals.calories ? 'rises' : 'falls'} by ${Math.abs(newBudget.calories - goals.calories)} kcal.`
   else headline = 'A budget is ready to set from your program.'
-  return { dueDate, weekEnding, daysLogged, avgIntake, trendChange, unit, expenditure, currentBudget: goals.calories, newBudget, ...(limit?.limited ? { limited: true } : {}), headline }
+  const avgTarget = hasShift(goals) ? averageTarget(goals, [...week.keys()]) : undefined
+  return { dueDate, weekEnding, daysLogged, avgIntake, ...(avgTarget !== undefined ? { avgTarget } : {}), trendChange, unit, expenditure, currentBudget: goals.calories, newBudget, ...(limit?.limited ? { limited: true } : {}), headline }
 }

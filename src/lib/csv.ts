@@ -1,4 +1,5 @@
 import type { DiaryEntry, Food, WeightEntry } from '../types'
+import { EXTRA_NUTRIENTS } from './nutrients'
 
 type Cell = string | number | boolean | undefined | null
 
@@ -21,6 +22,9 @@ export const toCsv = <T extends object>(rows: T[], columns: Array<{ key: string;
   return `﻿${lines.join('\r\n')}\r\n`
 }
 
+/** One column per nutrient added with micronutrient tracking, after the original five. */
+const extraNutrientColumns = EXTRA_NUTRIENTS.map((nutrient) => ({ key: nutrient.key as string, header: `${nutrient.label} (${nutrient.unit})` }))
+
 const byDateThenTime = (a: { date: string; time?: string }, b: { date: string; time?: string }) =>
   a.date.localeCompare(b.date) || (a.time ?? '').localeCompare(b.time ?? '')
 
@@ -40,6 +44,7 @@ export const entriesCsv = (entries: DiaryEntry[]): string =>
     { key: 'sugar', header: 'Sugar (g)' },
     { key: 'satFat', header: 'Saturated fat (g)' },
     { key: 'cholesterol', header: 'Cholesterol (mg)' },
+    ...extraNutrientColumns,
     { key: 'planned', header: 'Planned' },
   ])
 
@@ -65,6 +70,7 @@ export const foodsCsv = (foods: Food[]): string =>
     { key: 'sugar', header: 'Sugar (g)' },
     { key: 'satFat', header: 'Saturated fat (g)' },
     { key: 'cholesterol', header: 'Cholesterol (mg)' },
+    ...extraNutrientColumns,
     { key: 'favorite', header: 'Favorite' },
   ])
 

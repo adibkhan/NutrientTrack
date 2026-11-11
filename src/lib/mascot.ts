@@ -1,5 +1,6 @@
 import type { DiaryEntry, Goals, MealCategory, Preferences, WeightEntry } from '../types'
 import { shiftDate } from './utils'
+import { targetFor } from './calorieShift'
 import { pipGrowth } from './pipGrowth'
 import { listTriggers, refluxDay } from './reflux'
 
@@ -133,7 +134,8 @@ export const pickMascotLine = ({ date, today, hour, entries, weights, goals, ref
     return line('weighed', 'calm', ['Weigh-in saved. The trend cares about the week, not one morning.'])
   }
   const totalCalories = todays.reduce((sum, entry) => sum + entry.calories, 0)
-  if (goals?.calories && goals.calories > 0 && totalCalories > goals.calories) {
+  const calorieTarget = targetFor(goals, date)
+  if (calorieTarget && calorieTarget > 0 && totalCalories > calorieTarget) {
     return line('honest', 'calm', ['Logging the big days too. That’s what makes your numbers trustworthy.', 'Every day counts, the big ones included. Thanks for logging it.'])
   }
   if (isNight(hour)) return line('night', 'sleepy', ['Nice logging today. See you tomorrow!'])

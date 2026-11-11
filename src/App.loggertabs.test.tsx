@@ -79,7 +79,7 @@ async function openLogger(entries: DiaryEntry[], foods: Food[]): Promise<User> {
 
 const tab = (name: RegExp) => screen.getByRole('tab', { name })
 const panel = () => screen.getByRole('tabpanel')
-const quickNames = () => within(panel()).queryAllByRole('button', { name: /^Quick add / }).map((button) => button.getAttribute('aria-label'))
+const quickNames = () => within(panel()).queryAllByRole('button', { name: /^Log .* now$/ }).map((button) => button.getAttribute('aria-label'))
 
 describe('Log food library tabs', () => {
   it('defaults to Recent and shows count badges only when above zero', async () => {
@@ -89,7 +89,7 @@ describe('Log food library tabs', () => {
     expect(tab(/^Favorites/).textContent).toBe('Favorites1')
     expect(tab(/^My foods/).textContent).toBe('My foods2')
     expect(tab(/^Recipes/).textContent).toBe('Recipes')
-    expect(quickNames()).toEqual(['Quick add Rice'])
+    expect(quickNames()).toEqual(['Log Rice now'])
   })
 
   it('lists all seven saved foods under My foods with no cap', async () => {
@@ -109,21 +109,21 @@ describe('Log food library tabs', () => {
     await user.click(tab(/^Favorites/))
     const names = quickNames()
     expect(names).toHaveLength(6)
-    expect(names).not.toContain('Quick add Plain')
-    expect(names).not.toContain('Quick add Explicit no')
+    expect(names).not.toContain('Log Plain now')
+    expect(names).not.toContain('Log Explicit no now')
   })
 
   it('lists only recipes on Recipes and keeps them out of My foods', async () => {
     const user = await openLogger([], [food('f1', 'Bar'), recipe('r1', 'Stew')])
     await user.click(tab(/^Recipes/))
-    expect(quickNames()).toEqual(['Quick add Stew'])
+    expect(quickNames()).toEqual(['Log Stew now'])
     await user.click(tab(/^My foods/))
-    expect(quickNames()).toEqual(['Quick add Bar'])
+    expect(quickNames()).toEqual(['Log Bar now'])
   })
 
   it('does not list a planned entry under Recent', async () => {
     await openLogger([entry(2, 'Planned pasta', { planned: true }), entry(1, 'Eaten rice')], [])
-    expect(quickNames()).toEqual(['Quick add Eaten rice'])
+    expect(quickNames()).toEqual(['Log Eaten rice now'])
     expect(tab(/^Recent/).textContent).toBe('Recent1')
   })
 
@@ -132,14 +132,14 @@ describe('Log food library tabs', () => {
     await openLogger(entries, [])
     const names = quickNames()
     expect(names).toHaveLength(8)
-    expect(names[0]).toBe('Quick add Dish 9')
-    expect(names).not.toContain('Quick add Dish 1')
+    expect(names[0]).toBe('Log Dish 9 now')
+    expect(names).not.toContain('Log Dish 1 now')
     expect(tab(/^Recent/).textContent).toBe('Recent8')
   })
 
   it('collapses recent entries with the same name ignoring case', async () => {
     await openLogger([entry(3, 'Oatmeal'), entry(2, 'oatmeal'), entry(1, 'OATMEAL'), entry(0, 'Toast')], [])
-    expect(quickNames()).toEqual(['Quick add Oatmeal', 'Quick add Toast'])
+    expect(quickNames()).toEqual(['Log Oatmeal now', 'Log Toast now'])
   })
 
   it('shows each tab empty line when nothing is stored', async () => {
@@ -169,7 +169,7 @@ describe('Log food library tabs', () => {
     const box = screen.getByPlaceholderText(/Search foods/)
     await user.type(box, 'chick')
     expect(screen.queryByRole('tablist')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Quick add Chicken breast' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Log Chicken breast now' })).toBeTruthy()
     await user.clear(box)
     expect(screen.getByRole('tablist', { name: 'Your foods' })).toBeTruthy()
   })
@@ -177,7 +177,7 @@ describe('Log food library tabs', () => {
   it('quick adds a favorite from the Favorites tab', async () => {
     const user = await openLogger([], [food('f9', 'Starred shake', { favorite: true, calories: 180 })])
     await user.click(tab(/^Favorites/))
-    await user.click(screen.getByRole('button', { name: 'Quick add Starred shake' }))
+    await user.click(screen.getByRole('button', { name: 'Log Starred shake now' }))
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
     expect(m.saveEntry.mock.calls[0][0]).toMatchObject({ name: 'Starred shake', foodId: 'f9', calories: 180, date: todayISO() })
     expect(m.saveFood).not.toHaveBeenCalled()

@@ -322,7 +322,7 @@ describe('log by target in the logger', () => {
     const user = await renderApp()
     await user.click(first('Log food'))
     await user.type(await screen.findByPlaceholderText(/Search foods/), 'oats')
-    await user.click(await screen.findByRole('button', { name: /Rolled oats/ }))
+    await user.click(await screen.findByRole('button', { name: /^Rolled oats/ }))
     const dialog = await screen.findByRole('dialog')
     fireEvent.change(within(dialog).getByLabelText('Target amount'), { target: { value: '100.07' } })
     // 100.07 kcal at 2 kcal per gram is 50.035 g, kept to one decimal.

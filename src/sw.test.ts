@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import swSource from '../public/sw.js?raw'
 
 const SCOPE = 'https://app.test/'
-const CACHE_NAME = 'nutrienttrack-shell-v10'
+const CACHE_NAME = 'nutrienttrack-shell-v12'
 const JS = `${SCOPE}assets/index-abc123.js`
 const CSS = `${SCOPE}assets/index-abc123.css`
 const MANIFEST = `${SCOPE}manifest.webmanifest`
@@ -26,21 +26,27 @@ type Worker = ReturnType<typeof loadWorker>
 const ok = (body = 'x') => Promise.resolve(new Response(body, { status: 200 }))
 const never = () => new Promise<Response>(() => {})
 
-const loadWorker = (source: string = swSource) => {
-  const store = new Map<string, Response>()
+const loadWorker = (source: string = swSource, otherCaches: string[] = []) => {
+  // Named caches, as in a browser. `store` is the app shell cache; every other name is a separate store.
+  const stores = new Map<string, Map<string, Response>>([[CACHE_NAME, new Map()], ...otherCaches.map((name) => [name, new Map<string, Response>()] as const)])
+  const store = stores.get(CACHE_NAME) as Map<string, Response>
   const keyOf = (r: Keyed) => (typeof r === 'string' ? r : r.url)
-  const cache = {
-    match: async (r: Keyed) => store.get(keyOf(r))?.clone(),
-    put: async (r: Keyed, res: Response) => void store.set(keyOf(r), res),
-    addAll: async () => {},
-    keys: async () => [...store.keys()],
-    delete: async (r: string) => store.delete(r),
+  const cacheFor = (name: string) => {
+    if (!stores.has(name)) stores.set(name, new Map())
+    const mine = stores.get(name) as Map<string, Response>
+    return {
+      match: async (r: Keyed) => mine.get(keyOf(r))?.clone(),
+      put: async (r: Keyed, res: Response) => void mine.set(keyOf(r), res),
+      addAll: async () => {},
+      keys: async () => [...mine.keys()],
+      delete: async (r: string) => mine.delete(r),
+    }
   }
   const caches = {
-    open: async () => cache,
-    match: async (r: Keyed) => cache.match(r),
-    keys: async () => [CACHE_NAME],
-    delete: async () => true,
+    open: async (name: string) => cacheFor(name),
+    match: async (r: Keyed) => cacheFor(CACHE_NAME).match(r),
+    keys: async () => [...stores.keys()],
+    delete: async (name: string) => stores.delete(name),
   }
   const handlers: Record<string, Handler> = {}
   const self = {
@@ -78,6 +84,7 @@ const loadWorker = (source: string = swSource) => {
   }
   return {
     store,
+    stores,
     fetched,
     fetchInit,
     lifecycle,
@@ -226,6 +233,7 @@ describe('static food pages', () => {
 
 describe('service worker install and warm-up', () => {
   const CATALOG = `${SCOPE}data/usda-common-v2.json`
+  const NUTRIENTS = `${SCOPE}data/usda-nutrients-v1.json`
   const CHUNK = `${SCOPE}assets/supabase-9f8e7d.js`
   const installed = async () => {
     const w = loadWorker()
@@ -234,8 +242,8 @@ describe('service worker install and warm-up', () => {
     return w
   }
 
-  it('uses_the_v10_cache', () => {
-    expect(swSource).toContain("nutrienttrack-shell-v10")
+  it('uses_the_v11_cache', () => {
+    expect(swSource).toContain("nutrienttrack-shell-v12")
   })
 
   it('install_fetches_only_the_page_with_no_store_and_leaves_the_catalog_out', async () => {
@@ -244,6 +252,7 @@ describe('service worker install and warm-up', () => {
     expect(w.fetchInit.get(JS)?.cache).toBeUndefined()
     expect(w.fetchInit.get(CSS)?.cache).toBeUndefined()
     expect(w.fetched).not.toContain(CATALOG)
+    expect(w.fetched).not.toContain(NUTRIENTS)
     for (const url of [JS, CSS, INDEX]) expect(w.store.has(url)).toBe(true)
   })
 
@@ -260,6 +269,18 @@ describe('service worker install and warm-up', () => {
     await flush()
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(w.store.has(CATALOG)).toBe(true)
+  })
+
+  it('warms_the_nutrient_table_after_the_catalog_and_still_warms_it_when_the_catalog_fails', async () => {
+    const w = await installed()
+    w.route(CATALOG, () => Promise.reject(new TypeError('offline')))
+    w.route(NUTRIENTS, () => ok('{}'))
+    await w.lifecycle('activate')
+    await flush()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(w.fetched).toContain(NUTRIENTS)
+    expect(w.store.has(NUTRIENTS)).toBe(true)
+    expect(w.store.has(CATALOG)).toBe(false)
   })
 
   it('serves_the_catalog_offline_once_warmed_and_caches_it_on_first_fetch_otherwise', async () => {
@@ -280,5 +301,74 @@ describe('service worker install and warm-up', () => {
     expect(await (await w.dispatch(CHUNK, 'cors').responded).text()).toBe('chunk')
     await flush()
     expect(await text(CHUNK, w)).toBe('chunk')
+  })
+})
+
+describe('service worker label scanner engine', () => {
+  const OCR_CACHE = swSource.match(/const OCR_CACHE = '([^']+)'/)?.[1] as string
+  const installed = async (others: string[] = []) => {
+    const w = loadWorker(swSource, others)
+    w.route(INDEX, () => ok(pageHtml('new')))
+    await w.lifecycle('install')
+    return w
+  }
+  const OCR = ['worker.min.js', 'core/tesseract-core-simd-lstm.wasm.js', 'lang/eng.traineddata.gz'].map((path) => `${SCOPE}ocr/${path}`)
+
+  it('keeps_the_ocr_engine_out_of_the_install_precache', async () => {
+    const w = await installed()
+    for (const url of OCR) {
+      expect(w.fetched).not.toContain(url)
+      expect(w.store.has(url)).toBe(false)
+    }
+    expect(swSource.slice(swSource.indexOf('const APP_SHELL'), swSource.indexOf(']', swSource.indexOf('const APP_SHELL')))).not.toContain('ocr')
+  })
+
+  it('names_the_ocr_cache_after_the_installed_engine_and_model', async () => {
+    const core = JSON.parse((await import('../node_modules/tesseract.js-core/package.json?raw')).default) as { version: string }
+    const model = JSON.parse((await import('../node_modules/@tesseract.js-data/eng/package.json?raw')).default) as { version: string }
+    expect(OCR_CACHE).toContain(`core${core.version}`)
+    expect(OCR_CACHE).toContain('eng-4.0.0_best_int')
+    expect(model.version).toBeTruthy()
+  })
+
+  it('runtime_caches_each_ocr_file_in_its_own_cache_on_first_use_and_serves_it_offline_afterwards', async () => {
+    const w = await installed()
+    for (const url of OCR) {
+      w.route(url, () => ok(`file:${url}`))
+      // The worker script and its imports are requested by a worker, not as a page navigation.
+      expect(await (await w.dispatch(url, 'same-origin').responded).text()).toBe(`file:${url}`)
+    }
+    await flush()
+    const ocr = w.stores.get(OCR_CACHE) as Map<string, Response>
+    for (const url of OCR) expect(await ocr.get(url)?.clone().text()).toBe(`file:${url}`)
+    for (const url of OCR) expect(w.store.has(url)).toBe(false)
+    for (const url of OCR) w.route(url, () => Promise.reject(new TypeError('offline')))
+    const fetchedBefore = w.fetched.length
+    for (const url of OCR) expect(await (await w.dispatch(url, 'same-origin').responded).text()).toBe(`file:${url}`)
+    expect(w.fetched.length).toBe(fetchedBefore)
+  })
+
+  it('does_not_cache_a_failed_ocr_download', async () => {
+    const w = await installed()
+    w.route(OCR[2], () => Promise.resolve(new Response('', { status: 404 })))
+    await w.dispatch(OCR[2], 'same-origin').responded
+    await flush()
+    expect(w.stores.get(OCR_CACHE)?.has(OCR[2])).toBeFalsy()
+  })
+
+  it('keeps_the_ocr_files_when_an_app_update_replaces_the_shell_cache', async () => {
+    const w = await installed(['nutrienttrack-shell-v9', OCR_CACHE])
+    ;(w.stores.get(OCR_CACHE) as Map<string, Response>).set(OCR[2], new Response('model'))
+    await w.lifecycle('activate')
+    expect(w.stores.has('nutrienttrack-shell-v9')).toBe(false)
+    expect(w.stores.has(OCR_CACHE)).toBe(true)
+    expect(await (w.stores.get(OCR_CACHE) as Map<string, Response>).get(OCR[2])?.clone().text()).toBe('model')
+  })
+
+  it('deletes_an_older_ocr_cache_when_the_engine_or_model_version_changes', async () => {
+    const w = await installed(['nutrienttrack-ocr-core6.9.0-eng-4.0.0_best_int', OCR_CACHE])
+    await w.lifecycle('activate')
+    expect(w.stores.has('nutrienttrack-ocr-core6.9.0-eng-4.0.0_best_int')).toBe(false)
+    expect(w.stores.has(OCR_CACHE)).toBe(true)
   })
 })

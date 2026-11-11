@@ -939,6 +939,39 @@ strong { font-weight: 600; }
 .nutrient-fields summary span { color: var(--muted); font-size: 12px; font-weight: 400; }
 .nutrient-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 12px 12px; }
 .nutrient-line { margin: 0; padding-top: 10px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+/* Micronutrients: the entry form's full list, the Trends card and the day disclosure. */
+.nutrient-all { border-top: 1px solid var(--line-soft); }
+.nutrient-all > summary { cursor: pointer; }
+.nutrient-group { padding: 0 12px 12px; }
+.nutrient-group h4 { margin: 0 0 6px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
+.nutrient-group .form-field label { overflow-wrap: anywhere; }
+.nutrients-card { margin-bottom: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
+.nutrients-card > * { min-width: 0; }
+.nutrients-card .panel-header { margin-bottom: 0; }
+.nutrients-card .metric-subtext { margin: 0; }
+.nutrient-list-title { margin: 6px 0 0; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
+.nutrient-list { display: grid; margin: 0; padding: 0; list-style: none; }
+.nutrient-list li { border-top: 1px solid var(--line-soft); }
+.nutrient-list li:first-child { border-top: 0; }
+.nutrient-row { display: grid; gap: 4px; width: 100%; min-height: var(--row); padding: 8px 0; border: 0; color: var(--ink); background: transparent; font: inherit; text-align: left; cursor: pointer; }
+/* Few days of data: the figure stays honest but reads as provisional. */
+.nutrient-row.thin .nutrient-row-top strong { color: var(--muted); }
+.nutrient-row:hover .nutrient-row-name { color: var(--accent-text); }
+.nutrient-row:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--radius-control); }
+.nutrient-row-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; font-size: 13px; }
+.nutrient-row-name { min-width: 0; overflow-wrap: anywhere; font-weight: 500; }
+.nutrient-row-top strong { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; }
+.nutrient-row-bar { height: 4px; }
+.nutrient-row-sub { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.day-nutrients { border-top: 1px solid var(--line-soft); }
+.day-nutrients > summary { display: flex; align-items: center; min-height: 40px; color: var(--accent-text); font-size: 13px; font-weight: 600; cursor: pointer; }
+.day-nutrient-list { display: grid; gap: 10px; margin: 0 0 4px; padding: 0; list-style: none; }
+.day-nutrient-list li { display: grid; gap: 4px; }
+.day-nutrient-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 13px; }
+.day-nutrient-top strong { font-weight: 600; font-variant-numeric: tabular-nums; }
+.day-nutrient-top small { color: var(--muted); font-size: 12px; font-weight: 400; }
+.day-nutrient-note { color: var(--muted); font-size: 11px; }
+.day-nutrients .muted-footnote { margin: 8px 0 4px; }
 .page-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .star-button.on { color: var(--fat) !important; }
 .star-button.on svg { fill: currentColor; }
@@ -1446,3 +1479,84 @@ strong { font-weight: 600; }
 
 /* A message for one box of a multi-column grid is one full-width row under the grid, not a narrow column beside it. */
 .goal-fields > .field-error, .macro-input-grid > .field-error, .nutrient-grid > .field-error, .recipe-line-macros > .field-error { grid-column: 1 / -1; margin: 0; }
+
+/* Plate: multi-select logging on the Log food search screen */
+.plate-add { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; flex: 0 0 auto; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; color: var(--accent-text); background: var(--accent-soft); transition: background .15s ease, color .15s ease; }
+.plate-add:hover { color: #fff; background: var(--accent-fill); }
+.plate-add.in-plate { color: #fff; background: var(--accent-fill); }
+.plate-add-count { margin-left: 1px; font-size: 14px; font-weight: 700; line-height: 1; }
+.quick-result { gap: 8px; padding-right: 6px; }
+.quick-result .quick-add { width: 44px; height: 44px; color: var(--ink-2); background: var(--surface-soft); }
+.quick-result .quick-add:hover:not(:disabled) { color: var(--ink); background: var(--line); }
+.plate-tray { position: sticky; z-index: 3; order: 9; bottom: calc(-16px - env(safe-area-inset-bottom) + var(--kb-inset, 0px)); display: grid; gap: 8px; margin: 0 -16px calc(-16px - env(safe-area-inset-bottom)); padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--surface); box-shadow: 0 -6px 16px rgba(16, 24, 40, .08); }
+.plate-bar { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.plate-summary { display: flex; flex: 1 1 auto; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; min-height: var(--row); padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-control); color: var(--ink); background: var(--surface-row); font-size: 14px; text-align: left; }
+.plate-summary svg { flex: 0 0 auto; color: var(--muted); transition: transform .15s ease; }
+.plate-summary svg.flip { transform: rotate(180deg); }
+.plate-meal select { min-height: var(--row); max-width: 128px; padding: 0 28px 0 12px; border: 1px solid var(--line-strong); border-radius: 99px; color: var(--accent-text); background-color: var(--accent-soft); font-size: 14px; font-weight: 600; }
+.plate-log { width: 100%; }
+.plate-detail { display: grid; gap: 6px; max-height: 38svh; overflow-y: auto; overscroll-behavior: contain; }
+.plate-list { display: grid; margin: 0; padding: 0; list-style: none; }
+.plate-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: var(--row); padding: 4px 0; border-top: 1px solid var(--line-soft); }
+.plate-line:first-child { border-top: 0; }
+.plate-line-copy { display: grid; min-width: 0; gap: 1px; }
+.plate-line-copy strong { overflow: hidden; color: var(--ink); font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.plate-line-copy small { color: var(--muted); font-size: 12px; }
+.plate-stepper { display: flex; flex: 0 0 auto; align-items: center; gap: 2px; }
+.plate-stepper button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; color: var(--accent-text); background: transparent; font-size: 20px; line-height: 1; }
+.plate-stepper button:hover { background: var(--accent-soft); }
+.plate-stepper span { min-width: 28px; color: var(--ink); font-size: 14px; font-weight: 600; text-align: center; }
+.plate-macros { margin: 0; color: var(--muted); font-size: 12px; }
+.plate-discard { display: grid; gap: 8px; }
+.plate-discard strong { color: var(--ink); font-size: 14px; }
+.plate-discard-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.plate-kept { margin: 0; }
+@media (max-width: 360px) {
+  .plate-meal select { max-width: 104px; padding-left: 10px; }
+}
+/* The tray comes early in the page (tab and reading order) but sits last in the sheet; the keyboard inset lifts it above an on-screen keyboard. */
+.logger-search { padding-bottom: var(--kb-inset, 0px); }
+.plate-summary-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plate-max { color: var(--danger); }
+.plate-stepper button:disabled { opacity: .35; cursor: not-allowed; }
+@media (max-width: 360px) {
+  /* Two round buttons leave little room: let the name and its detail wrap in full instead of truncating. */
+  .quick-result .result-copy strong { display: block; -webkit-line-clamp: unset; line-clamp: unset; }
+  .quick-result .result-copy small { white-space: normal; }
+  .quick-result .catalog-result { padding-right: 4px; }
+}
+/* Short viewport (on-screen keyboard): Scan and Manual become two 44px icon buttons beside the search box. */
+@media (max-height: 560px) {
+  .logger-search { grid-template-columns: minmax(0, 1fr) auto auto; grid-auto-flow: row dense; gap: 8px; }
+  .logger-search > :not(.search-input-wrap):not(.capture-row) { grid-column: 1 / -1; }
+  .logger-search .capture-row { display: contents; }
+  .logger-search .capture-button { width: 44px; height: 44px; min-height: 44px; padding: 0; justify-content: center; }
+  .logger-search .capture-button span, .logger-search .logger-source { display: none; }
+}
+/* Calorie shifting: seven weekday rows under the calorie goal. */
+.shift-panel { margin-top: 10px; font-size: 13px; }
+.shift-panel > summary { color: var(--accent-text); font-weight: 600; cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+.shift-rows { display: grid; gap: 4px; margin: 8px 0 0; padding: 0; list-style: none; }
+.shift-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px 72px 44px; align-items: center; gap: 6px; }
+.shift-day { display: grid; min-width: 0; line-height: 1.25; }
+.shift-row label { color: var(--ink); font-weight: 600; }
+.shift-row input { width: 100%; min-width: 0; height: 44px; text-align: center; }
+.shift-row .icon-button { width: 44px; height: 44px; }
+.shift-row-error { grid-column: 1 / -1; margin: 0; }
+.shift-delta { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.shift-delta.up { color: var(--accent-text); }
+.shift-delta.down { color: var(--warn-text); }
+.shift-total { margin: 10px 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.shift-total.ok { color: var(--ink); }
+.shift-total.off { color: var(--warn-text); }
+.shift-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.import-counts { margin: 0; font-weight: 600; font-size: 13px; }
+/* The three ways to log other than search fit one row at 320px (the short-viewport rule above makes them icon-only buttons). */
+@media (min-height: 561px) {
+  .capture-row .capture-button { flex: 1 1 0; justify-content: center; min-width: 0; padding: 0 8px; }
+  .capture-row .logger-source { flex-basis: 100%; }
+}
+/* Top-level error panel: shown instead of a blank page when something below fails to render. */
+.app-error { display: grid; gap: 12px; justify-items: start; max-width: 420px; margin: 0 auto; padding: 48px 16px; color: var(--ink); }
+.app-error h1 { margin: 0; font-size: 20px; }
+.app-error p { margin: 0; color: var(--ink-2); font-size: 15px; line-height: 1.45; }

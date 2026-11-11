@@ -70,7 +70,7 @@ async function fillAndSave(user: User) {
 async function quickAdd(user: User) {
   await user.click(first('Log food'))
   await user.click(await screen.findByRole('tab', { name: /My foods/ }))
-  await user.click(await screen.findByRole('button', { name: 'Quick add Yogurt' }))
+  await user.click(await screen.findByRole('button', { name: 'Log Yogurt now' }))
   await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
 }
 
@@ -141,7 +141,7 @@ describe('quick-add', () => {
     await goBackOneDay(user)
     await user.click(screen.getAllByRole('button', { name: /^Add to / })[3])
     await user.click(await screen.findByRole('tab', { name: /My foods/ }))
-    await user.click(await screen.findByRole('button', { name: 'Quick add Yogurt' }))
+    await user.click(await screen.findByRole('button', { name: 'Log Yogurt now' }))
     await waitFor(() => expect(m.saveEntry).toHaveBeenCalledTimes(1))
     expect(saved().meal).toBe('snack')
     expect(saved()).not.toHaveProperty('time')

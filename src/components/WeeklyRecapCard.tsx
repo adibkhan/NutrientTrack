@@ -75,6 +75,7 @@ export function WeeklyRecapCard({ recap, growth, unit, onNotify }: WeeklyRecapCa
         <span className="recap-growth-bar" aria-hidden="true"><b style={{ width: `${growth.next ? Math.min(100, ((growth.days - stageStart(growth)) / (growth.next.remaining + growth.days - stageStart(growth))) * 100) : 100}%` }} /></span>
         {showPath && <GrowthPath growth={growth} />}
       </div>
+      {recap.avgTarget !== undefined && <p className="recap-weight">Calorie target averaged <strong>{compactCount(recap.avgTarget)} kcal</strong> on the days you logged.</p>}
       {recap.trendChange !== undefined && <p className="recap-weight">Trend weight this week: <strong>{signed(recap.trendChange, unit)}</strong></p>}
       <div className="recap-actions">
         {recap.trendChange !== undefined && <label className="recap-include"><input type="checkbox" checked={includeWeight} onChange={(event) => setIncludeWeight(event.target.checked)} />Include weight in the image</label>}
