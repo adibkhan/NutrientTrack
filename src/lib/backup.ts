@@ -81,7 +81,7 @@ export const validateBackup = (value: unknown): value is BackupPayload => {
   }
   const isOptionalCatalogSource = (item: unknown) => {
     const value = item && typeof item === 'object' ? (item as Record<string, unknown>).catalogSource : undefined
-    return value === undefined || value === 'USDA SR Legacy' || value === 'USDA Foundation'
+    return value === undefined || value === 'USDA SR Legacy' || value === 'USDA Foundation' || value === 'USDA Branded'
   }
   const isOptionalTime = (item: unknown) => {
     const value = item && typeof item === 'object' ? (item as Record<string, unknown>).time : undefined
@@ -96,7 +96,8 @@ export const validateBackup = (value: unknown): value is BackupPayload => {
     const value = item && typeof item === 'object' ? (item as Record<string, unknown>)[key] : undefined
     return value === undefined || typeof value === 'string'
   }
-  const isOptionalBoolean = (item: unknown, key: string) => {
+  const isOptionalAmountUnit = (item: unknown): boolean => { const value = item && typeof item === 'object' ? (item as Record<string, unknown>).unit : undefined; return value === undefined || value === 'ml' }
+const isOptionalBoolean = (item: unknown, key: string) => {
     const value = item && typeof item === 'object' ? (item as Record<string, unknown>)[key] : undefined
     return value === undefined || typeof value === 'boolean'
   }
@@ -124,7 +125,7 @@ export const validateBackup = (value: unknown): value is BackupPayload => {
     candidate.symptoms.every((item) => hasStrings(item, ['id', 'date', 'createdAt', 'updatedAt']) && isISODate((item as { date: string }).date) && (item as { kind: unknown }).kind === 'heartburn' && [1, 2, 3].includes((item as { severity: unknown }).severity as number) && isOptionalTime(item) && isOptionalString(item, 'note')) &&
     candidate.water.every((item) => hasStrings(item, ['id', 'date', 'createdAt', 'updatedAt']) && isISODate((item as WaterLog).date) && hasNumbers(item, ['ml'])) &&
     candidate.measurements.every((item) => hasStrings(item, ['id', 'date', 'unit', 'createdAt', 'updatedAt']) && isISODate((item as { date: string }).date) && ['in', 'cm'].includes((item as { unit: string }).unit) && ['waist', 'hips', 'chest', 'arm', 'thigh'].every((key) => isOptionalPositiveNumber(item, key))) &&
-    candidate.entries.every((item) => hasStrings(item, ['id', 'date', 'name', 'createdAt', 'updatedAt']) && isISODate((item as DiaryEntry).date) && validMeal((item as DiaryEntry).meal) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat']) && isOptionalTime(item) && isOptionalNonNegativeNumber(item, 'grams') && NUTRIENT_KEYS.every((key) => isOptionalNonNegativeNumber(item, key)) && isOptionalBoolean(item, 'planned') && isOptionalPositiveNumber(item, 'servings') && isOptionalIdentifier(item, 'foodId') && isOptionalIdentifier(item, 'catalogId') && isOptionalCatalogSource(item)) &&
+    candidate.entries.every((item) => hasStrings(item, ['id', 'date', 'name', 'createdAt', 'updatedAt']) && isISODate((item as DiaryEntry).date) && validMeal((item as DiaryEntry).meal) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat']) && isOptionalTime(item) && isOptionalNonNegativeNumber(item, 'grams') && NUTRIENT_KEYS.every((key) => isOptionalNonNegativeNumber(item, key)) && isOptionalBoolean(item, 'planned') && isOptionalPositiveNumber(item, 'servings') && isOptionalIdentifier(item, 'foodId') && isOptionalIdentifier(item, 'catalogId') && isOptionalAmountUnit(item) && isOptionalCatalogSource(item)) &&
     candidate.foods.every((item) => hasStrings(item, ['id', 'name', 'serving', 'createdAt', 'updatedAt']) && hasNumbers(item, ['calories', 'protein', 'carbs', 'fat']) && NUTRIENT_KEYS.every((key) => isOptionalNonNegativeNumber(item, key)) && isOptionalBoolean(item, 'favorite') && isOptionalIngredients(item)) &&
     candidate.weights.every((item) => hasStrings(item, ['id', 'date', 'unit', 'createdAt']) && isOptionalString(item, 'note') && isISODate((item as WeightEntry).date) && validUnit((item as WeightEntry).unit) && Number.isFinite((item as WeightEntry).weight) && (item as WeightEntry).weight > 0 && isOptionalPercent(item, 'bodyFat')) &&
     candidate.settings.length <= 1 && candidate.settings.every((item) => hasStrings(item, ['id', 'updatedAt']) && (item as Settings).id === 'profile' && validGoals((item as Settings).goals))

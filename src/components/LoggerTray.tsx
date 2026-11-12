@@ -38,12 +38,16 @@ interface FoodRowProps {
   onQuick?: () => void
   quickDisabled?: boolean
   className?: string
+  /** Full text for a tooltip when the visible name is clamped. */
+  title?: string
+  /** The food is still being loaded: the row looks busy and keeps taps (the plate button queues them). */
+  pending?: boolean
 }
 
 /** One result row: the body opens the food; the round buttons at the end log it now (empty plate only) or put it on the plate. */
-export function FoodRow({ lead, copy, trail, name, count, onOpen, onPlate, onQuick, quickDisabled, className }: FoodRowProps) {
-  return <div className={`quick-result ${onQuick ? 'has-quick' : ''}`}>
-    <button className={`catalog-result ${className ?? ''}`} type="button" onClick={onOpen}>{lead}{copy}{trail}</button>
+export function FoodRow({ lead, copy, trail, name, count, onOpen, onPlate, onQuick, quickDisabled, className, title, pending }: FoodRowProps) {
+  return <div className={`quick-result ${onQuick ? 'has-quick' : ''} ${pending ? 'is-pending' : ''}`}>
+    <button className={`catalog-result ${className ?? ''}`} type="button" title={title} aria-busy={pending ? true : undefined} onClick={onOpen}>{lead}{copy}{trail}</button>
     {onQuick && <button className="quick-add" type="button" disabled={quickDisabled} aria-label={`Log ${name} now`} onClick={onQuick}><Icon name="check" size={18} /></button>}
     <PlateAddButton name={name} count={count} onAdd={onPlate} />
   </div>

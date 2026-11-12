@@ -1,3 +1,4 @@
+import { expandUpcE } from '../catalog/branded'
 import type { NutrientValues } from './nutrients'
 
 /** Whether a digit string ends in a correct GS1 check digit (EAN-8, UPC-A, EAN-13, GTIN-14 all use the same rule). */
@@ -9,10 +10,19 @@ export const hasValidCheckDigit = (digits: string): boolean => {
   return (10 - (sum % 10)) % 10 === Number(digits[digits.length - 1])
 }
 
+/** An 8 digit code is an EAN-8 (its own check digit) or a UPC-E (its 12 digit expansion has a correct check digit). */
+export const isValidEightDigit = (digits: string): boolean => {
+  if (!/^\d{8}$/.test(digits)) return false
+  if (hasValidCheckDigit(digits)) return true
+  const expanded = expandUpcE(digits)
+  return expanded !== undefined && hasValidCheckDigit(expanded)
+}
+
 /** A barcode number as typed or scanned, or undefined when it cannot be a real product code. */
 export const normalizeBarcode = (text: string): string | undefined => {
   const digits = text.replace(/[\s-]/g, '')
   if (!/^\d+$/.test(digits) || ![8, 12, 13, 14].includes(digits.length)) return undefined
+  if (digits.length === 8) return isValidEightDigit(digits) ? digits : undefined
   return hasValidCheckDigit(digits) ? digits : undefined
 }
 

@@ -9,6 +9,8 @@ interface PortionPickerProps {
   defaultIndex?: number
   /** Called with the new gram amount and a serving label such as "2 × 1 large". */
   onPick: (grams: number, label: string) => void
+  /** The unit of the amounts: millilitres for a branded drink. */
+  unit?: 'g' | 'ml'
 }
 
 /** How many household measures show as chips. */
@@ -93,7 +95,7 @@ export const defaultPortionIndex = (portions: PortionList | undefined, food: Por
  * USDA household measures as chips. Tapping a chip sets one of it; tapping the same chip again adds another,
  * so "1 large egg" becomes two eggs in two taps. Typing grams by hand clears the selection.
  */
-export function PortionPicker({ portions, grams, defaultIndex, onPick }: PortionPickerProps) {
+export function PortionPicker({ portions, grams, defaultIndex, onPick, unit = 'g' }: PortionPickerProps) {
   const initial = defaultIndex !== undefined && defaultIndex >= 0 && defaultIndex < portions.length ? defaultIndex : undefined
   const [picked, setPicked] = useState<{ index: number; count: number; preselected: boolean } | null>(initial === undefined ? null : { index: initial, count: 1, preselected: true })
   // A default beyond the chips normally shown takes the last chip's place so it is visible and selected.
@@ -113,7 +115,7 @@ export function PortionPicker({ portions, grams, defaultIndex, onPick }: Portion
             type="button"
             className={`amount-chip portion-chip ${isActive ? 'selected' : ''}`}
             aria-pressed={isActive}
-            title={`${label} = ${formatNumber(portionGrams, 1)} g`}
+            title={`${label} = ${formatNumber(portionGrams, 1)} ${unit}`}
             onClick={() => {
               // The first tap on a chip pre-selected by default chooses it (stays at one); later taps add one more.
               const nextCount = isActive && !active.preselected ? count + 1 : 1
@@ -124,7 +126,7 @@ export function PortionPicker({ portions, grams, defaultIndex, onPick }: Portion
           >
             {isActive && count > 1 && <b className="portion-count">{count}×</b>}
             {portionChipLabel(label)}
-            <small>{formatNumber(portionGrams, 0)} g</small>
+            <small>{formatNumber(portionGrams, portionGrams < 10 ? 1 : 0)} {unit}</small>
           </button>
         )
       })}

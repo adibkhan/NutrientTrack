@@ -79,34 +79,38 @@ async function lookUp(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElem
   await user.click(within(dialog).getByRole('button', { name: 'Look up' }))
 }
 
-describe('barcode lookup is off', () => {
-  it('opens Scan a barcode, explains that lookup is off, and sends nothing', async () => {
+describe('barcode lookup with the online opt-in off', () => {
+  it('opens Scan a barcode ready to scan and type, with no opt-in wall and no request to a third party', async () => {
     const { dialog } = await openScanner()
     expect(within(dialog).getByText('Scan a barcode')).toBeTruthy()
-    expect(within(dialog).getByText('Barcode lookup is off')).toBeTruthy()
-    expect(within(dialog).getByRole('button', { name: 'Turn on barcode lookup' })).toBeTruthy()
-    expect(within(dialog).queryByLabelText('Barcode number')).toBeNull()
+    expect(within(dialog).getByLabelText('Barcode number')).toBeTruthy()
+    expect(within(dialog).queryByText('Barcode lookup is off')).toBeNull()
     expect(foodFactsCalls()).toHaveLength(0)
   })
 
-  it('stays off when the preference is explicitly false or not the boolean true', async () => {
+  it('a code the brand list does not have offers the opt-in, the label scanner and manual entry, and still sends nothing', async () => {
     m.getSettings.mockResolvedValue(settingsWith({ barcodeLookup: 'yes' } as unknown as Settings['preferences']))
-    const { dialog } = await openScanner()
-    expect(within(dialog).getByText('Barcode lookup is off')).toBeTruthy()
+    const { user, dialog } = await openScanner()
+    await lookUp(user, dialog, CODE)
+    expect(await within(dialog).findByText(/Online lookup is off/)).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: 'Turn on online lookup' })).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: /Scan the nutrition label instead/ })).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: /Enter it by hand/ })).toBeTruthy()
     expect(foodFactsCalls()).toHaveLength(0)
   })
 
-  it('turning it on saves barcodeLookup true and keeps other preferences and unknown settings fields, without any request', async () => {
+  it('turning it on saves barcodeLookup true, keeps other preferences and unknown settings fields, and then looks the same code up', async () => {
     m.getSettings.mockResolvedValue(settingsWith({ theme: 'dark', reminders: { logFood: '12:00' }, futurePref: 1 } as Settings['preferences'], { futureSettingsField: { kept: true } }))
     const { user, dialog } = await openScanner()
-    await user.click(within(dialog).getByRole('button', { name: 'Turn on barcode lookup' }))
+    await lookUp(user, dialog, CODE)
+    await user.click(await within(dialog).findByRole('button', { name: 'Turn on online lookup' }))
 
     await waitFor(() => expect(m.saveSettings).toHaveBeenCalledTimes(1))
     const saved = m.saveSettings.mock.calls[0][0] as Settings & Record<string, unknown>
     expect(saved.preferences).toMatchObject({ barcodeLookup: true, theme: 'dark', reminders: { logFood: '12:00' }, futurePref: 1 })
     expect(saved.futureSettingsField).toEqual({ kept: true })
-    expect(foodFactsCalls()).toHaveLength(0)
-    expect(await within(dialog).findByLabelText('Barcode number')).toBeTruthy()
+    await waitFor(() => expect(foodFactsCalls()).toHaveLength(1))
+    expect(String(foodFactsCalls()[0][0])).toContain(CODE)
   })
 })
 

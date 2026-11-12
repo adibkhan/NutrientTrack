@@ -1,9 +1,13 @@
-const CACHE_NAME = 'nutrienttrack-shell-v12'
+const CACHE_NAME = 'nutrienttrack-shell-v13'
 // The label reader's engine and model (served from ocr/, fetched on first use) live in a cache of their own. It is named
 // for the tesseract.js-core version and the language model, so an app update that bumps CACHE_NAME keeps the ~5 MB of OCR
 // files, and a new engine or model starts a fresh cache and drops the old one. Bump it with those packages (src/sw.test.ts checks).
 const OCR_CACHE_PREFIX = 'nutrienttrack-ocr-'
 const OCR_CACHE = 'nutrienttrack-ocr-core7.0.0-eng-4.0.0_best_int'
+// Branded food shards (the self-hosted USDA Branded index) are written by the page into a cache of their own, named by prefix so an app update
+// that bumps CACHE_NAME keeps them. The worker only reads the manifest into it and keeps it out of the activate cleanup; it never caches a pack.
+const BRANDED_CACHE_PREFIX = 'nutrienttrack-branded-'
+const BRANDED_CACHE = 'nutrienttrack-branded-v1'
 const APP_SHELL = [
   './',
   './index.html',
@@ -96,7 +100,7 @@ self.addEventListener('activate', (event) => {
       .keys()
       .then(async (keys) => {
         // Other versions of the shell go; the current OCR cache stays, older OCR caches go.
-        const previous = keys.filter((key) => key !== CACHE_NAME && !key.startsWith(OCR_CACHE_PREFIX))
+        const previous = keys.filter((key) => key !== CACHE_NAME && !key.startsWith(OCR_CACHE_PREFIX) && !key.startsWith(BRANDED_CACHE_PREFIX))
         const staleOcr = keys.filter((key) => key.startsWith(OCR_CACHE_PREFIX) && key !== OCR_CACHE)
         await carryCatalog(previous).catch(() => undefined)
         await Promise.all([...previous, ...staleOcr].map((key) => caches.delete(key)))
@@ -116,6 +120,27 @@ self.addEventListener('fetch', (event) => {
   const path = new URL(event.request.url).pathname
   const scopePath = scopeUrl().pathname
   if (path.startsWith(`${scopePath}foods/`) || path.startsWith(`${scopePath}recipe-calories/`) || path === `${scopePath}sitemap.xml` || path === `${scopePath}robots.txt`) return
+
+  // Branded food packs are read with Range requests (206 answers of a few kB out of a 25 MB file). They go straight to the network: never answered from
+  // a cached full response, never put in a cache (a 206 stored as if it were the file would corrupt every later read). The page keeps its own copy of each shard.
+  const range = event.request.headers && typeof event.request.headers.get === 'function' ? event.request.headers.get('range') : null
+  if (range || (path.startsWith(`${scopePath}data/branded-v1/`) && path.endsWith('.bin'))) return
+
+  // The branded manifest: network first so a new copy is seen, the cached copy when offline. It lives in the branded cache, which outlasts a shell update.
+  if (path === `${scopePath}data/branded-v1/manifest.json`) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.status === 200 && new URL(event.request.url).origin === self.location.origin) {
+            const copy = response.clone()
+            event.waitUntil(caches.open(BRANDED_CACHE).then((cache) => cache.put(event.request.url, copy)).catch(() => undefined))
+          }
+          return response
+        })
+        .catch(() => caches.open(BRANDED_CACHE).then((cache) => cache.match(event.request.url)).then((cached) => cached || new Response('', { status: 503, statusText: 'Offline' }))),
+    )
+    return
+  }
 
   if (event.request.mode === 'navigate') {
     event.respondWith(
@@ -166,7 +191,8 @@ self.addEventListener('fetch', (event) => {
 
       return fetch(event.request)
         .then((response) => {
-          if (response.ok && new URL(event.request.url).origin === self.location.origin) {
+          // Only a complete answer is stored: a 206 (partial content) is `ok` too, and must never stand in for the whole file.
+          if (response.status === 200 && new URL(event.request.url).origin === self.location.origin) {
             const copy = response.clone()
             event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(event.request.url, copy)).catch(() => undefined))
           }

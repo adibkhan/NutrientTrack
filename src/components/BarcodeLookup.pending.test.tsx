@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
 vi.mock('../lib/scanner', () => ({ cameraAvailable: vi.fn(), startScanning: vi.fn() }))
+vi.mock('../lib/brandedApp', async (importOriginal) => ({ ...(await importOriginal<typeof import('../lib/brandedApp')>()), findBarcode: vi.fn(() => Promise.resolve({ reason: 'not-found' })) }))
 vi.mock('../lib/barcode', async (importOriginal) => ({ ...(await importOriginal<typeof import('../lib/barcode')>()), lookupBarcode: vi.fn() }))
 
 import { BarcodeLookup } from './BarcodeLookup'
@@ -13,7 +14,7 @@ const scan = vi.mocked(startScanning)
 let stop: Mock<() => void>
 let resolveStart: (session: { engine: 'native'; stop: () => void }) => void
 let rejectStart: (error: Error) => void
-const props = () => ({ enabled: true, onEnable: vi.fn(), onUse: vi.fn(), onBack: vi.fn() })
+const props = () => ({ enabled: true, onEnable: vi.fn(), onUse: vi.fn(), onBack: vi.fn(), onBranded: vi.fn(), onLabel: vi.fn(), onManual: vi.fn() })
 
 beforeEach(() => {
   Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: vi.fn() } })

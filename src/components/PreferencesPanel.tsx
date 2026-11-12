@@ -35,7 +35,7 @@ export function PreferencesPanel({ preferences, onChange }: PreferencesPanelProp
             else delete next.barcodeLookup
             onChange(next)
           }} />
-          <span><strong>Look up barcodes online</strong><small>Sends each barcode number you scan to Open Food Facts. Off by default.</small></span>
+          <span><strong>Look up barcodes online</strong><small>US packaged foods are found in a list served with the app, with nothing sent to anyone else. Only a barcode that is not in that list is sent to Open Food Facts, and only when this is on. Off by default.</small></span>
         </label>
         <label className="check-row" htmlFor="pref-mascot">
           <input checked={isMascotOn(preferences)} id="pref-mascot" type="checkbox" onChange={(event) => {

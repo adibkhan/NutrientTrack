@@ -1,5 +1,14 @@
 // Enforces the data invariants in CLAUDE.md that are about files rather than behaviour.
+// @vitest-environment node
 import { describe, expect, it } from 'vitest'
+// @ts-expect-error The app tsconfig has no Node typings; these checks read the packs from disk.
+import { createHash } from 'node:crypto'
+// @ts-expect-error see above
+import { readdirSync, readFileSync } from 'node:fs'
+// @ts-expect-error see above
+import { gunzipSync } from 'node:zlib'
+import brandedSource from '../catalog/branded.ts?raw'
+import brandedManifest from '../../public/data/branded-v1/manifest.json?raw'
 import catalogSource from '../catalog/index.ts?raw'
 import nutrientsSource from '../catalog/nutrients.ts?raw'
 import swSource from '../../public/sw.js?raw'
@@ -59,5 +68,104 @@ describe('catalog nutrient table is versioned by file name (invariant 7)', () =>
     const rows = (JSON.parse(nutrientsV1) as { rows: number[][] }).rows
     expect(rows.length).toBeGreaterThan(7000)
     expect(rows.every((row) => catalogIds.has(row[0]))).toBe(true)
+  })
+})
+
+describe('branded food packs are versioned by file name and content hash (invariant 7)', () => {
+  const dir = new URL('../../public/data/branded-v1/', import.meta.url)
+  const manifest = JSON.parse(brandedManifest) as {
+    version: number
+    products: number
+    packs: Array<[string, number]>
+    detail: { starts: number[]; places: number[] }
+    summaries: { rows: number; places: number[] }
+    pop: { places: number[] }
+    posts: { first: string[]; places: number[] }
+    heads: { first: string[]; places: number[] }
+    common: string
+    brandTokens: string[]
+  }
+  const basePath = /BRANDED_BASE\s*=\s*'([^']+)'/.exec(brandedSource)?.[1]
+  const read = (name: string): Uint8Array => readFileSync(new URL(name, dir))
+  const MAX_PACK = 25_000_000
+
+  it('the app reads the directory these files live in, and the manifest is pinned', () => {
+    expect(basePath).toBe('./data/branded-v1/')
+    expect(manifest.version).toBe(2)
+    // Cached by URL: a content change ships as branded-v2/, never an edit of v1.
+    expect(fingerprint(brandedManifest)).toBe('ba465d91')
+  })
+
+  it('every pack is named after the SHA-256 of its bytes, and the manifest lists exactly the packs on disk', () => {
+    const onDisk = (readdirSync(dir) as string[]).filter((name) => name !== 'manifest.json').sort()
+    expect(onDisk).toEqual(manifest.packs.map(([name]) => name).sort())
+    manifest.packs.forEach(([name, size], index) => {
+      const bytes = read(name)
+      expect(name).toBe(`branded-p${String(index).padStart(2, '0')}-${createHash('sha256').update(bytes).digest('hex').slice(0, 12)}.bin`)
+      expect(bytes.length).toBe(size)
+    })
+  })
+
+  it('stays inside the size budget: packs 25 MB each, 80 MB in all, manifest 300 kB', () => {
+    const sizes = manifest.packs.map(([, size]) => size)
+    for (const size of sizes) expect(size).toBeLessThanOrEqual(MAX_PACK)
+    expect(sizes.reduce((sum, size) => sum + size, 0)).toBeLessThanOrEqual(80_000_000)
+    expect(brandedManifest.length).toBeLessThanOrEqual(300_000)
+  })
+
+  it('shards tile their packs, decode, and agree with the manifest', () => {
+    const packs = manifest.packs.map(([name]) => read(name))
+    const cursor = packs.map(() => 0)
+    const text = (bytes: Uint8Array): string => new TextDecoder().decode(bytes)
+    const check = (places: number[], index: number): Uint8Array => {
+      const [pack, offset, length] = [places[index * 3], places[index * 3 + 1], places[index * 3 + 2]]
+      expect(offset).toBe(cursor[pack])
+      cursor[pack] += length
+      const shard = packs[pack].subarray(offset, offset + length)
+      expect([shard[0], shard[1]]).toEqual([0x1f, 0x8b])
+      return gunzipSync(shard) as Uint8Array
+    }
+    // detail: GTIN-ordered runs of full records
+    let detailRows = 0
+    manifest.detail.starts.forEach((start, index) => {
+      const rows = JSON.parse(text(check(manifest.detail.places, index))) as number[][]
+      expect(rows[0][0]).toBe(start)
+      detailRows += rows.length
+    })
+    expect(detailRows).toBe(manifest.products)
+    expect(manifest.detail.starts).toEqual([...manifest.detail.starts].sort((a, b) => a - b))
+    // summaries: fixed blocks of rows, one line per product, stored once
+    const blocks = Math.ceil(manifest.products / manifest.summaries.rows)
+    expect(manifest.summaries.places.length).toBe(blocks * 3)
+    let summaryRows = 0
+    for (let block = 0; block < blocks; block += 1) summaryRows += text(check(manifest.summaries.places, block)).split('\n').length
+    expect(summaryRows).toBe(manifest.products)
+    // popularity: one level byte (0..7) per product, in ordinal order
+    const pop = check(manifest.pop.places, 0)
+    expect(pop.length).toBe(manifest.products)
+    expect(pop.reduce((high, level) => Math.max(high, level), 0)).toBeLessThanOrEqual(7)
+    // postings: consecutive ranges of the sorted token list, every token of every product
+    manifest.posts.first.forEach((first, index) => {
+      const bytes = check(manifest.posts.places, index)
+      expect(bytes.length).toBeGreaterThan(0)
+      expect(first.length).toBeGreaterThan(0)
+    })
+    expect(manifest.posts.first).toEqual([...manifest.posts.first].sort())
+    // heads: the best products of common words and word pairs
+    manifest.heads.first.forEach((first, index) => {
+      const body = text(check(manifest.heads.places, index))
+      expect(body.startsWith(`#${first}\n`)).toBe(true)
+    })
+    expect(manifest.heads.first).toEqual([...manifest.heads.first].sort())
+    expect(cursor).toEqual(manifest.packs.map(([, size]) => size))
+    expect(manifest.brandTokens.length).toBeLessThanOrEqual(5000)
+  })
+
+  it('the service worker does not precache the packs', () => {
+    // The worker names the folder to leave Range requests and the manifest alone, but never lists a pack or the folder in what it installs.
+    const appShell = swSource.slice(swSource.indexOf('const APP_SHELL'), swSource.indexOf(']', swSource.indexOf('const APP_SHELL')))
+    expect(appShell).not.toContain('branded')
+    expect(swSource).not.toMatch(/branded-p\d\d/)
+    expect(swSource).not.toMatch(/\.bin['"`]\s*[,\]]/)
   })
 })

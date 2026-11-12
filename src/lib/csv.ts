@@ -46,6 +46,7 @@ export const entriesCsv = (entries: DiaryEntry[]): string =>
     { key: 'cholesterol', header: 'Cholesterol (mg)' },
     ...extraNutrientColumns,
     { key: 'planned', header: 'Planned' },
+    { key: 'unit', header: 'Amount unit' },
   ])
 
 export const weightsCsv = (weights: WeightEntry[]): string =>

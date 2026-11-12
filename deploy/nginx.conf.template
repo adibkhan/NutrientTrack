@@ -31,6 +31,39 @@ server {
         try_files $uri =404;
     }
 
+    # Branded food packs (public/data/branded-v1): concatenated gzip shards that the client reads with Range requests. They are
+    # already compressed, so nginx must not gzip them again (that would also turn a 206 into a whole-file 200), and the file name
+    # carries the content hash, so they never change. nginx serves static files with Accept-Ranges: bytes and answers Range with 206.
+    location ~ ^/data/branded-v1/[^/]+\.bin$ {
+        gzip off;
+        gzip_static off;
+        default_type application/octet-stream;
+        # The ETag is mtime-size; the Dockerfile gives these files a content-derived mtime, so it is the same on every deploy of the
+        # same bytes. A Range request carries If-Range with that ETag, so a stable one keeps the browser's cached ranges valid.
+        etag on;
+        if_modified_since exact;
+        # No "always": only 2xx and 3xx answers carry "immutable". A 404 (an instance without the packs, a bad deploy) must never be
+        # cached for a year by the browser; it gets no-store from @branded_missing.
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        error_page 404 = @branded_missing;
+        try_files $uri =404;
+    }
+
+    # The manifest has a fixed name (a new format ships as branded-v2/), is small and compresses well.
+    location /data/branded-v1/ {
+        etag on;
+        if_modified_since exact;
+        add_header Cache-Control "public, max-age=86400";
+        error_page 404 = @branded_missing;
+        try_files $uri =404;
+    }
+
+    location @branded_missing {
+        default_type text/plain;
+        add_header Cache-Control "no-store" always;
+        return 404 "not found\n";
+    }
+
     location /data/ {
         add_header Cache-Control "public, max-age=86400" always;
         try_files $uri =404;

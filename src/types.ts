@@ -20,8 +20,11 @@ export interface DiaryEntry extends NutrientValues {
   time?: string
   /** Snapshot metadata for entries created from the bundled catalog. */
   grams?: number
+  /** 'ml' when `grams` is millilitres (a branded drink logged in ml). Missing means grams. */
+  unit?: 'ml'
   catalogId?: string
-  catalogSource?: 'USDA SR Legacy' | 'USDA Foundation'
+  /** 'USDA Branded' is accepted on read, but this build never writes it: a branded entry keeps catalogId 'usda-branded-<gtin>' and no source, so an older build can still restore it (see storedCatalogSource). */
+  catalogSource?: 'USDA SR Legacy' | 'USDA Foundation' | 'USDA Branded'
   /** Logged ahead of time and not eaten yet. Missing means eaten; planned entries never count toward totals. */
   planned?: boolean
   /** How many servings the nutrition snapshot below already covers. Missing means one. */

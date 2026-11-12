@@ -4,10 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
 vi.mock('../lib/scanner', () => ({ cameraAvailable: vi.fn(), startScanning: vi.fn() }))
+vi.mock('../lib/brandedApp', async (importOriginal) => ({ ...(await importOriginal<typeof import('../lib/brandedApp')>()), findBarcode: vi.fn() }))
 vi.mock('../lib/barcode', async (importOriginal) => ({ ...(await importOriginal<typeof import('../lib/barcode')>()), lookupBarcode: vi.fn() }))
 
 import { BarcodeLookup } from './BarcodeLookup'
 import { lookupBarcode } from '../lib/barcode'
+import { findBarcode } from '../lib/brandedApp'
 import { cameraAvailable, startScanning } from '../lib/scanner'
 
 const CODE = '3017620422003'
@@ -19,7 +21,7 @@ let stop: Mock<() => void>
 let deliver: (code: string) => void
 
 const setMedia = (value: unknown) => Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value })
-const props = () => ({ enabled: true, onEnable: vi.fn(), onUse: vi.fn(), onBack: vi.fn() })
+const props = () => ({ enabled: true, onEnable: vi.fn(), onUse: vi.fn(), onBack: vi.fn(), onBranded: vi.fn(), onLabel: vi.fn(), onManual: vi.fn() })
 const reject = (name: string) => scan.mockRejectedValue(Object.assign(new Error(name), { name }))
 
 beforeEach(() => {
@@ -29,6 +31,7 @@ beforeEach(() => {
   deliver = () => undefined
   scan.mockImplementation((_video, onCode) => { deliver = onCode; return Promise.resolve({ engine: 'native', stop }) })
   lookup.mockResolvedValue(FOUND as never)
+  vi.mocked(findBarcode).mockResolvedValue({ reason: 'not-found' })
 })
 
 afterEach(() => {
@@ -111,18 +114,10 @@ describe('BarcodeLookup with a camera', () => {
     expect(screen.queryByRole('button', { name: 'Stop camera' })).toBeNull()
   })
 
-  it('never_auto_starts_when_lookup_is_not_enabled', () => {
+  it('starts_the_scanner_even_when_the_online_lookup_is_off', async () => {
     render(<BarcodeLookup {...props()} enabled={false} />)
-    expect(scan).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Turn on barcode lookup' })).toBeTruthy()
-  })
-
-  it('starts_the_scanner_when_enabled_flips_to_true', async () => {
-    const p = props()
-    const { rerender } = render(<BarcodeLookup {...p} enabled={false} />)
-    expect(scan).not.toHaveBeenCalled()
-    rerender(<BarcodeLookup {...p} enabled />)
     await waitFor(() => expect(scan).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole('button', { name: 'Turn on barcode lookup' })).toBeNull()
   })
 
   it('scan_another_starts_the_scanner_again_after_a_found_product', async () => {

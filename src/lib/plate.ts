@@ -11,6 +11,8 @@ export interface PlateUnit extends NutrientValues {
   carbs: number
   fat: number
   grams?: number
+  /** 'ml' when `grams` is millilitres. */
+  unit?: 'ml'
   /** Servings the numbers already cover (a recent entry logged as 2 servings); missing means one. */
   servings?: number
   foodId?: string
@@ -107,6 +109,7 @@ export const plateEntries = (plate: readonly PlateItem[], target: PlateTarget, t
       id: makeId(), date: target.date, meal: target.meal, name: line.name.trim().slice(0, LIMITS.nameLength),
       ...amounts,
       ...(line.unit.foodId ? { foodId: line.unit.foodId } : {}),
+      ...(line.unit.unit === 'ml' ? { unit: 'ml' as const } : {}),
       ...(line.unit.catalogId ? { catalogId: line.unit.catalogId } : {}),
       ...(line.unit.catalogSource ? { catalogSource: line.unit.catalogSource } : {}),
       ...(target.time ? { time: target.time } : {}),

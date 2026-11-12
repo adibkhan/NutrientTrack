@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import swSource from '../public/sw.js?raw'
 
 const SCOPE = 'https://app.test/'
-const CACHE_NAME = 'nutrienttrack-shell-v12'
+const CACHE_NAME = 'nutrienttrack-shell-v13'
 const JS = `${SCOPE}assets/index-abc123.js`
 const CSS = `${SCOPE}assets/index-abc123.css`
 const MANIFEST = `${SCOPE}manifest.webmanifest`
@@ -15,7 +15,7 @@ const pageHtml = (tag: string) =>
 
 type Keyed = string | { url: string }
 type FakeEvent = {
-  request: { method: string; mode: string; url: string }
+  request: { method: string; mode: string; url: string; headers?: Headers }
   respondWith: (p: Promise<Response>) => void
   waitUntil: (p: Promise<unknown>) => void
 }
@@ -67,11 +67,11 @@ const loadWorker = (source: string = swSource, otherCaches: string[] = []) => {
   }
   new Function('self', 'caches', 'fetch', 'Response', 'URL', source)(self, caches, fakeFetch, Response, URL)
 
-  const dispatch = (url: string, mode: string, method = 'GET') => {
+  const dispatch = (url: string, mode: string, method = 'GET', headers: Record<string, string> = {}) => {
     let responded: Promise<Response> | undefined
     const waits: Promise<unknown>[] = []
     handlers.fetch({
-      request: { method, mode, url },
+      request: { method, mode, url, headers: new Headers(headers) },
       respondWith: (p) => void (responded = p),
       waitUntil: (p) => void waits.push(p),
     })
@@ -242,8 +242,8 @@ describe('service worker install and warm-up', () => {
     return w
   }
 
-  it('uses_the_v11_cache', () => {
-    expect(swSource).toContain("nutrienttrack-shell-v12")
+  it('uses_the_v13_cache', () => {
+    expect(swSource).toContain("nutrienttrack-shell-v13")
   })
 
   it('install_fetches_only_the_page_with_no_store_and_leaves_the_catalog_out', async () => {
@@ -370,5 +370,96 @@ describe('service worker label scanner engine', () => {
     await w.lifecycle('activate')
     expect(w.stores.has('nutrienttrack-ocr-core6.9.0-eng-4.0.0_best_int')).toBe(false)
     expect(w.stores.has(OCR_CACHE)).toBe(true)
+  })
+})
+
+describe('service worker branded food packs', () => {
+  const BRANDED_CACHE = 'nutrienttrack-branded-v1'
+  const PACK = `${SCOPE}data/branded-v1/branded-p00-145802fbd397.bin`
+  const BRANDED_MANIFEST = `${SCOPE}data/branded-v1/manifest.json`
+  const installed = async (others: string[] = []) => {
+    const w = loadWorker(swSource, others)
+    w.route(INDEX, () => ok(pageHtml('new')))
+    await w.lifecycle('install')
+    return w
+  }
+  const everyStoredUrl = (w: Worker) => [...w.stores.values()].flatMap((store) => [...store.keys()])
+
+  it('lets_a_range_request_for_a_pack_go_straight_to_the_network_and_never_stores_the_206', async () => {
+    const w = await installed()
+    w.route(PACK, () => Promise.resolve(new Response('partial', { status: 206 })))
+    const { responded, waits } = w.dispatch(PACK, 'cors', 'GET', { Range: 'bytes=0-6' })
+    // No respondWith: the browser sends the request itself, so the worker cannot alter or store the answer.
+    expect(responded).toBeUndefined()
+    expect(waits).toHaveLength(0)
+    await flush()
+    expect(w.fetched).not.toContain(PACK)
+    expect(everyStoredUrl(w)).not.toContain(PACK)
+  })
+
+  it('never_answers_a_range_request_from_a_cached_full_response', async () => {
+    const w = await installed()
+    w.store.set(PACK, new Response('the whole pack'))
+    const { responded } = w.dispatch(PACK, 'cors', 'GET', { Range: 'bytes=4-9' })
+    expect(responded).toBeUndefined()
+  })
+
+  it('also_leaves_a_pack_request_without_a_range_header_alone_and_any_other_range_request', async () => {
+    const w = await installed()
+    expect(w.dispatch(PACK, 'cors').responded).toBeUndefined()
+    const video = `${SCOPE}assets/clip.mp4`
+    expect(w.dispatch(video, 'cors', 'GET', { range: 'bytes=0-' }).responded).toBeUndefined()
+  })
+
+  it('does_not_cache_a_206_that_reaches_the_generic_runtime_cache', async () => {
+    const w = await installed()
+    const url = `${SCOPE}assets/other-abc.js`
+    w.route(url, () => Promise.resolve(new Response('part', { status: 206 })))
+    await w.dispatch(url, 'cors').responded
+    await flush()
+    expect(w.store.has(url)).toBe(false)
+  })
+
+  it('fetches_the_manifest_network_first_and_keeps_a_copy_in_the_branded_cache', async () => {
+    const w = await installed()
+    w.route(BRANDED_MANIFEST, () => ok('{"version":1}'))
+    expect(await (await w.dispatch(BRANDED_MANIFEST, 'cors').responded).text()).toBe('{"version":1}')
+    await flush()
+    expect(await (w.stores.get(BRANDED_CACHE) as Map<string, Response>).get(BRANDED_MANIFEST)?.clone().text()).toBe('{"version":1}')
+    expect(w.store.has(BRANDED_MANIFEST)).toBe(false)
+  })
+
+  it('prefers_the_network_copy_of_the_manifest_over_the_cached_one', async () => {
+    const w = await installed([BRANDED_CACHE])
+    ;(w.stores.get(BRANDED_CACHE) as Map<string, Response>).set(BRANDED_MANIFEST, new Response('old'))
+    w.route(BRANDED_MANIFEST, () => ok('new'))
+    expect(await (await w.dispatch(BRANDED_MANIFEST, 'cors').responded).text()).toBe('new')
+  })
+
+  it('falls_back_to_the_cached_manifest_offline_and_answers_503_when_it_has_none', async () => {
+    const w = await installed([BRANDED_CACHE])
+    ;(w.stores.get(BRANDED_CACHE) as Map<string, Response>).set(BRANDED_MANIFEST, new Response('cached manifest'))
+    w.route(BRANDED_MANIFEST, () => Promise.reject(new TypeError('offline')))
+    expect(await (await w.dispatch(BRANDED_MANIFEST, 'cors').responded).text()).toBe('cached manifest')
+    ;(w.stores.get(BRANDED_CACHE) as Map<string, Response>).clear()
+    expect((await w.dispatch(BRANDED_MANIFEST, 'cors').responded).status).toBe(503)
+  })
+
+  it('keeps_the_branded_cache_and_its_shards_when_an_app_update_replaces_the_shell_cache', async () => {
+    const w = await installed(['nutrienttrack-shell-v12', BRANDED_CACHE])
+    const shard = `${SCOPE}__branded/branded-p00-145802fbd397.bin/0-120`
+    ;(w.stores.get(BRANDED_CACHE) as Map<string, Response>).set(shard, new Response('gz bytes'))
+    await w.lifecycle('activate')
+    expect(w.stores.has('nutrienttrack-shell-v12')).toBe(false)
+    expect(w.stores.has(BRANDED_CACHE)).toBe(true)
+    expect(await (w.stores.get(BRANDED_CACHE) as Map<string, Response>).get(shard)?.clone().text()).toBe('gz bytes')
+  })
+
+  it('keeps_every_branded_cache_across_activation_and_precaches_no_pack', async () => {
+    const w = await installed(['nutrienttrack-branded-v2'])
+    await w.lifecycle('activate')
+    expect(w.stores.has('nutrienttrack-branded-v2')).toBe(true)
+    expect(w.fetched.some((url) => url.includes('/data/branded-v1/'))).toBe(false)
+    expect(swSource.slice(swSource.indexOf('const APP_SHELL'), swSource.indexOf(']', swSource.indexOf('const APP_SHELL')))).not.toContain('branded')
   })
 })

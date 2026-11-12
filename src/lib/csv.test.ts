@@ -73,7 +73,7 @@ describe('entriesCsv', () => {
   it('has the expected header', () => {
     const header = rows(entriesCsv([]))[0]
     expect(header.startsWith('Date,Time,Meal,Food,Grams,Calories,Protein (g),Carbs (g),Fat (g),Fiber (g),Sodium (mg),Sugar (g),Saturated fat (g),Cholesterol (mg),')).toBe(true)
-    expect(header.endsWith(',Planned')).toBe(true)
+    expect(header.endsWith(',Planned,Amount unit')).toBe(true)
   })
 
   it('sorts by date then time, with missing time first', () => {
@@ -93,11 +93,12 @@ describe('entriesCsv', () => {
   })
 
   it('leaves missing time and grams empty rather than zero, and planned empty when unset', () => {
-    expect(rows(entriesCsv([entry({ id: 'a' })]))[1]).toBe(`2026-03-02,,lunch,Food,,100,1,2,3,${','.repeat(5 + 28)}`)
+    expect(rows(entriesCsv([entry({ id: 'a' })]))[1]).toBe(`2026-03-02,,lunch,Food,,100,1,2,3,${','.repeat(5 + 28 + 1)}`)
   })
 
   it('keeps a recorded grams of zero and writes planned true', () => {
-    expect(rows(entriesCsv([entry({ id: 'a', grams: 0, planned: true })]))[1]).toBe(`2026-03-02,,lunch,Food,0,100,1,2,3,${','.repeat(5 + 28)}true`)
+    expect(rows(entriesCsv([entry({ id: 'a', grams: 0, planned: true })]))[1]).toBe(`2026-03-02,,lunch,Food,0,100,1,2,3,${','.repeat(5 + 28)}true,`)
+    expect(rows(entriesCsv([entry({ id: 'a', grams: 355, unit: 'ml' })]))[1]).toBe(`2026-03-02,,lunch,Food,355,100,1,2,3,${','.repeat(5 + 28 + 1)}ml`) // review L1: the Grams column holds millilitres, the last column says so
   })
 })
 
@@ -136,7 +137,7 @@ describe('micronutrient columns', () => {
     expect(row[header.indexOf('Potassium (mg)')]).toBe('422.4')
     expect(row[header.indexOf('Vitamin B12 (mcg)')]).toBe('0')
     expect(row[header.indexOf('Calcium (mg)')]).toBe('')
-    expect(header[header.length - 1]).toBe('Planned')
+    expect(header[header.length - 1]).toBe('Amount unit')
   })
 
   it('exports them for saved foods too', () => {
